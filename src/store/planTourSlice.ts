@@ -13,11 +13,17 @@ interface SelectedMap {
 interface PlanTourState {
   selected: SelectedMap;
   offlinePlanTourSaved: boolean;
+  plantTourId: string | null;
+  employeeDetails: any | null;
+  selectedCycle: string | null;
 }
 
 const initialState: PlanTourState = {
   selected: {},
   offlinePlanTourSaved: false,
+  plantTourId: null,
+  employeeDetails: null,
+  selectedCycle: null,
 };
 
 export const planTourSlice = createSlice({
@@ -30,9 +36,18 @@ export const planTourSlice = createSlice({
     setOfflinePlanTourSaved(state, action: PayloadAction<boolean>) {
       state.offlinePlanTourSaved = action.payload;
     },
+    setPlantTourId(state, action: PayloadAction<string | null>) {
+      state.plantTourId = action.payload;
+    },
+    setEmployeeDetails(state, action: PayloadAction<any | null>) {
+      state.employeeDetails = action.payload;
+    },
+    setSelectedCycle(state, action: PayloadAction<string | null>) {
+      state.selectedCycle = action.payload;
+    },
   },
 });
 
-export const { setSelected, setOfflinePlanTourSaved } = planTourSlice.actions;
+export const { setSelected, setOfflinePlanTourSaved, setPlantTourId, setEmployeeDetails, setSelectedCycle } = planTourSlice.actions;
 
 export default planTourSlice.reducer;

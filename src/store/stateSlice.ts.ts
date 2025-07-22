@@ -1,0 +1,66 @@
+import { createSlice } from "@reduxjs/toolkit";
+import type { PayloadAction } from '@reduxjs/toolkit';
+
+interface StateSlice {
+  pageName: string;
+  isSidebarOpen: boolean;
+  isOfflineStarted: boolean;
+  isOfflineCompleted: boolean;
+  isModalOpen: boolean;
+  progress: number;
+}
+
+const initialState: StateSlice = {
+  pageName: "Dashboard",
+  isSidebarOpen: false,
+  isOfflineStarted: false,
+  isOfflineCompleted: false,
+  isModalOpen: false,
+  progress: 0,
+};
+
+const stateSlice = createSlice({
+  name: "appState",
+  initialState,
+  reducers: {
+    setPageName(state, action: PayloadAction<string>) {
+      state.pageName = action.payload;
+    },
+    toggleSidebar(state) {
+      state.isSidebarOpen = !state.isSidebarOpen;
+    },
+    setSidebar(state, action: PayloadAction<boolean>) {
+      state.isSidebarOpen = action.payload;
+    },
+    setOfflineStarted(state, action: PayloadAction<boolean>) {
+      state.isOfflineStarted = action.payload;
+    },
+    setOfflineCompleted(state, action: PayloadAction<boolean>) {
+      state.isOfflineCompleted = action.payload;
+    },
+    setModalOpen(state, action: PayloadAction<boolean>) {
+      state.isModalOpen = action.payload;
+    },
+    setProgress(state, action: PayloadAction<number>) {
+      state.progress = action.payload;
+    },
+    resetOfflineState(state) {
+      state.isOfflineStarted = false;
+      state.isOfflineCompleted = false;
+      state.progress = 0;
+    },
+  },
+});
+
+export const {
+  setPageName,
+  toggleSidebar,
+  setSidebar,
+  setOfflineStarted,
+  setOfflineCompleted,
+  setModalOpen,
+  setProgress,
+  resetOfflineState,
+} = stateSlice.actions;
+
+export default stateSlice.reducer;

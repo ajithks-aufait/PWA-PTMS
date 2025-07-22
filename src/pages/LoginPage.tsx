@@ -4,7 +4,7 @@ import bgImage from '../assets/illustration.png';
 import { useEffect } from "react";
 import { loginRequest } from "../auth/authConfig";
 import { useDispatch } from "react-redux";
-import { setUser } from "../store/userSlice";
+import { setUser } from "../store/stateSlice.ts";
 
 const LoginPage = () => {
   const { accounts,instance } = useMsal();
