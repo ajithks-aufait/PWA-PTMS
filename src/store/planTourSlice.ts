@@ -16,6 +16,7 @@ interface PlanTourState {
   plantTourId: string | null;
   employeeDetails: any | null;
   selectedCycle: string | null;
+  selectedTour: string | null;
 }
 
 const initialState: PlanTourState = {
@@ -24,6 +25,7 @@ const initialState: PlanTourState = {
   plantTourId: null,
   employeeDetails: null,
   selectedCycle: null,
+  selectedTour: null,
 };
 
 export const planTourSlice = createSlice({
@@ -45,9 +47,12 @@ export const planTourSlice = createSlice({
     setSelectedCycle(state, action: PayloadAction<string | null>) {
       state.selectedCycle = action.payload;
     },
+    setSelectedTour(state, action: PayloadAction<string | null>) {
+      state.selectedTour = action.payload;
+    },
   },
 });
 
-export const { setSelected, setOfflinePlanTourSaved, setPlantTourId, setEmployeeDetails, setSelectedCycle } = planTourSlice.actions;
+export const { setSelected, setOfflinePlanTourSaved, setPlantTourId, setEmployeeDetails, setSelectedCycle, setSelectedTour } = planTourSlice.actions;
 
 export default planTourSlice.reducer;

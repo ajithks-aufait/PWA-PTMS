@@ -3,7 +3,7 @@
  */
 
 export async function fetchEmployeeList(accessToken: string, employeeName: string) {
-  const url = `https://aufaitcloud.sharepoint.com/sites/Mrs_Bectors_PTMS/_api/web/lists/getbytitle('EmployeeList')/items?$filter=EmployeeName/Title eq '${employeeName}'&$expand=EmployeeName,DepartmentId&$select=Id,EmployeeName/Title,DepartmentId/Id,DepartmentId/Title`;
+  const url = `https://aufaitcloud.sharepoint.com/sites/Mrs_Bectors_PTMS/_api/web/lists/getbytitle('EmployeeList')/items?$filter=EmployeeName/Title eq '${employeeName}'&$expand=EmployeeName,DepartmentId,RoleId,PlantId&$select=Id,EmployeeName/Title,DepartmentId/Id,DepartmentId/Title,RoleId/Id,RoleId/Title,PlantId/Id,PlantId/Title`;
 
   try {
     const response = await fetch(url, {
@@ -29,8 +29,13 @@ export async function fetchEmployeeList(accessToken: string, employeeName: strin
       employeeName: item.EmployeeName?.Title || "N/A",
       departmentId: item.DepartmentId?.Id || null,
       departmentName: item.DepartmentId?.Title || "N/A",
+      roleName: item.RoleId?.Title || "N/A",
+      roleId:item.RoleId?.Id || null,
+      plantId: item.PlantId?.Id || null,
+      plantName: item.PlantId?.Title || "N/A",
     }));
-
+    console.log(employeeList,'employeeList',data);
+    
     return employeeList;
   } catch (err) {
     console.error("Error fetching list items:", err);

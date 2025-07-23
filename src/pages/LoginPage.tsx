@@ -4,7 +4,7 @@ import bgImage from '../assets/illustration.png';
 import { useEffect } from "react";
 import { loginRequest } from "../auth/authConfig";
 import { useDispatch } from "react-redux";
-import { setUser } from "../store/stateSlice.ts";
+import { setUser, setDVAccessToken } from "../store/userSlice";
 
 const LoginPage = () => {
   const { accounts,instance } = useMsal();
@@ -22,6 +22,23 @@ const LoginPage = () => {
       const result = await instance.loginPopup({
         scopes: ["User.Read"],
       });
+      // After login, fetch Dataverse token
+      const params = new URLSearchParams();
+      params.append("client_id", "b71d2039-dadc-4393-8744-e7f648d085a1");
+      params.append("client_secret", "Yc-8Q~BWQP4msIAa8IqWSjRl_0hOpCpxsrjdFaWC");
+      params.append("scope", "https://org487f0635.crm8.dynamics.com/.default");
+      params.append("grant_type", "client_credentials");
+      const response = await fetch("https://login.microsoftonline.com/8efa5ce2-86e4-4882-840c-f2578cdf094c/oauth2/v2.0/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: params
+      });
+      const data = await response.json();
+      console.log(data,'hhhhhhhhhhhhhhhh');
+      
+      if (data.access_token) {
+        dispatch(setDVAccessToken(data.access_token));
+      }
       navigate("/home");
       console.log("Login successful!", result);
     } catch (err) {

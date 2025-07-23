@@ -1,14 +1,14 @@
 // src/store/store.ts
 import { configureStore } from "@reduxjs/toolkit";
-import userReducer from "./stateSlice.ts";
+import userReducer from "./userSlice";
 import planTourReducer from './planTourSlice';
-import offlineReducer from "./offlineSlice";
+// import offlineReducer from "./offlineSlice";
 
 const store = configureStore({
   reducer: {
     user: userReducer,
     planTour: planTourReducer,
-    offline: offlineReducer,
+    // offline: offlineReducer, // removed because offlineSlice does not exist
   },
 });
 
