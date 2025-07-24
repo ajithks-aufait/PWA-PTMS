@@ -18,8 +18,6 @@ export async function createOrFetchPlantTour({
   plantId: string;
   userRoleID: string;
 }): Promise<string | null> {
-  console.log(departmentId,employeeName,roleName,plantId,userRoleID,accessToken,'ooooo');
-  // Remove getAccessToken and use accessToken directly
   if (!accessToken) return null;
 
   const apiVersion = "9.2";
@@ -73,6 +71,5 @@ export async function createOrFetchPlantTour({
   if (!response.ok) {
     throw new Error(`Error: ${response.statusText}`);
   }
-    console.log('kkkkkkkkkkkkkkkkkkkkkkkkkkkkkk');
   return data.cr3ea_prod_qualitytourid;
 }

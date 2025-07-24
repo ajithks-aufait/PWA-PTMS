@@ -14,12 +14,13 @@ import { useDispatch, useSelector } from "react-redux";
 import DashboardLayout from "../components/DashboardLayout";
 import { setPlantTourId, setEmployeeDetails } from "../store/planTourSlice";
 import { createOrFetchPlantTour } from "../Services/createOrFetchPlantTour";
+import { getAccessToken } from "../Services/getAccessToken";
+import { useNavigate } from "react-router-dom";
 
 
 export default function HomePage() {
   const { accounts, instance } = useMsal();
   const [employees, setEmployees] = useState<any[]>([]);
-  const [tok, setTok] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isOfflineLoading, setIsOfflineLoading] = useState(false);
   const [isOfflineCompleted, setIsOfflineCompleted] = useState(false);
@@ -31,6 +32,7 @@ export default function HomePage() {
   const planTourState = useSelector((state: any) => state.planTour);
   const [isViewAllOpen, setIsViewAllOpen] = useState(false);
   const [isPlantTourLoading, setIsPlantTourLoading] = useState(false);
+  const navigate = useNavigate();
 
   const metrics = [
     { label: "5S", icon: <Clock className="text-orange-500" />, count: 0 },
@@ -78,7 +80,6 @@ export default function HomePage() {
           account: accounts[0],
         })
         .then((response) => {
-          setTok(response.accessToken)
           fetchEmployeeList(response.accessToken, user?.Name).then((res) => {
             setEmployees(res);
             if (res && res.length > 0) {
@@ -138,8 +139,11 @@ export default function HomePage() {
     if (!employee || !user || !selectedTour || !selectedShift) return;
     setIsPlantTourLoading(true);
     try {
+      const tokenResult = await getAccessToken();
+      const accessToken = tokenResult?.token;
+      if (!accessToken) throw new Error('No access token available');
       const plantTourId = await createOrFetchPlantTour({
-        accessToken: tok,
+        accessToken,
         departmentId: employee.departmentId,
         employeeName: employee.employeeName,
         roleName: employee.roleName,
@@ -149,6 +153,7 @@ export default function HomePage() {
       if (plantTourId) {
         dispatch(setPlantTourId(plantTourId));
         setIsModalOpen(false);
+        navigate("/qualityplantour");
       }
     } catch (err) {
       console.error("Failed to create or fetch plant tour ID", err);
@@ -156,7 +161,7 @@ export default function HomePage() {
       setIsPlantTourLoading(false);
     }
   };
-  console.log(user.DVAccessToken,'user.DVAccessToken',tok);
+  console.log(user.DVAccessToken,'user.DVAccessToken');
   
 
   return (
@@ -172,48 +177,48 @@ export default function HomePage() {
           </div>
           {/* Buttons Section */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
-            {!isOfflineStarted && (
-              <>
-                <button
-                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-                  onClick={() => setIsModalOpen(true)}
-                >
-                  Plant Tour
-                </button>
-                <button
-                  className="w-full sm:w-auto bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md dark:bg-gray-700 dark:hover:bg-gray-600"
-                  onClick={handleOfflineTour}
-                >
-                  + Start Offline Mode
-                </button>
-              </>
-            )}
-
-            {isOfflineStarted && (
-              <>
-                <button
-                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-                  onClick={() => setIsModalOpen(true)}
-                >
-                  + Offline Plant Tour
-                </button>
-                <button
-                  className="w-full sm:w-auto bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md dark:bg-gray-700 dark:hover:bg-gray-600"
-                  onClick={handleCancelOffline}
-                >
-                  + Synch / Cancel Offline
-                </button>
-              </>
-            )}
-          </div>
+              {!isOfflineStarted && (
+                <>
+                  <button
+                    className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+                    onClick={() => setIsModalOpen(true)}
+                    disabled={isPlantTourLoading}
+                  >
+                    Plant Tour
+                  </button>
+                  <button
+                    className="w-full sm:w-auto bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md dark:bg-gray-700 dark:hover:bg-gray-600"
+                    onClick={handleOfflineTour}
+                  >
+                    + Start Offline Mode
+                  </button>
+                </>
+              )}
+              {isOfflineStarted && (
+                <>
+                 <button
+                    className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+                    onClick={() => setIsModalOpen(true)}
+                  >
+                    + Offline Plant Tour
+                  </button>
+                  <button
+                    className="w-full sm:w-auto bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md dark:bg-gray-700 dark:hover:bg-gray-600"
+                    onClick={handleCancelOffline}
+                  >
+                    + Synch / Cancel Offline
+                  </button>
+                </>
+              )}
+            </div>
         </div>
         {/* Metric Cards */}
-        <div className="mb-6 overflow-x-auto hide-scrollbar">
-          <div className="flex gap-4 min-w-max sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 sm:min-w-full">
+        <div className="mb-6 overflow-x-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 min-w-0">
             {metrics.map((item, index) => (
               <div
                 key={index}
-                className="bg-gray-100 dark:bg-gray-800 min-w-[200px] p-4 rounded-lg shadow flex flex-col items-center text-center"
+                className="bg-gray-100 dark:bg-gray-800 min-w-[180px] p-4 rounded-lg shadow flex flex-col items-center text-center"
               >
                 <div className="bg-orange-100 dark:bg-orange-200 p-2 rounded-full mb-2">
                   {item.icon}
@@ -237,7 +242,6 @@ export default function HomePage() {
         {/* Modal and Progress Bar logic ... */}
         {/* Modal */}
         <PlantTourModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onDone={handleStartPlantTour} isLoading={isPlantTourLoading} />
-
         {/* Progress Bar */}
         {isOfflineLoading && (
           <div className="fixed bottom-4 left-4 right-4 sm:left-1/3 sm:right-1/3 z-50 bg-white dark:bg-gray-800 border shadow-lg rounded-md px-4 py-2">

@@ -8,6 +8,7 @@ interface UserState {
   userId: string;
   Token: string;
   DVAccessToken?: string;
+  DVAccessTokenExpiry?: number;
 }
 
 const initialState: { user: UserState | null } = {
@@ -24,13 +25,14 @@ const userSlice = createSlice({
     clearUser(state) {
       state.user = null;
     },
-    setDVAccessToken(state, action: PayloadAction<string>) {
+    setDVAccessTokenWithExpiry(state, action: PayloadAction<{ token: string; expiry: number }>) {
       if (state.user) {
-        state.user.DVAccessToken = action.payload;
+        state.user.DVAccessToken = action.payload.token;
+        state.user.DVAccessTokenExpiry = action.payload.expiry;
       }
     },
   },
 });
 
-export const { setUser, clearUser, setDVAccessToken } = userSlice.actions;
+export const { setUser, clearUser, setDVAccessTokenWithExpiry } = userSlice.actions;
 export default userSlice.reducer; 
