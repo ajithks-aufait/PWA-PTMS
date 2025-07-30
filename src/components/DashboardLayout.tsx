@@ -93,7 +93,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, rightConten
       </aside>
 
       {/* Main Content */}
-      <div className={`flex-1 flex flex-col ${isSidebarCollapsed ? "sm:ml-16" : "sm:ml-64"}`}>
+      <div className="flex-1 flex flex-col">
         {/* Navbar */}
         <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex justify-between items-center sm:px-6">
           <h1 className="text-lg sm:text-xl font-semibold">
