@@ -1,12 +1,26 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import type { RootState } from "../store/store";
 import DashboardLayout from "./DashboardLayout";
+import { fetchSummaryData } from "../Services/getSummaryData";
+import { getAccessToken } from "../Services/getAccessToken";
+import { setSectionDetails, clearSectionDetails } from "../store/planTourSlice";
+import { saveSectionData } from "../Services/saveSectionData";
+import { fetchCycleDetails } from "../Services/getCycleDetails";
+// @ts-ignore
+import moment from "moment";
 
 type CycleResult = {
   started: boolean;
   completed: boolean;
   defects: string[]; // holds item names like "CBB 1"
   okays: string[];
+  defectCategories: { [item: string]: string }; // stores defect categories for each item
+  evaluationTypes: { [item: string]: string }; // stores evaluation types for each item
+  defectRemarks: { [item: string]: string }; // stores defect remarks for each item
+  okayEvaluationTypes: { [item: string]: string }; // stores evaluation types for okay items
+  missedEvaluationTypes: { [item: string]: string }; // stores evaluation types for missed items
 };
 
 type CycleStatusMap = {
@@ -37,19 +51,83 @@ const checklistItems: { [key: number]: string[] } = {
 
 const totalCycles = 8;
 
+// Process data by category and count defects
+function processData(data: any[]) {
+  const summary: Record<string, { okays: number; aDefects: number; bDefects: number; cDefects: number }> = {};
+  const uniqueCycles = new Set();
+
+  data.forEach(item => {
+    const category = item.cr3ea_category || 'Unknown';
+    const cycle = item.cr3ea_cycle;
+
+    if (cycle) {
+      uniqueCycles.add(cycle);
+    }
+
+    if (!summary[category]) {
+      summary[category] = { okays: 0, aDefects: 0, bDefects: 0, cDefects: 0 };
+    }
+
+    if (item.cr3ea_criteria === 'Okay') {
+      summary[category].okays++;
+    } else {
+      if (item.cr3ea_defectcategory === 'Category A') summary[category].aDefects++;
+      if (item.cr3ea_defectcategory === 'Category B') summary[category].bDefects++;
+      if (item.cr3ea_defectcategory === 'Category C') summary[category].cDefects++;
+    }
+  });
+
+  // Return both summary and cycle count
+  return {
+    summary,
+    totalCycles: uniqueCycles.size
+  };
+}
+
 const ProductQualityIndex: React.FC = () => {
   const [activeCycle, setActiveCycle] = useState<number>(1);
   const [cycleStatus, setCycleStatus] = useState<CycleStatusMap>(
     Object.fromEntries(
       Array.from({ length: totalCycles }, (_, i) => [
         i + 1,
-        { started: false, completed: false, defects: [], okays: [] },
+        { started: false, completed: false, defects: [], okays: [], defectCategories: {}, evaluationTypes: {}, defectRemarks: {}, okayEvaluationTypes: {}, missedEvaluationTypes: {} },
       ])
     )
   );
   const [selected, setSelected] = useState<SelectedMap>({});
   const [showDetails, setShowDetails] = useState(false);
+  const [summaryData, setSummaryData] = useState<any[]>([]);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const sectionDetails = useSelector((state: RootState) => state.planTour.sectionDetails);
+  const user = useSelector((state: RootState) => state.user.user);
+  const selectedShift = useSelector((state: RootState) => state.planTour.selectedCycle);
+  const plantTourId = useSelector((state: RootState) => state.planTour.plantTourId);
+  const [categorySummary, setCategorySummary] = useState<any>({});
+  const [cycleCount, setCycleCount] = useState<number>(0);
+  const [isSummaryVisible, setIsSummaryVisible] = useState(true);
+  // Local state for form fields per cycle
+  const [formFields, setFormFields] = useState<{ [cycleNo: number]: any }>({});
+  // State for expanded completed cycle
+  const [expandedCompletedCycle, setExpandedCompletedCycle] = useState<number | null>(null);
+
+  // Handler to expand/collapse and persist to localStorage
+  const handleExpand = (cycleNo: number | null) => {
+    setExpandedCompletedCycle(cycleNo);
+    localStorage.setItem('expandedCompletedCycle', cycleNo !== null ? String(cycleNo) : '');
+  };
+
+  const handleFormFieldChange = (cycleNo: number, field: string, value: string) => {
+    setFormFields((prev) => ({
+      ...prev,
+      [cycleNo]: {
+        ...prev[cycleNo],
+        [field]: value,
+      },
+    }));
+  };
+
   const handleStart = (cycleNo: number) => {
     const items = checklistItems[cycleNo] || [];
     const initialState: Record<string, SelectionItem> = {};
@@ -66,6 +144,20 @@ const ProductQualityIndex: React.FC = () => {
       ...prev,
       [cycleNo]: initialState,
     }));
+
+    // Use values from formFields for this cycle
+    const details = {
+      product: formFields[cycleNo]?.product || '',
+      batchNo: formFields[cycleNo]?.batchNo || '',
+      lineNo: formFields[cycleNo]?.lineNo || '',
+      expiry: formFields[cycleNo]?.expiry || '',
+      packaged: formFields[cycleNo]?.packaged || '',
+      shift: selectedShift || '',
+      evaluationType: '',
+      criteria: '',
+      cycleNum: cycleNo,
+    };
+    dispatch(setSectionDetails({ cycleNo, details }));
   };
 
   const handleSelect = (
@@ -103,15 +195,197 @@ const ProductQualityIndex: React.FC = () => {
     }));
   };
 
-  const handleSave = (cycleNo: number) => {
+  // Update the fetchAndDisplaySummary function to use both APIs
+  const fetchAndDisplaySummary = async (accessToken: string, qualityTourId: string) => {
+    setIsLoadingSummary(true);
+    try {
+      // Use both APIs: fetchSummaryData for summary and fetchCycleDetails for cycle details
+      const [summaryData, cycleData] = await Promise.all([
+        fetchSummaryData(accessToken, qualityTourId),
+        fetchCycleDetails(accessToken, qualityTourId)
+      ]);
+      
+      console.log("Fetched Summary Data:", summaryData);
+      console.log("Fetched Cycle Records:", cycleData);
+      
+      // Process summary data
+      if (!summaryData || summaryData.length === 0) {
+        setIsSummaryVisible(false);
+        setSummaryData([]);
+        setCategorySummary({});
+        setCycleCount(0);
+      } else {
+        setIsSummaryVisible(true);
+        setSummaryData(summaryData);
+        const processed = processData(summaryData);
+        setCategorySummary(processed.summary);
+        setCycleCount(processed.totalCycles);
+      }
+      
+      // Process cycle details to determine completed cycles
+      const completedCycles = new Set<number>();
+      const cycleDetails: { [cycleNo: number]: { defects: string[], okays: string[], defectCategories: { [item: string]: string }, evaluationTypes: { [item: string]: string }, defectRemarks: { [item: string]: string }, okayEvaluationTypes: { [item: string]: string }, missedEvaluationTypes: { [item: string]: string } } } = {};
+      
+      if (cycleData && cycleData.length > 0) {
+        cycleData.forEach((item: any) => {
+          const cycleMatch = item.cr3ea_cycle?.match(/Cycle-(\d+)/);
+          if (cycleMatch) {
+            const cycleNo = parseInt(cycleMatch[1]);
+            completedCycles.add(cycleNo);
+            
+            if (!cycleDetails[cycleNo]) {
+              cycleDetails[cycleNo] = { defects: [], okays: [], defectCategories: {}, evaluationTypes: {}, defectRemarks: {}, okayEvaluationTypes: {}, missedEvaluationTypes: {} };
+            }
+            
+            if (item.cr3ea_criteria === 'Okay') {
+              cycleDetails[cycleNo].okays.push(item.cr3ea_evaluationtype || 'Unknown');
+              // Store the evaluation type for okay items
+              cycleDetails[cycleNo].okayEvaluationTypes[item.cr3ea_defect || 'Unknown'] = item.cr3ea_evaluationtype || 'Unknown';
+            } else if (item.cr3ea_criteria === 'Not Okay') {
+              cycleDetails[cycleNo].defects.push(item.cr3ea_defect || 'Unknown');
+              // Store the defect category for this item
+              cycleDetails[cycleNo].defectCategories[item.cr3ea_defect || 'Unknown'] = item.cr3ea_defectcategory || 'Category B';
+              // Store the evaluation type for this item
+              cycleDetails[cycleNo].evaluationTypes[item.cr3ea_defect || 'Unknown'] = item.cr3ea_evaluationtype || 'Unknown';
+              // Store the defect remarks for this item
+              cycleDetails[cycleNo].defectRemarks[item.cr3ea_defect || 'Unknown'] = item.cr3ea_defectremarks || '';
+            } else if (!item.cr3ea_criteria || item.cr3ea_criteria === null) {
+              cycleDetails[cycleNo].missedEvaluationTypes[item.cr3ea_evaluationtype] = item.cr3ea_evaluationtype;
+            }
+          }
+        });
+      }
+      
+      // Update cycle status based on cycle details API data
+      const newCycleStatus = { ...cycleStatus };
+      completedCycles.forEach(cycleNo => {
+        newCycleStatus[cycleNo] = {
+          started: true,
+          completed: true,
+          defects: cycleDetails[cycleNo]?.defects || [],
+          okays: cycleDetails[cycleNo]?.okays || [],
+          defectCategories: cycleDetails[cycleNo]?.defectCategories || {},
+          evaluationTypes: cycleDetails[cycleNo]?.evaluationTypes || {},
+          defectRemarks: cycleDetails[cycleNo]?.defectRemarks || {},
+          okayEvaluationTypes: cycleDetails[cycleNo]?.okayEvaluationTypes || {},
+          missedEvaluationTypes: cycleDetails[cycleNo]?.missedEvaluationTypes || {}
+        };
+      });
+      
+      // Find the next available cycle (first non-completed cycle)
+      let nextAvailableCycle = 1;
+      while (nextAvailableCycle <= totalCycles && completedCycles.has(nextAvailableCycle)) {
+        nextAvailableCycle++;
+      }
+      
+      setActiveCycle(nextAvailableCycle);
+      setCycleStatus(newCycleStatus);
+      
+    } catch (error) {
+      console.error("Error loading data:", error);
+      setIsSummaryVisible(false);
+      setSummaryData([]);
+      setCategorySummary({});
+      setCycleCount(0);
+    } finally {
+      setIsLoadingSummary(false);
+    }
+  };
+
+  // Use this function after save and in useEffect
+  useEffect(() => {
+    const fetchSummary = async () => {
+      if (!plantTourId) {
+        setIsSummaryVisible(false);
+        setSummaryData([]);
+        setCategorySummary({});
+        setCycleCount(0);
+        return;
+      }
+      const tokenResult = await getAccessToken();
+      const accessToken = tokenResult?.token;
+      if (!accessToken) return;
+      await fetchAndDisplaySummary(accessToken, plantTourId);
+    };
+    fetchSummary();
+  }, [plantTourId]);
+
+  // After save, call fetchAndDisplaySummary instead of fetchSummaryData
+  const handleSave = async (cycleNo: number) => {
     const defects: string[] = [];
     const okays: string[] = [];
-
     const currentSelections = selected[cycleNo];
     Object.entries(currentSelections || {}).forEach(([key, val]) => {
       if (val.status === "Okay") okays.push(key);
       else if (val.status === "Not Okay") defects.push(key);
     });
+
+    // Build payload for each item
+    const details = sectionDetails[cycleNo] || {};
+    const records = Object.entries(currentSelections || {}).map(([item, val], i) => {
+      const base = {
+        cr3ea_evaluationtype: item, // Pass the CBB number (CBB 1, CBB 2, etc.)
+        cr3ea_criteria: val.status,
+        cr3ea_cycle: `Cycle-${cycleNo}`,
+        cr3ea_title: 'QA_' + moment().format('MM-DD-YYYY'),
+        cr3ea_expiry: details.expiry || '',
+        cr3ea_shift: details.shift || '',
+        cr3ea_batchno: details.batchNo || '',
+        cr3ea_lineno: details.lineNo || '',
+        cr3ea_category: 'CBB Evaluation',
+        cr3ea_pkd: details.packaged || '',
+        cr3ea_tourstartdate: moment().format('MM-DD-YYYY'),
+        cr3ea_productname: details.product || '',
+        cr3ea_observedby: user?.Name || '',
+        cr3ea_qualitytourid: plantTourId || '',
+        cr3ea_defect: val.defect || '', // Pass the defect details
+      };
+      if (val.status === "Not Okay") {
+        return {
+          ...base,
+          cr3ea_defectcategory: val.category || '',
+          cr3ea_defectremarks: val.majorDefect || '',
+        };
+      }
+      return base;
+    });
+
+    // Also create records for missed items (not evaluated)
+    const allCBBItems = checklistItems[cycleNo] || [];
+    const evaluatedItems = Object.keys(currentSelections || {});
+    const missedItems = allCBBItems.filter(item => !evaluatedItems.includes(item));
+    
+    // Add records for missed items
+    missedItems.forEach(item => {
+      records.push({
+        cr3ea_evaluationtype: details.evaluationType || '',
+        cr3ea_criteria: 'Not Okay', // Use 'Not Okay' for missed items to satisfy type constraint
+        cr3ea_cycle: `Cycle-${cycleNo}`,
+        cr3ea_title: 'QA_' + moment().format('MM-DD-YYYY'),
+        cr3ea_expiry: details.expiry || '',
+        cr3ea_shift: details.shift || '',
+        cr3ea_batchno: details.batchNo || '',
+        cr3ea_lineno: details.lineNo || '',
+        cr3ea_category: 'CBB Evaluation',
+        cr3ea_pkd: details.packaged || '',
+        cr3ea_tourstartdate: moment().format('MM-DD-YYYY'),
+        cr3ea_productname: details.product || '',
+        cr3ea_observedby: user?.Name || '',
+        cr3ea_qualitytourid: plantTourId || '',
+        cr3ea_defect: item, // Store the actual CBB item name
+        cr3ea_defectcategory: 'Missed',
+        cr3ea_defectremarks: 'Missed evaluation',
+      });
+    });
+
+    // Save to API
+    const tokenResult = await getAccessToken();
+    const accessToken = tokenResult?.token;
+    if (!accessToken) {
+      alert('No access token available');
+      return;
+    }
+    await saveSectionData(accessToken, records);
 
     setCycleStatus((prev) => ({
       ...prev,
@@ -122,41 +396,207 @@ const ProductQualityIndex: React.FC = () => {
         okays,
       },
     }));
-
     setActiveCycle((prev) => prev + 1);
+    dispatch(clearSectionDetails(cycleNo));
+    // Optionally refresh summary
+    await fetchAndDisplaySummary(accessToken, plantTourId || "");
   };
+
+  // Calculate summary statistics from API data
+  const calculateSummaryStats = () => {
+    if (!summaryData || summaryData.length === 0) {
+      return {
+        totalDefects: 0,
+        totalOkays: 0,
+        categories: [],
+        finalPQIScore: 0,
+        pqiStatus: 'HOLD'
+      };
+    }
+
+    let totalDefects = 0;
+    let totalOkays = 0;
+    const categories: any[] = [];
+    
+    // Individual bonus scores
+    let bonusScores = {
+      cbb: 0,
+      secondary: 0,
+      primary: 0,
+      product: 0
+    };
+
+    // Process data by category
+    const summary: Record<string, { okays: number; aDefects: number; bDefects: number; cDefects: number }> = {};
+    const uniqueCycles = new Set();
+
+    summaryData.forEach((item: any) => {
+      const category = item.cr3ea_category || 'Unknown';
+      const cycle = item.cr3ea_cycle;
+
+      if (cycle) {
+        uniqueCycles.add(cycle);
+      }
+
+      if (!summary[category]) {
+        summary[category] = { okays: 0, aDefects: 0, bDefects: 0, cDefects: 0 };
+      }
+
+      if (item.cr3ea_criteria === 'Okay') {
+        summary[category].okays++;
+        totalOkays++;
+      } else if (item.cr3ea_criteria === 'Not Okay') {
+        totalDefects++;
+        if (item.cr3ea_defectcategory === 'Category A') summary[category].aDefects++;
+        if (item.cr3ea_defectcategory === 'Category B') summary[category].bDefects++;
+        if (item.cr3ea_defectcategory === 'Category C') summary[category].cDefects++;
+      }
+    });
+
+    const totalCycles = uniqueCycles.size;
+
+    // Calculate scores for each category
+    Object.entries(summary).forEach(([category, counts]) => {
+      let maxPotentialScore = 0;
+      let bonusMultiplier = 0.10; // Default
+
+      if (category === "CBB Evaluation") {
+        maxPotentialScore = 10 * 120 * totalCycles;
+        bonusMultiplier = 0.10;
+      } else if (category === "Secondary") {
+        maxPotentialScore = 120 * 2 * totalCycles;
+        bonusMultiplier = 0.15;
+      } else if (category === "Primary") {
+        maxPotentialScore = 120 * 2 * totalCycles;
+        bonusMultiplier = 0.20;
+      } else if (category === "Product") {
+        maxPotentialScore = 120 * 2 * totalCycles;
+        bonusMultiplier = 0.40;
+      }
+
+      const scoreDeduction = (counts.aDefects * 80) + (counts.bDefects * 30) + (counts.cDefects * 10);
+      const finalScore = Math.max(maxPotentialScore - scoreDeduction, 0);
+      const scorePercentageValue = maxPotentialScore > 0 ? (finalScore / maxPotentialScore) * 100 : 0;
+      const bonusScoreValue = scorePercentageValue * bonusMultiplier;
+
+      // Store bonus scores individually
+      if (category === "CBB Evaluation") bonusScores.cbb = bonusScoreValue;
+      else if (category === "Secondary") bonusScores.secondary = bonusScoreValue;
+      else if (category === "Primary") bonusScores.primary = bonusScoreValue;
+      else if (category === "Product") bonusScores.product = bonusScoreValue;
+
+      categories.push({
+        category: category,
+        okays: counts.okays,
+        aDefects: counts.aDefects,
+        bDefects: counts.bDefects,
+        cDefects: counts.cDefects,
+        hours: totalCycles,
+        maxScore: maxPotentialScore,
+        scoreDeduction: scoreDeduction,
+        scoreObtained: finalScore,
+        scorePercent: scorePercentageValue,
+        pqiScore: bonusScoreValue
+      });
+    });
+
+    // Net Wt. calculation
+    const netWtCycles = totalCycles;
+    const netWtMaxScore = netWtCycles * 120 * 15.625;
+    const netWtScoreObtained = netWtMaxScore;
+    const netWtScorePercentage = 100.00;
+    const netWtBonusScoreValue = netWtScorePercentage * 0.15;
+
+    // Add Net Wt. row
+    categories.push({
+      category: "Net Wt.",
+      okays: 0,
+      aDefects: 0,
+      bDefects: 0,
+      cDefects: 0,
+      hours: netWtCycles,
+      maxScore: netWtMaxScore,
+      scoreDeduction: 0,
+      scoreObtained: netWtScoreObtained,
+      scorePercent: netWtScorePercentage,
+      pqiScore: netWtBonusScoreValue
+    });
+
+    // Broken % (always 0 for now)
+    const brokenPercentage = 0.00;
+
+    // Final PQI Score = sum of all bonus scores - broken%
+    const finalPQIScore = (
+      bonusScores.cbb +
+      bonusScores.secondary +
+      bonusScores.primary +
+      bonusScores.product +
+      netWtBonusScoreValue
+    ) - brokenPercentage;
+
+    const pqiStatus = finalPQIScore >= 90 ? 'PASS' : 'HOLD';
+
+    return { 
+      totalDefects, 
+      totalOkays, 
+      categories,
+      finalPQIScore: finalPQIScore.toFixed(2),
+      pqiStatus,
+      brokenPercentage: brokenPercentage.toFixed(2)
+    };
+  };
+
+  const summaryStats = calculateSummaryStats();
+
 
   return (
     <DashboardLayout>
-      {/* Back Button */}
-      <div className="mb-4 flex items-center gap-2 text-blue-600 font-medium cursor-pointer" onClick={() => navigate('/home')}>
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-        </svg>
-        Back
+      {/* Back Button and Plant Tour ID */}
+      <div className="mb-4 flex items-center justify-between w-full">
+        <div className="flex items-center gap-2 text-blue-600 font-medium cursor-pointer" onClick={() => navigate('/home')}>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+          </svg>
+          Back
+        </div>
+        {plantTourId && (
+          <div className="text-sm text-gray-700 font-semibold truncate max-w-xs ml-4" title={plantTourId}>
+            Plant Tour ID: <span className="text-blue-700">{plantTourId}</span>
+          </div>
+        )}
       </div>
 
       {/* Header and Summary Section (updated style) */}
-      <div className="bg-gray-100 p-6 rounded-lg mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="font-semibold text-lg">Product Quality Index</span>
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-200 text-gray-700 text-xs font-medium ml-2">
+      <div className="bg-gray-100 p-4 sm:p-6 rounded-lg mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
+          <span className="font-semibold text-lg sm:text-xl">Product Quality Index</span>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-200 text-gray-700 text-xs font-medium ml-0 sm:ml-2">
             <span className="w-2 h-2 bg-gray-500 rounded-full mr-1"></span>
-            Shift 1
+            {selectedShift ? selectedShift : "Shift"}
           </span>
-          <span className="text-gray-500 text-sm ml-2">• 24/07/2025</span>
+          <span className="text-gray-500 text-sm ml-0 sm:ml-2">• 24/07/2025</span>
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white rounded-lg border border-gray-200 p-2 sm:p-6 overflow-x-auto">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
             <div className="flex items-center gap-4">
-              <span className="font-semibold text-base">Summary</span>
-              <span className="inline-flex items-center px-3 py-1 rounded-full bg-red-100 text-red-700 border border-red-200 text-sm font-medium">
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 9l-6 6m0-6l6 6" />
-                </svg>
-                2 Defects
-              </span>
+              <span className="font-semibold text-base sm:text-lg">Summary</span>
+              {isLoadingSummary ? (
+                <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-200 text-sm font-medium">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Loading...
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-3 py-1 rounded-full bg-red-100 text-red-700 border border-red-200 text-sm font-medium">
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 9l-6 6m0-6l6 6" />
+                  </svg>
+                  {summaryStats.totalDefects} Defects
+                </span>
+              )}
             </div>
             <button
               className="text-blue-700 text-sm font-medium underline"
@@ -166,104 +606,102 @@ const ProductQualityIndex: React.FC = () => {
             </button>
           </div>
           {showDetails && (
-            <div className="mt-4">
-              <table className="w-full text-sm text-left border-separate border-spacing-0">
-                <thead>
-                  <tr className="text-gray-700 border-b border-gray-200">
-                    <th className="font-semibold py-2 px-2">Category</th>
-                    <th className="font-semibold text-green-700 py-2 px-2">Okays</th>
-                    <th className="font-semibold text-red-700 py-2 px-2">A Defects</th>
-                    <th className="font-semibold text-red-700 py-2 px-2">B Defects</th>
-                    <th className="font-semibold text-red-700 py-2 px-2">C Defects</th>
-                    <th className="font-semibold text-green-700 py-2 px-2">Nos of Hrs inspection/production</th>
-                    <th className="font-semibold text-green-700 py-2 px-2">Max Potential Score</th>
-                    <th className="font-semibold py-2 px-2">Score deduction</th>
-                    <th className="font-semibold py-2 px-2">Score obtained</th>
-                    <th className="font-semibold py-2 px-2">Score%"</th>
-                    <th className="font-semibold py-2 px-2">PQI Score as per weightage</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-blue-500">
-                  <tr className="bg-yellow-50 align-middle">
-                    <td className="py-4 px-2">Secondary</td>
-                    <td className="py-4 px-2">11</td>
-                    <td className="py-4 px-2">1</td>
-                    <td className="py-4 px-2">0</td>
-                    <td className="py-4 px-2">0</td>
-                    <td className="py-4 px-2">3</td>
-                    <td className="py-4 px-2">720</td>
-                    <td className="py-4 px-2">80</td>
-                    <td className="py-4 px-2">640</td>
-                    <td className="py-4 px-2">88.89%</td>
-                    <td className="py-4 px-2">13.33%</td>
-                  </tr>
-                  <tr className="bg-white align-middle">
-                    <td className="py-4 px-2">CBB Evaluation</td>
-                    <td className="py-4 px-2">3</td>
-                    <td className="py-4 px-2">0</td>
-                    <td className="py-4 px-2">1</td>
-                    <td className="py-4 px-2">0</td>
-                    <td className="py-4 px-2">3</td>
-                    <td className="py-4 px-2">3600</td>
-                    <td className="py-4 px-2">30</td>
-                    <td className="py-4 px-2">3570</td>
-                    <td className="py-4 px-2">99.17%</td>
-                    <td className="py-4 px-2">9.92%</td>
-                  </tr>
-                  <tr className="bg-white align-middle">
-                    <td className="py-4 px-2">Net Wt.</td>
-                    <td className="py-4 px-2"></td>
-                    <td className="py-4 px-2"></td>
-                    <td className="py-4 px-2"></td>
-                    <td className="py-4 px-2"></td>
-                    <td className="py-4 px-2">3</td>
-                    <td className="py-4 px-2">5625</td>
-                    <td className="py-4 px-2">0</td>
-                    <td className="py-4 px-2">5625</td>
-                    <td className="py-4 px-2">100.00%</td>
-                    <td className="py-4 px-2">15.00%</td>
-                  </tr>
-                  <tr className="bg-white align-middle">
-                    <td className="py-4 px-2">Broken %</td>
-                    <td className="py-4 px-2" colSpan={10}>0.00%</td>
-                  </tr>
-                  <tr className="bg-white align-middle">
-                    <td className="py-4 px-2">Final PQI Score post deduction of broken</td>
-                    <td className="py-4 px-2" colSpan={10}>38.25%</td>
-                  </tr>
-                  <tr>
-                    <td className="font-semibold py-4 px-2">PQI Status</td>
-                    <td colSpan={10} className="p-0">
-                      <div className="bg-red-500 text-white text-center py-2 rounded-b-lg font-bold">HOLD</div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <div className="mt-4 overflow-x-auto">
+              {isLoadingSummary ? (
+                <div className="flex justify-center items-center py-8">
+                  <svg className="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span className="ml-2 text-gray-600">Loading summary data...</span>
+                </div>
+              ) : summaryStats.categories.length > 0 ? (
+                <table className="min-w-[600px] w-full text-sm text-left border-separate border-spacing-0">
+                  <thead>
+                    <tr className="text-gray-700 border-b border-gray-200">
+                      <th className="font-semibold py-2 px-2">Category</th>
+                      <th className="font-semibold text-green-700 py-2 px-2">Okays</th>
+                      <th className="font-semibold text-red-700 py-2 px-2">A Defects</th>
+                      <th className="font-semibold text-red-700 py-2 px-2">B Defects</th>
+                      <th className="font-semibold text-red-700 py-2 px-2">C Defects</th>
+                      <th className="font-semibold text-green-700 py-2 px-2">Nos of Hrs inspection/production</th>
+                      <th className="font-semibold text-green-700 py-2 px-2">Max Potential Score</th>
+                      <th className="font-semibold py-2 px-2">Score deduction</th>
+                      <th className="font-semibold py-2 px-2">Score obtained</th>
+                      <th className="font-semibold py-2 px-2">Score%"</th>
+                      <th className="font-semibold py-2 px-2">PQI Score as per weightage</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {summaryStats.categories.map((category: any, index: number) => (
+                      <tr key={index} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} align-middle`}>
+                        <td className="py-4 px-2">{category.category}</td>
+                        <td className="py-4 px-2">{category.okays}</td>
+                        <td className="py-4 px-2">{category.aDefects}</td>
+                        <td className="py-4 px-2">{category.bDefects}</td>
+                        <td className="py-4 px-2">{category.cDefects}</td>
+                        <td className="py-4 px-2">{category.hours}</td>
+                        <td className="py-4 px-2">{category.maxScore}</td>
+                        <td className="py-4 px-2">{category.scoreDeduction}</td>
+                        <td className="py-4 px-2">{category.scoreObtained}</td>
+                        <td className="py-4 px-2">{category.scorePercent.toFixed(2)}%</td>
+                        <td className="py-4 px-2">{category.pqiScore.toFixed(2)}%</td>
+                      </tr>
+                    ))}
+                    {/* Broken % row */}
+                    <tr className="bg-green-50 align-middle">
+                      <td className="py-4 px-2">Broken %</td>
+                      <td className="py-4 px-2" colSpan={10}>{summaryStats.brokenPercentage}%</td>
+                    </tr>
+                    {/* Final PQI Score row */}
+                    <tr className="bg-yellow-50 align-middle">
+                      <td className="py-4 px-2">Final PQI Score post deduction of broken</td>
+                      <td className="py-4 px-2" colSpan={10}>{summaryStats.finalPQIScore}%</td>
+                    </tr>
+                    {/* PQI Status row */}
+                    <tr className="bg-red-50 align-middle">
+                      <td className="font-semibold py-4 px-2">PQI Status</td>
+                      <td colSpan={10} className="p-0">
+                        <div className={`text-white text-center py-2 rounded-b-lg font-bold ${summaryStats.pqiStatus === 'PASS' ? 'bg-green-500' : 'bg-red-500'}`}>
+                          {summaryStats.pqiStatus}
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  No summary data available for this tour.
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
       {/* Main Content - Cycles */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="flex flex-col md:grid md:grid-cols-4 gap-4">
         {/* Sidebar (page-specific) */}
-        <div className="space-y-2">
+        <div className="space-y-2 md:col-span-1">
           <button className="w-full text-left px-4 py-2 bg-blue-100 text-blue-600 rounded-md font-medium border border-blue-200">CBB Evaluation</button>
           <button className="w-full text-left px-4 py-2 bg-white border border-gray-200 rounded-md">Secondary</button>
           <button className="w-full text-left px-4 py-2 bg-white border border-gray-200 rounded-md">Primary</button>
           <button className="w-full text-left px-4 py-2 bg-white border border-gray-200 rounded-md">Product</button>
         </div>
         {/* Main Content - Cycles */}
-        <div className="md:col-span-3 space-y-6 max-h-screen overflow-y-auto">
+        <div className="md:col-span-3 space-y-6 max-h-[70vh] overflow-y-auto">
           {Array.from({ length: totalCycles }, (_, i) => {
             const cycleNo = i + 1;
             const status = cycleStatus[cycleNo];
             const items = checklistItems[cycleNo] || [];
+            
 
-            const shouldRender = cycleNo <= 2 || cycleNo <= activeCycle + 1;
+            // Show cycles that are completed, active, or the next few cycles
+            const shouldRender = cycleNo <= 2 || cycleNo <= activeCycle + 1 || status.completed;
             if (!shouldRender) return null;
 
-            const isDisabled = cycleNo > activeCycle;
+            // A cycle is disabled if it's not completed and comes after the active cycle
+            const isDisabled = !status.completed && cycleNo > activeCycle;
 
             return (
               <div
@@ -282,7 +720,8 @@ const ProductQualityIndex: React.FC = () => {
                   </h2>
                 </div>
 
-                {!status.started && !isDisabled && (
+                {/* Show form only for non-completed cycles that are active or earlier, and not started */}
+                {!status.completed && !isDisabled && !status.started && (
                   <div className="space-y-6">
                     {/* Form Fields */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -292,6 +731,8 @@ const ProductQualityIndex: React.FC = () => {
                           type="text"
                           className="w-full border rounded px-3 py-2"
                           placeholder="Enter Product"
+                          value={formFields[cycleNo]?.product || ''}
+                          onChange={e => handleFormFieldChange(cycleNo, 'product', e.target.value)}
                         />
                       </div>
                       <div>
@@ -300,6 +741,8 @@ const ProductQualityIndex: React.FC = () => {
                           type="text"
                           className="w-full border rounded px-3 py-2"
                           placeholder="Enter Batch No"
+                          value={formFields[cycleNo]?.batchNo || ''}
+                          onChange={e => handleFormFieldChange(cycleNo, 'batchNo', e.target.value)}
                         />
                       </div>
                       <div>
@@ -308,6 +751,8 @@ const ProductQualityIndex: React.FC = () => {
                           type="text"
                           className="w-full border rounded px-3 py-2"
                           placeholder="Enter Line No"
+                          value={formFields[cycleNo]?.lineNo || ''}
+                          onChange={e => handleFormFieldChange(cycleNo, 'lineNo', e.target.value)}
                         />
                       </div>
                       <div>
@@ -315,6 +760,8 @@ const ProductQualityIndex: React.FC = () => {
                         <input
                           type="date"
                           className="w-full border rounded px-3 py-2"
+                          value={formFields[cycleNo]?.packaged || ''}
+                          onChange={e => handleFormFieldChange(cycleNo, 'packaged', e.target.value)}
                         />
                       </div>
                       <div>
@@ -322,6 +769,8 @@ const ProductQualityIndex: React.FC = () => {
                         <input
                           type="date"
                           className="w-full border rounded px-3 py-2"
+                          value={formFields[cycleNo]?.expiry || ''}
+                          onChange={e => handleFormFieldChange(cycleNo, 'expiry', e.target.value)}
                         />
                       </div>
                     </div>
@@ -338,7 +787,7 @@ const ProductQualityIndex: React.FC = () => {
                   </div>
                 )}
 
-
+                {/* Show active session form (checklist and save/cancel) only if started and not completed */}
                 {status.started && !status.completed && (
                   <div className="space-y-6 mt-4">
                     {items.map((item) => {
@@ -368,7 +817,6 @@ const ProductQualityIndex: React.FC = () => {
                               </button>
                             </div>
                           </div>
-
                           {current?.status === "Not Okay" && (
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                               <div>
@@ -409,7 +857,6 @@ const ProductQualityIndex: React.FC = () => {
                         </div>
                       );
                     })}
-
                     <div className="flex justify-end gap-2 mt-4">
                       <button className="px-4 py-2 border rounded">Cancel</button>
                       <button
@@ -422,82 +869,115 @@ const ProductQualityIndex: React.FC = () => {
                   </div>
                 )}
 
+                {/* Show completed cycle summary */}
                 {status.completed && (
-                  <div className="bg-white shadow-sm rounded-md p-4 mt-4">
-                    <div className="flex justify-between items-center mb-4">
-                      <div className="text-md font-semibold">
-                        Cycle {cycleNo}
-                        {status.defects.length > 0 && (
-                          <span className="ml-2 text-red-600 bg-red-100 px-2 py-0.5 rounded-full text-xs">
-                            {status.defects.length} Defects
-                          </span>
-                        )}
-                      </div>
-                      <button className="text-gray-500 hover:text-gray-700">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  <div key={cycleNo} className="">
+                    <div
+                      className=" rounded-lg flex items-center justify-between cursor-pointer"
+                      onClick={() => handleExpand(expandedCompletedCycle === cycleNo ? null : cycleNo)}
+                    >
+                      <div className="flex-1"></div>
+                      <button
+                        className="text-gray-400 hover:text-gray-600 focus:outline-none"
+                        tabIndex={-1}
+                        onClick={e => { e.stopPropagation(); handleExpand(expandedCompletedCycle === cycleNo ? null : cycleNo); }}
+                      >
+                        <svg className={`w-5 h-5 transform transition-transform duration-200 ${expandedCompletedCycle === cycleNo ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                         </svg>
                       </button>
                     </div>
-
-                    {/* Defects Table */}
-                    {status.defects.length > 0 && (
-                      <div className="mb-4">
-                        <div className="text-red-600 font-medium mb-2">Defects</div>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-sm border rounded-md">
-                            <thead className="bg-gray-100">
-                              <tr>
-                                <th className="px-4 py-2 border">CBB No</th>
-                                <th className="px-4 py-2 border">Defect Category</th>
-                                <th className="px-4 py-2 border">Defect</th>
-                                <th className="px-4 py-2 border">Major Defect</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {status.defects.map((defect, index) => (
-                                <tr key={index} className="bg-white">
-                                  <td className="px-4 py-2 border font-semibold">{defect}</td>
-                                  <td className="px-4 py-2 border">Category B</td>
-                                  <td className="px-4 py-2 border">Not tasty</td>
-                                  <td className="px-4 py-2 border">Not edible</td>
+                    {expandedCompletedCycle === cycleNo && (
+                      <div className="pt-6">
+                        {/* Defects Table */}
+                        <div className="mb-4">
+                          <div className="text-red-600 font-semibold mb-2">Defects</div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm border rounded-md">
+                              <thead className="bg-gray-100">
+                                <tr>
+                                  <th className="px-4 py-2 border">CBB No</th>
+                                  <th className="px-4 py-2 border">Defect Category</th>
+                                  <th className="px-4 py-2 border">Defect</th>
+                                  <th className="px-4 py-2 border">Major Defect</th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                              </thead>
+                              <tbody>
+                                {status.defects.length > 0 ? (
+                                  status.defects.map((defect, index) => (
+                                    <tr key={index} className="bg-white">
+                                      <td className="px-4 py-2 border font-semibold">{status.evaluationTypes[defect] || defect}</td>
+                                      <td className="px-4 py-2 border">{status.defectCategories[defect] || 'Category B'}</td>
+                                      <td className="px-4 py-2 border">{defect}</td>
+                                      <td className="px-4 py-2 border">{status.defectRemarks[defect] || ''}</td>
+                                    </tr>
+                                  ))
+                                ) : (
+                                  <tr><td colSpan={4} className="px-4 py-2 border text-center text-gray-400">No Defects</td></tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                        {/* Okays and Missed */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <div className="text-green-700 font-semibold mb-1">Okays</div>
+                            <div className="flex gap-2 flex-wrap">
+                              {status.okays.length > 0 ? (
+                                status.okays
+                                  .sort((a, b) => {
+                                    // Extract numbers from CBB items for proper sorting
+                                    const aNum = parseInt(a.toString().replace(/\D/g, '')) || 0;
+                                    const bNum = parseInt(b.toString().replace(/\D/g, '')) || 0;
+                                    return aNum - bNum;
+                                  })
+                                  .map((okay, i) => (
+                                    <span key={i} className="bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">{status.okayEvaluationTypes[okay] || okay}</span>
+                                  ))
+                              ) : (
+                                <span className="text-gray-400">No Okays</span>
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-gray-600 font-semibold mb-1">Missed</div>
+                            <div className="flex gap-2 flex-wrap">
+                              {/* Show missed items from API data with null criteria in order */}
+                              {Object.keys(status.missedEvaluationTypes).length > 0 ? (
+                                Object.values(status.missedEvaluationTypes)
+                                  .sort((a, b) => {
+                                    // Extract numbers from CBB items for proper sorting
+                                    const aNum = parseInt(a.toString().replace(/\D/g, '')) || 0;
+                                    const bNum = parseInt(b.toString().replace(/\D/g, '')) || 0;
+                                    return aNum - bNum;
+                                  })
+                                  .map((item, i) => (
+                                    <span key={i} className="bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">{item}</span>
+                                  ))
+                              ) : (
+                                <span className="text-gray-400">No Missed</span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )}
-
-                    {/* Okays and Missed */}
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <div className="text-green-700 font-medium mb-1">Okays</div>
-                        <div className="flex gap-2 flex-wrap">
-                          {status.okays.map((okay, i) => (
-                            <span key={i} className="bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">{okay}</span>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-gray-600 font-medium mb-1">Missed</div>
-                        <div className="flex gap-2 flex-wrap">
-                          {checklistItems[cycleNo]
-                            .filter((item) => !status.okays.includes(item) && !status.defects.includes(item))
-                            .map((missed, i) => (
-                              <span key={i} className="bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">{missed}</span>
-                            ))}
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 )}
-
               </div>
             );
           })}
         </div>
       </div>
+      {/* Example: Display processed summary and cycle count if summary is visible */}
+      {isSummaryVisible && (
+        <div className="my-4">
+          <div className="font-semibold">Cycle Count: {cycleCount}</div>
+          <div className="font-semibold">Category Summary:</div>
+          <pre className="bg-gray-100 p-2 rounded text-xs">{JSON.stringify(categorySummary, null, 2)}</pre>
+        </div>
+      )}
     </DashboardLayout>
   );
 };

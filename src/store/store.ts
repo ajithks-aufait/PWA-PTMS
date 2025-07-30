@@ -1,23 +1,31 @@
 // src/store/store.ts
-import { configureStore } from "@reduxjs/toolkit";
+import { configureStore, combineReducers } from "@reduxjs/toolkit";
 import userReducer from "./userSlice";
 import planTourReducer from './planTourSlice';
 import { persistStore, persistReducer } from "redux-persist";
 import storage from "redux-persist/lib/storage";
 
-const persistConfig = {
+// Persist config for user
+const userPersistConfig = {
   key: "user",
   storage,
   whitelist: ["user"]
 };
 
-const persistedUserReducer = persistReducer(persistConfig, userReducer);
+// Persist config for planTour
+const planTourPersistConfig = {
+  key: "planTour",
+  storage,
+  whitelist: ["plantTourId", "employeeDetails", "selectedCycle", "selectedTour", "sectionDetails"]
+};
+
+const rootReducer = combineReducers({
+  user: persistReducer(userPersistConfig, userReducer),
+  planTour: persistReducer(planTourPersistConfig, planTourReducer),
+});
 
 const store = configureStore({
-  reducer: {
-    user: persistedUserReducer,
-    planTour: planTourReducer,
-  },
+  reducer: rootReducer,
 });
 
 export const persistor = persistStore(store);

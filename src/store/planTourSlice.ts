@@ -10,6 +10,18 @@ interface SelectedMap {
   [cycleNo: number]: Record<string, CycleItem>;
 }
 
+interface SectionDetails {
+  product?: string;
+  batchNo?: string;
+  lineNo?: string;
+  expiry?: string;
+  packaged?: string;
+  shift?: string;
+  evaluationType?: string;
+  criteria?: string;
+  cycleNum?: number;
+}
+
 interface PlanTourState {
   selected: SelectedMap;
   offlinePlanTourSaved: boolean;
@@ -17,6 +29,7 @@ interface PlanTourState {
   employeeDetails: any | null;
   selectedCycle: string | null;
   selectedTour: string | null;
+  sectionDetails: { [cycleNo: number]: SectionDetails };
 }
 
 const initialState: PlanTourState = {
@@ -26,6 +39,7 @@ const initialState: PlanTourState = {
   employeeDetails: null,
   selectedCycle: null,
   selectedTour: null,
+  sectionDetails: {},
 };
 
 export const planTourSlice = createSlice({
@@ -50,9 +64,19 @@ export const planTourSlice = createSlice({
     setSelectedTour(state, action: PayloadAction<string | null>) {
       state.selectedTour = action.payload;
     },
+    setSectionDetails(state, action: PayloadAction<{ cycleNo: number; details: SectionDetails }>) {
+      state.sectionDetails[action.payload.cycleNo] = action.payload.details;
+    },
+    clearSectionDetails(state, action: PayloadAction<number | undefined>) {
+      if (action.payload !== undefined) {
+        delete state.sectionDetails[action.payload];
+      } else {
+        state.sectionDetails = {};
+      }
+    },
   },
 });
 
-export const { setSelected, setOfflinePlanTourSaved, setPlantTourId, setEmployeeDetails, setSelectedCycle, setSelectedTour } = planTourSlice.actions;
+export const { setSelected, setOfflinePlanTourSaved, setPlantTourId, setEmployeeDetails, setSelectedCycle, setSelectedTour, setSectionDetails, clearSectionDetails } = planTourSlice.actions;
 
 export default planTourSlice.reducer;
