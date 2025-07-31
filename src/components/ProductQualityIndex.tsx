@@ -6,6 +6,7 @@ import DashboardLayout from "./DashboardLayout";
 import { fetchSummaryData } from "../Services/getSummaryData";
 import { getAccessToken } from "../Services/getAccessToken";
 import { setSectionDetails, clearSectionDetails } from "../store/planTourSlice";
+import { addOfflineSubmission } from "../store/stateSlice.ts";
 import { saveSectionData } from "../Services/saveSectionData";
 import { fetchCycleDetails } from "../Services/getCycleDetails";
 // @ts-ignore
@@ -104,6 +105,8 @@ const ProductQualityIndex: React.FC = () => {
   const user = useSelector((state: RootState) => state.user.user);
   const selectedShift = useSelector((state: RootState) => state.planTour.selectedCycle);
   const plantTourId = useSelector((state: RootState) => state.planTour.plantTourId);
+  const isOfflineStarted = useSelector((state: RootState) => state.appState.isOfflineStarted);
+  const offlineSubmissions = useSelector((state: RootState) => state.appState.offlineSubmissions);
   const [categorySummary, setCategorySummary] = useState<any>({});
   const [cycleCount, setCycleCount] = useState<number>(0);
   const [isSummaryVisible, setIsSummaryVisible] = useState(true);
@@ -292,6 +295,63 @@ const ProductQualityIndex: React.FC = () => {
     }
   };
 
+  // Process offline data for summary display
+  const processOfflineData = () => {
+    if (!isOfflineStarted || offlineSubmissions.length === 0) {
+      return;
+    }
+
+    console.log('Processing offline data for summary display...');
+    
+    // Combine all offline submissions into summary data
+    const offlineSummaryData = offlineSubmissions.flatMap(submission => submission.records);
+    
+    // Process the offline data
+    const processed = processData(offlineSummaryData);
+    setCategorySummary(processed.summary);
+    setCycleCount(processed.totalCycles);
+    setIsSummaryVisible(true);
+    
+    // Update cycle status based on offline submissions
+    const newCycleStatus = { ...cycleStatus };
+    offlineSubmissions.forEach(submission => {
+      const cycleNo = submission.cycleNo;
+      const records = submission.records;
+      
+      const defects: string[] = [];
+      const okays: string[] = [];
+      const defectCategories: { [key: string]: string } = {};
+      const evaluationTypes: { [key: string]: string } = {};
+      const defectRemarks: { [key: string]: string } = {};
+      
+      records.forEach((record: any) => {
+        if (record.cr3ea_criteria === 'Okay') {
+          okays.push(record.cr3ea_evaluationtype);
+        } else if (record.cr3ea_criteria === 'Not Okay') {
+          defects.push(record.cr3ea_evaluationtype);
+          defectCategories[record.cr3ea_evaluationtype] = record.cr3ea_defectcategory || 'Category B';
+          evaluationTypes[record.cr3ea_evaluationtype] = record.cr3ea_evaluationtype;
+          defectRemarks[record.cr3ea_evaluationtype] = record.cr3ea_defectremarks || '';
+        }
+      });
+      
+      newCycleStatus[cycleNo] = {
+        started: true,
+        completed: true,
+        defects,
+        okays,
+        defectCategories,
+        evaluationTypes,
+        defectRemarks,
+        okayEvaluationTypes: {},
+        missedEvaluationTypes: {}
+      };
+    });
+    
+    setCycleStatus(newCycleStatus);
+    console.log('Offline data processed for summary display');
+  };
+
   // Use this function after save and in useEffect
   useEffect(() => {
     const fetchSummary = async () => {
@@ -302,13 +362,21 @@ const ProductQualityIndex: React.FC = () => {
         setCycleCount(0);
         return;
       }
+      
+      // If in offline mode, process offline data
+      if (isOfflineStarted) {
+        processOfflineData();
+        return;
+      }
+      
+      // Otherwise fetch from API
       const tokenResult = await getAccessToken();
       const accessToken = tokenResult?.token;
       if (!accessToken) return;
       await fetchAndDisplaySummary(accessToken, plantTourId);
     };
     fetchSummary();
-  }, [plantTourId]);
+  }, [plantTourId, isOfflineStarted, offlineSubmissions]);
 
   // After save, call fetchAndDisplaySummary instead of fetchSummaryData
   const handleSave = async (cycleNo: number) => {
@@ -378,14 +446,36 @@ const ProductQualityIndex: React.FC = () => {
       });
     });
 
-    // Save to API
-    const tokenResult = await getAccessToken();
-    const accessToken = tokenResult?.token;
-    if (!accessToken) {
-      alert('No access token available');
-      return;
+    // Handle offline mode
+    if (isOfflineStarted) {
+      console.log('Saving data in offline mode to Redux...');
+      
+      // Store submission in Redux
+      const offlineSubmission = {
+        cycleNo,
+        records,
+        timestamp: Date.now(),
+        plantTourId: plantTourId || ''
+      };
+      
+      dispatch(addOfflineSubmission(offlineSubmission));
+      console.log('Data saved to Redux. Total offline submissions:', offlineSubmissions.length + 1);
+      alert('Data saved offline. Will sync when you cancel or sync offline mode.');
+      
+      // Refresh offline data display
+      setTimeout(() => {
+        processOfflineData();
+      }, 100);
+    } else {
+      // Online mode - save to API
+      const tokenResult = await getAccessToken();
+      const accessToken = tokenResult?.token;
+      if (!accessToken) {
+        alert('No access token available');
+        return;
+      }
+      await saveSectionData(accessToken, records);
     }
-    await saveSectionData(accessToken, records);
 
     setCycleStatus((prev) => ({
       ...prev,
@@ -398,13 +488,28 @@ const ProductQualityIndex: React.FC = () => {
     }));
     setActiveCycle((prev) => prev + 1);
     dispatch(clearSectionDetails(cycleNo));
-    // Optionally refresh summary
-    await fetchAndDisplaySummary(accessToken, plantTourId || "");
+    
+    // Refresh summary only in online mode
+    if (!isOfflineStarted) {
+      const tokenResult = await getAccessToken();
+      const accessToken = tokenResult?.token;
+      if (accessToken) {
+        await fetchAndDisplaySummary(accessToken, plantTourId || "");
+      }
+    }
   };
 
-  // Calculate summary statistics from API data
+  // Calculate summary statistics from API data or offline data
   const calculateSummaryStats = () => {
-    if (!summaryData || summaryData.length === 0) {
+    let dataToProcess = summaryData;
+    
+    // If in offline mode and no API data, use offline submissions
+    if (isOfflineStarted && (!summaryData || summaryData.length === 0)) {
+      console.log('Using offline data for summary statistics...');
+      dataToProcess = offlineSubmissions.flatMap(submission => submission.records);
+    }
+    
+    if (!dataToProcess || dataToProcess.length === 0) {
       return {
         totalDefects: 0,
         totalOkays: 0,
@@ -430,7 +535,7 @@ const ProductQualityIndex: React.FC = () => {
     const summary: Record<string, { okays: number; aDefects: number; bDefects: number; cDefects: number }> = {};
     const uniqueCycles = new Set();
 
-    summaryData.forEach((item: any) => {
+    dataToProcess.forEach((item: any) => {
       const category = item.cr3ea_category || 'Unknown';
       const cycle = item.cr3ea_cycle;
 
@@ -580,6 +685,11 @@ const ProductQualityIndex: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
             <div className="flex items-center gap-4">
               <span className="font-semibold text-base sm:text-lg">Summary</span>
+              {isOfflineStarted && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full bg-orange-100 text-orange-700 border border-orange-200 text-xs font-medium">
+                  📱 Offline Data
+                </span>
+              )}
               {isLoadingSummary ? (
                 <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-200 text-sm font-medium">
                   <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -970,14 +1080,21 @@ const ProductQualityIndex: React.FC = () => {
           })}
         </div>
       </div>
-      {/* Example: Display processed summary and cycle count if summary is visible */}
-      {isSummaryVisible && (
-        <div className="my-4">
-          <div className="font-semibold">Cycle Count: {cycleCount}</div>
-          <div className="font-semibold">Category Summary:</div>
-          <pre className="bg-gray-100 p-2 rounded text-xs">{JSON.stringify(categorySummary, null, 2)}</pre>
-        </div>
-      )}
+              {/* Example: Display processed summary and cycle count if summary is visible */}
+        {isSummaryVisible && (
+          <div className="my-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="font-semibold">Cycle Count: {cycleCount}</div>
+              {isOfflineStarted && (
+                <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
+                  📱 Offline Data
+                </span>
+              )}
+            </div>
+            <div className="font-semibold">Category Summary:</div>
+            <pre className="bg-gray-100 p-2 rounded text-xs">{JSON.stringify(categorySummary, null, 2)}</pre>
+          </div>
+        )}
     </DashboardLayout>
   );
 };

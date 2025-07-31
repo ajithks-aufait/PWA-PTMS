@@ -2,6 +2,7 @@
 import { configureStore, combineReducers } from "@reduxjs/toolkit";
 import userReducer from "./userSlice";
 import planTourReducer from './planTourSlice';
+import stateReducer from './stateSlice.ts';
 import { persistStore, persistReducer } from "redux-persist";
 import storage from "redux-persist/lib/storage";
 
@@ -19,9 +20,17 @@ const planTourPersistConfig = {
   whitelist: ["plantTourId", "employeeDetails", "selectedCycle", "selectedTour", "sectionDetails"]
 };
 
+// Persist config for appState
+const appStatePersistConfig = {
+  key: "appState",
+  storage,
+  whitelist: ["isOfflineStarted", "isOfflineCompleted", "progress", "offlineSubmissions"]
+};
+
 const rootReducer = combineReducers({
   user: persistReducer(userPersistConfig, userReducer),
   planTour: persistReducer(planTourPersistConfig, planTourReducer),
+  appState: persistReducer(appStatePersistConfig, stateReducer),
 });
 
 const store = configureStore({

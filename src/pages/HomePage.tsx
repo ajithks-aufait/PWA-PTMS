@@ -13,8 +13,10 @@ import { fetchEmployeeList } from "../Services/getEmployeeDetails";
 import { useDispatch, useSelector } from "react-redux";
 import DashboardLayout from "../components/DashboardLayout";
 import { setPlantTourId, setEmployeeDetails } from "../store/planTourSlice";
+import { setOfflineStarted, setOfflineCompleted, setProgress, resetOfflineState, clearOfflineSubmissions } from "../store/stateSlice.ts";
 import { createOrFetchPlantTour } from "../Services/createOrFetchPlantTour";
 import { getAccessToken } from "../Services/getAccessToken";
+import { saveSectionData } from "../Services/saveSectionData";
 import { useNavigate } from "react-router-dom";
 
 
@@ -23,10 +25,15 @@ export default function HomePage() {
   const [employees, setEmployees] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isOfflineLoading, setIsOfflineLoading] = useState(false);
-  const [isOfflineCompleted, setIsOfflineCompleted] = useState(false);
-  const [isOfflineStarted, setIsOfflineStarted] = useState(false); // new state
-  const [progress, setProgress] = useState(0);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [showOfflineError, setShowOfflineError] = useState(false);
   const dispatch = useDispatch();
+  
+  // Get offline state from Redux
+  const isOfflineStarted = useSelector((state: any) => state.appState.isOfflineStarted);
+  const isOfflineCompleted = useSelector((state: any) => state.appState.isOfflineCompleted);
+  const progress = useSelector((state: any) => state.appState.progress);
+  const offlineSubmissions = useSelector((state: any) => state.appState.offlineSubmissions);
   const user = useSelector((state: any) => state.user.user);
   const userState = useSelector((state: any) => state.user);
   const planTourState = useSelector((state: any) => state.planTour);
@@ -42,34 +49,139 @@ export default function HomePage() {
     { label: "Wastage", icon: <Trash2 className="text-orange-500" />, count: 0 },
   ];
 
-  const simulateApi = (delay: number) =>
-    new Promise((resolve) => setTimeout(resolve, delay));
 
   const handleOfflineTour = async () => {
+    // Check if internet is available
+    if (!isOnline) {
+      setShowOfflineError(true);
+      // Hide error message after 5 seconds
+      setTimeout(() => setShowOfflineError(false), 5000);
+      return;
+    }
+
     setIsOfflineLoading(true);
-    setProgress(0);
-    setIsOfflineCompleted(false);
+    dispatch(setProgress(0));
+    dispatch(setOfflineCompleted(false));
 
     try {
-      const delays = [1000, 1200, 1500];
-      for (let i = 0; i < delays.length; i++) {
-        await simulateApi(delays[i]);
-        setProgress(((i + 1) / delays.length) * 100);
+      console.log('Starting offline mode setup...');
+      
+      // Step 1: Get access token first
+      const tokenResult = await getAccessToken();
+      if (!tokenResult || !tokenResult.token) {
+        throw new Error('No access token available');
       }
-      setIsOfflineCompleted(true);
-      document.documentElement.classList.add("dark");
-      setIsOfflineStarted(true); // mark offline started
+      console.log('Token generated successfully');
+
+      dispatch(setProgress(20));
+
+      // Step 2: Fetch employee list and store in Redux
+      console.log('Fetching employee list...');
+      const response = await instance.acquireTokenSilent({
+      ...loginRequest,
+      account: accounts[0],
+    });
+      const employeeList = await fetchEmployeeList(response.accessToken, user?.Name || '');
+      if (employeeList && employeeList.length > 0) {
+        dispatch(setEmployeeDetails(employeeList[0]));
+        console.log('Employee details stored in Redux:', employeeList[0]);
+      } else {
+        throw new Error('No employee details found');
+      }
+
+      dispatch(setProgress(40));
+
+      // Step 3: Create or fetch Plant Tour ID using employee data
+      console.log('Creating/fetching Plant Tour ID...');
+      const employeeDetails = employeeList[0];
+      const plantTourId = await createOrFetchPlantTour({
+        accessToken: tokenResult.token,
+        departmentId: employeeDetails.departmentId || '135',
+        employeeName: employeeDetails.employeeName || user?.Name || '',
+        roleName: employeeDetails.roleName || 'QA',
+        plantId: employeeDetails.plantId || '1',
+        userRoleID: employeeDetails.roleId || '1',
+      });
+
+      if (plantTourId) {
+        dispatch(setPlantTourId(plantTourId));
+        console.log('Plant Tour ID created and stored in Redux:', plantTourId);
+      } else {
+        throw new Error('Failed to generate Plant Tour ID');
+      }
+
+      dispatch(setProgress(60));
+
+      // Step 4: Mark as offline mode
+      dispatch(setOfflineCompleted(true));
+      dispatch(setOfflineStarted(true));
+
+      dispatch(setProgress(100));
+      console.log('Offline mode activated successfully');
+
     } catch (err) {
-      console.error("API error", err);
+      console.error("Error starting offline mode:", err);
+      alert('Failed to start offline mode. Please check your connection and try again.');
     } finally {
       setIsOfflineLoading(false);
     }
   };
 
-  const handleCancelOffline = () => {
-    setIsOfflineStarted(false);
-    setIsOfflineCompleted(false);
-    setProgress(0);
+  const handleCancelOffline = async () => {
+    console.log('Attempting to sync/cancel offline mode...');
+    
+    // Check if internet is available
+    if (!isOnline) {
+      console.log('No internet connection available for syncing');
+      alert('⚠️ Internet connection required to sync offline data. Please check your connection and try again.');
+      return;
+    }
+    
+    // Sync offline submissions if any exist
+    if (offlineSubmissions.length > 0) {
+      console.log('Syncing offline submissions before canceling...');
+      try {
+        const tokenResult = await getAccessToken();
+        const accessToken = tokenResult?.token;
+        if (accessToken) {
+          for (const submission of offlineSubmissions) {
+            await saveSectionData(accessToken, submission.records);
+            console.log(`Synced submission for cycle ${submission.cycleNo}`);
+          }
+          console.log('All offline submissions synced successfully');
+          alert('✅ Offline data synced successfully!');
+        } else {
+          throw new Error('No access token available');
+        }
+      } catch (error) {
+        console.error('Error syncing offline submissions:', error);
+        alert('❌ Error syncing offline data. Please check your connection and try again.');
+        return;
+      }
+    } else {
+      console.log('No offline submissions to sync');
+    }
+    
+    // Reset all offline-related state using Redux actions
+    dispatch(setOfflineStarted(false));
+    dispatch(setOfflineCompleted(false));
+    dispatch(setProgress(0));
+    dispatch(clearOfflineSubmissions());
+    setShowOfflineError(false);
+    
+    // Clear any offline data from localStorage
+    try {
+      localStorage.removeItem('offlineData');
+      localStorage.removeItem('offlineSubmissions');
+      console.log('Offline data cleared from localStorage');
+    } catch (error) {
+      console.error('Error clearing offline data:', error);
+    }
+    
+    // Reset Plant Tour ID to allow fresh start
+    dispatch(setPlantTourId(''));
+    
+    console.log('Offline mode canceled, normal plant tour is now available');
   };
 
   useEffect(() => {
@@ -100,6 +212,27 @@ export default function HomePage() {
   function pad(num: number): string {
     return num.toString().padStart(2, "0");
   }
+
+  // Monitor network status
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('🌐 Internet Connected:', new Date().toISOString());
+      setIsOnline(true);
+    };
+
+    const handleOffline = () => {
+      console.log('❌ Internet Disconnected:', new Date().toISOString());
+      setIsOnline(false);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     startTimer();
@@ -187,27 +320,50 @@ export default function HomePage() {
                     Plant Tour
                   </button>
                   <button
-                    className="w-full sm:w-auto bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md dark:bg-gray-700 dark:hover:bg-gray-600"
+                    className={`w-full sm:w-auto px-4 py-2 rounded-md ${
+                      isOnline 
+                        ? 'bg-gray-600 hover:bg-gray-700 text-white dark:bg-gray-700 dark:hover:bg-gray-600' 
+                        : 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                    }`}
                     onClick={handleOfflineTour}
+                    disabled={!isOnline}
+                    title={!isOnline ? 'Internet connection required to start offline mode' : 'Start offline mode'}
                   >
                     + Start Offline Mode
                   </button>
+                  {showOfflineError && (
+                    <div className="w-full sm:w-auto text-xs text-red-600 mt-1">
+                      ⚠️ Internet connection required to start offline mode
+                    </div>
+                  )}
                 </>
               )}
               {isOfflineStarted && (
                 <>
                  <button
                     className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-                    onClick={() => setIsModalOpen(true)}
+                    onClick={() => navigate("/qualityplantour")}
                   >
                     + Offline Plant Tour
                   </button>
                   <button
-                    className="w-full sm:w-auto bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md dark:bg-gray-700 dark:hover:bg-gray-600"
+                    className={`w-full sm:w-auto px-4 py-2 rounded-md ${
+                      isOnline 
+                        ? 'bg-gray-600 hover:bg-gray-700 text-white dark:bg-gray-700 dark:hover:bg-gray-600' 
+                        : 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                    }`}
                     onClick={handleCancelOffline}
+                    disabled={!isOnline}
+                    title={!isOnline ? 'Internet connection required to sync offline data' : 'Sync and cancel offline mode'}
                   >
-                    + Synch / Cancel Offline
+                    + Sync & Cancel Offline {offlineSubmissions.length > 0 && `(${offlineSubmissions.length})`}
+                    {!isOnline && <span className="ml-1 text-xs">(Internet Required)</span>}
                   </button>
+                  {offlineSubmissions.length > 0 && !isOnline && (
+                    <div className="w-full sm:w-auto text-xs text-orange-600 mt-1">
+                      ⚠️ {offlineSubmissions.length} offline submission(s) waiting for internet connection
+                    </div>
+                  )}
                 </>
               )}
             </div>

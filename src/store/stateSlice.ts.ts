@@ -8,6 +8,7 @@ interface StateSlice {
   isOfflineCompleted: boolean;
   isModalOpen: boolean;
   progress: number;
+  offlineSubmissions: any[];
 }
 
 const initialState: StateSlice = {
@@ -17,6 +18,7 @@ const initialState: StateSlice = {
   isOfflineCompleted: false,
   isModalOpen: false,
   progress: 0,
+  offlineSubmissions: [],
 };
 
 const stateSlice = createSlice({
@@ -48,6 +50,13 @@ const stateSlice = createSlice({
       state.isOfflineStarted = false;
       state.isOfflineCompleted = false;
       state.progress = 0;
+      state.offlineSubmissions = [];
+    },
+    addOfflineSubmission(state, action: PayloadAction<any>) {
+      state.offlineSubmissions.push(action.payload);
+    },
+    clearOfflineSubmissions(state) {
+      state.offlineSubmissions = [];
     },
   },
 });
@@ -61,6 +70,8 @@ export const {
   setModalOpen,
   setProgress,
   resetOfflineState,
+  addOfflineSubmission,
+  clearOfflineSubmissions,
 } = stateSlice.actions;
 
 export default stateSlice.reducer;
