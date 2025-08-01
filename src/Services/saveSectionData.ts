@@ -18,18 +18,40 @@ export async function saveSectionData(accessToken: string, records: any[]) {
   const results = [];
   for (const record of records) {
     try {
+      console.log('Attempting to save record:', {
+        evaluationType: record.cr3ea_evaluationtype,
+        cycle: record.cr3ea_cycle,
+        criteria: record.cr3ea_criteria
+      });
+      
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: header,
         body: JSON.stringify(record),
       });
+      
       if (!response.ok) {
-        throw new Error(`Failed to save record: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Server response error:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorText: errorText
+        });
+        throw new Error(`Failed to save record: ${response.status} - ${errorText}`);
       }
+      
       const responseData = await response.json();
+      console.log('Record saved successfully:', responseData);
       results.push(responseData);
     } catch (error) {
-      console.error('Error creating record:', error);
+      console.error('Error creating record:', {
+        error: error,
+        record: {
+          evaluationType: record.cr3ea_evaluationtype,
+          cycle: record.cr3ea_cycle,
+          criteria: record.cr3ea_criteria
+        }
+      });
       results.push(null);
     }
   }

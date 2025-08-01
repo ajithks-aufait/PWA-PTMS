@@ -12,12 +12,65 @@ import { useMsal } from "@azure/msal-react";
 import { fetchEmployeeList } from "../Services/getEmployeeDetails";
 import { useDispatch, useSelector } from "react-redux";
 import DashboardLayout from "../components/DashboardLayout";
-import { setPlantTourId, setEmployeeDetails } from "../store/planTourSlice";
+import { setPlantTourId, setEmployeeDetails, clearAllDataExceptEssential, setSummaryData, setCycleData, setLastFetchTimestamp, setCategorySummary, setCycleCount } from "../store/planTourSlice";
 import { setOfflineStarted, setOfflineCompleted, setProgress, resetOfflineState, clearOfflineSubmissions } from "../store/stateSlice.ts";
 import { createOrFetchPlantTour } from "../Services/createOrFetchPlantTour";
 import { getAccessToken } from "../Services/getAccessToken";
 import { saveSectionData } from "../Services/saveSectionData";
+import { fetchSummaryData } from "../Services/getSummaryData";
+import { fetchCycleDetails } from "../Services/getCycleDetails";
 import { useNavigate } from "react-router-dom";
+
+// Process data by category and count defects (copied from ProductQualityIndex)
+function processData(data: any[]) {
+  const summary: Record<string, { okays: number; aDefects: number; bDefects: number; cDefects: number }> = {};
+  const uniqueCycles = new Set();
+
+  data.forEach(item => {
+    const category = item.cr3ea_category || 'Unknown';
+    const cycle = item.cr3ea_cycle;
+
+    if (cycle) {
+      uniqueCycles.add(cycle);
+    }
+
+    if (!summary[category]) {
+      summary[category] = { okays: 0, aDefects: 0, bDefects: 0, cDefects: 0 };
+    }
+
+    if (item.cr3ea_criteria === 'Okay') {
+      summary[category].okays++;
+    } else {
+      if (item.cr3ea_defectcategory === 'Category A') summary[category].aDefects++;
+      if (item.cr3ea_defectcategory === 'Category B') summary[category].bDefects++;
+      if (item.cr3ea_defectcategory === 'Category C') summary[category].cDefects++;
+    }
+  });
+
+  // Return both summary and cycle count
+  return {
+    summary,
+    totalCycles: uniqueCycles.size
+  };
+}
+
+// Remove duplicate submissions based on cycle number and timestamp
+function removeDuplicateSubmissions(submissions: any[]) {
+  const uniqueSubmissions: any[] = [];
+  const seenCycles = new Set<number>();
+
+  // Create a new array and sort by timestamp (newest first) to keep the latest submission for each cycle
+  const sortedSubmissions = [...submissions].sort((a, b) => b.timestamp - a.timestamp);
+
+  for (const submission of sortedSubmissions) {
+    if (!seenCycles.has(submission.cycleNo)) {
+      seenCycles.add(submission.cycleNo);
+      uniqueSubmissions.push(submission);
+    }
+  }
+
+  return uniqueSubmissions;
+}
 
 
 export default function HomePage() {
@@ -112,12 +165,52 @@ export default function HomePage() {
 
       dispatch(setProgress(60));
 
-      // Step 4: Mark as offline mode
+      // Step 4: Fetch summary and cycle data APIs
+      console.log('Fetching summary and cycle data...');
+      try {
+        const [summaryData, cycleData] = await Promise.all([
+          fetchSummaryData(tokenResult.token, plantTourId),
+          fetchCycleDetails(tokenResult.token, plantTourId)
+        ]);
+        
+        // Handle the API responses properly
+        const summaryArray = summaryData && Array.isArray(summaryData) ? summaryData : [];
+        const cycleArray = cycleData && Array.isArray(cycleData) ? cycleData : [];
+        
+        console.log("Fetched Summary Data:", summaryArray);
+        console.log("Fetched Cycle Records:", cycleArray);
+        
+        // Store summary and cycle data in Redux
+        dispatch(setSummaryData(summaryArray));
+        dispatch(setCycleData(cycleArray));
+        dispatch(setLastFetchTimestamp(Date.now()));
+        
+        // Process and store category summary and cycle count
+        if (summaryArray.length > 0) {
+          const processed = processData(summaryArray);
+          dispatch(setCategorySummary(processed.summary));
+          dispatch(setCycleCount(processed.totalCycles));
+          console.log("Category summary and cycle count stored in Redux");
+        } else {
+          dispatch(setCategorySummary({}));
+          dispatch(setCycleCount(0));
+        }
+        
+        console.log("Summary and cycle data stored in Redux");
+        
+      } catch (apiError) {
+        console.error("Error fetching summary/cycle data:", apiError);
+        // Continue with offline mode even if API calls fail
+      }
+
+      dispatch(setProgress(80));
+
+      // Step 5: Mark as offline mode
       dispatch(setOfflineCompleted(true));
       dispatch(setOfflineStarted(true));
 
       dispatch(setProgress(100));
-      console.log('Offline mode activated successfully');
+      console.log('Offline mode activated successfully with API data');
 
     } catch (err) {
       console.error("Error starting offline mode:", err);
@@ -143,10 +236,31 @@ export default function HomePage() {
       try {
         const tokenResult = await getAccessToken();
         const accessToken = tokenResult?.token;
+        console.log('Token result:', { hasToken: !!accessToken, tokenLength: accessToken?.length });
+        
         if (accessToken) {
-          for (const submission of offlineSubmissions) {
-            await saveSectionData(accessToken, submission.records);
-            console.log(`Synced submission for cycle ${submission.cycleNo}`);
+          // Remove duplicates before syncing
+          const uniqueSubmissions = removeDuplicateSubmissions(offlineSubmissions);
+          console.log(`Original submissions: ${offlineSubmissions.length}, Unique submissions: ${uniqueSubmissions.length}`);
+          
+          for (const submission of uniqueSubmissions) {
+            console.log(`Processing submission for cycle ${submission.cycleNo}:`, {
+              recordsCount: submission.records.length,
+              records: submission.records.map((r: any) => ({
+                evaluationType: r.cr3ea_evaluationtype,
+                cycle: r.cr3ea_cycle,
+                criteria: r.cr3ea_criteria
+              }))
+            });
+            
+            // Validate records before syncing
+            if (!submission.records || submission.records.length === 0) {
+              console.warn(`Skipping empty submission for cycle ${submission.cycleNo}`);
+              continue;
+            }
+            
+            const result = await saveSectionData(accessToken, submission.records);
+            console.log(`Synced submission for cycle ${submission.cycleNo}, result:`, result);
           }
           console.log('All offline submissions synced successfully');
           alert('✅ Offline data synced successfully!');
@@ -155,18 +269,37 @@ export default function HomePage() {
         }
       } catch (error) {
         console.error('Error syncing offline submissions:', error);
-        alert('❌ Error syncing offline data. Please check your connection and try again.');
+        
+        // Provide more specific error messages
+        let errorMessage = '❌ Error syncing offline data. Please check your connection and try again.';
+        
+        if (error instanceof Error) {
+          if (error.message.includes('Failed to save record')) {
+            errorMessage = '❌ Server error while saving data. Please try again.';
+          } else if (error.message.includes('No access token')) {
+            errorMessage = '❌ Authentication error. Please log in again.';
+          } else if (error.message.includes('fetch')) {
+            errorMessage = '❌ Network error. Please check your internet connection.';
+          }
+        }
+        
+        console.log('Detailed error info:', {
+          error: error,
+          errorMessage: error instanceof Error ? error.message : 'Unknown error',
+          errorStack: error instanceof Error ? error.stack : 'No stack trace',
+          offlineSubmissionsCount: offlineSubmissions.length
+        });
+        
+        alert(errorMessage);
         return;
       }
     } else {
       console.log('No offline submissions to sync');
     }
     
-    // Reset all offline-related state using Redux actions
-    dispatch(setOfflineStarted(false));
-    dispatch(setOfflineCompleted(false));
-    dispatch(setProgress(0));
-    dispatch(clearOfflineSubmissions());
+    // Clear all Redux data except token, plantTourId, employeeDetails, and user details
+    dispatch(clearAllDataExceptEssential());
+    dispatch(resetOfflineState());
     setShowOfflineError(false);
     
     // Clear any offline data from localStorage
@@ -178,8 +311,7 @@ export default function HomePage() {
       console.error('Error clearing offline data:', error);
     }
     
-    // Reset Plant Tour ID to allow fresh start
-    dispatch(setPlantTourId(''));
+    console.log('All data cleared except essential information (token, plantTourId, employeeDetails, user details)');
     
     console.log('Offline mode canceled, normal plant tour is now available');
   };

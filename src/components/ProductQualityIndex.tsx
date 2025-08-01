@@ -5,7 +5,7 @@ import type { RootState } from "../store/store";
 import DashboardLayout from "./DashboardLayout";
 import { fetchSummaryData } from "../Services/getSummaryData";
 import { getAccessToken } from "../Services/getAccessToken";
-import { setSectionDetails, clearSectionDetails } from "../store/planTourSlice";
+import { setSectionDetails, clearSectionDetails, addPostApiData, addGetApiDataModel, setSummaryData, setCycleData, setCycleCount } from "../store/planTourSlice";
 import { addOfflineSubmission } from "../store/stateSlice.ts";
 import { saveSectionData } from "../Services/saveSectionData";
 import { fetchCycleDetails } from "../Services/getCycleDetails";
@@ -20,6 +20,7 @@ type CycleResult = {
   defectCategories: { [item: string]: string }; // stores defect categories for each item
   evaluationTypes: { [item: string]: string }; // stores evaluation types for each item
   defectRemarks: { [item: string]: string }; // stores defect remarks for each item
+  defectDescriptions: { [item: string]: string }; // stores defect descriptions for each item
   okayEvaluationTypes: { [item: string]: string }; // stores evaluation types for okay items
   missedEvaluationTypes: { [item: string]: string }; // stores evaluation types for missed items
 };
@@ -85,19 +86,48 @@ function processData(data: any[]) {
   };
 }
 
+// Remove duplicate cycle data based on evaluation type and cycle
+function removeDuplicateCycleData(existingData: any[], newData: any[]) {
+  const combinedData = [...existingData, ...newData];
+  const uniqueData: any[] = [];
+  const seenItems = new Set<string>();
+
+  // Sort by timestamp if available, otherwise keep existing order
+  const sortedData = combinedData.sort((a, b) => {
+    if (a.timestamp && b.timestamp) {
+      return b.timestamp - a.timestamp; // Newest first
+    }
+    return 0;
+  });
+
+  for (const item of sortedData) {
+    // Create a unique key based on evaluation type and cycle
+    const key = `${item.cr3ea_evaluationtype}_${item.cr3ea_cycle}_${item.cr3ea_criteria}`;
+    
+    if (!seenItems.has(key)) {
+      seenItems.add(key);
+      uniqueData.push(item);
+    }
+  }
+
+  console.log(`Removed duplicates: Original ${combinedData.length}, Unique ${uniqueData.length}`);
+  return uniqueData;
+}
+
 const ProductQualityIndex: React.FC = () => {
   const [activeCycle, setActiveCycle] = useState<number>(1);
   const [cycleStatus, setCycleStatus] = useState<CycleStatusMap>(
-    Object.fromEntries(
-      Array.from({ length: totalCycles }, (_, i) => [
-        i + 1,
-        { started: false, completed: false, defects: [], okays: [], defectCategories: {}, evaluationTypes: {}, defectRemarks: {}, okayEvaluationTypes: {}, missedEvaluationTypes: {} },
-      ])
-    )
+          Object.fromEntries(
+        Array.from({ length: totalCycles }, (_, i) => [
+          i + 1,
+          { started: false, completed: false, defects: [], okays: [], defectCategories: {}, evaluationTypes: {}, defectRemarks: {}, defectDescriptions: {}, okayEvaluationTypes: {}, missedEvaluationTypes: {} },
+        ])
+      )
   );
-  const [selected, setSelected] = useState<SelectedMap>({});
+    const [selected, setSelected] = useState<SelectedMap>({});
   const [showDetails, setShowDetails] = useState(false);
-  const [summaryData, setSummaryData] = useState<any[]>([]);
+  const summaryData = useSelector((state: RootState) => state.planTour.summaryData);
+  const cycleData = useSelector((state: RootState) => state.planTour.cycleData);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -107,8 +137,8 @@ const ProductQualityIndex: React.FC = () => {
   const plantTourId = useSelector((state: RootState) => state.planTour.plantTourId);
   const isOfflineStarted = useSelector((state: RootState) => state.appState.isOfflineStarted);
   const offlineSubmissions = useSelector((state: RootState) => state.appState.offlineSubmissions);
-  const [categorySummary, setCategorySummary] = useState<any>({});
-  const [cycleCount, setCycleCount] = useState<number>(0);
+  const categorySummary = useSelector((state: RootState) => state.planTour.categorySummary);
+  const cycleCount = useSelector((state: RootState) => state.planTour.cycleCount);
   const [isSummaryVisible, setIsSummaryVisible] = useState(true);
   // Local state for form fields per cycle
   const [formFields, setFormFields] = useState<{ [cycleNo: number]: any }>({});
@@ -203,31 +233,47 @@ const ProductQualityIndex: React.FC = () => {
     setIsLoadingSummary(true);
     try {
       // Use both APIs: fetchSummaryData for summary and fetchCycleDetails for cycle details
-      const [summaryData, cycleData] = await Promise.all([
-        fetchSummaryData(accessToken, qualityTourId),
-        fetchCycleDetails(accessToken, qualityTourId)
-      ]);
+      let summaryData: any[] = [];
+      let cycleData: any[] = [];
       
-      console.log("Fetched Summary Data:", summaryData);
-      console.log("Fetched Cycle Records:", cycleData);
+      try {
+        const [summaryResult, cycleResult] = await Promise.all([
+          fetchSummaryData(accessToken, qualityTourId),
+          fetchCycleDetails(accessToken, qualityTourId)
+        ]);
+        
+        // Handle the API responses properly
+        summaryData = summaryResult && Array.isArray(summaryResult) ? summaryResult : [];
+        cycleData = cycleResult && Array.isArray(cycleResult) ? cycleResult : [];
+        
+        console.log("Fetched Summary Data:", summaryData);
+        console.log("Fetched Cycle Records:", cycleData);
+        
+        // Remove duplicates from API data before storing in Redux
+        const uniqueSummaryData = removeDuplicateCycleData(summaryData, []);
+        const uniqueCycleData = removeDuplicateCycleData(cycleData, []);
+        
+        dispatch(setSummaryData(uniqueSummaryData))
+        dispatch(setCycleData(uniqueCycleData))
+        // Store summary and cycle data in Redux
+        
+      } catch (error) {
+        console.error("Error fetching or storing data:", error);
+      }
       
       // Process summary data
       if (!summaryData || summaryData.length === 0) {
         setIsSummaryVisible(false);
-        setSummaryData([]);
-        setCategorySummary({});
-        setCycleCount(0);
+        dispatch(setCycleCount(0));
       } else {
         setIsSummaryVisible(true);
-        setSummaryData(summaryData);
         const processed = processData(summaryData);
-        setCategorySummary(processed.summary);
-        setCycleCount(processed.totalCycles);
+        dispatch(setCycleCount(processed.totalCycles));
       }
       
       // Process cycle details to determine completed cycles
       const completedCycles = new Set<number>();
-      const cycleDetails: { [cycleNo: number]: { defects: string[], okays: string[], defectCategories: { [item: string]: string }, evaluationTypes: { [item: string]: string }, defectRemarks: { [item: string]: string }, okayEvaluationTypes: { [item: string]: string }, missedEvaluationTypes: { [item: string]: string } } } = {};
+      const cycleDetails: { [cycleNo: number]: { defects: string[], okays: string[], defectCategories: { [item: string]: string }, evaluationTypes: { [item: string]: string }, defectRemarks: { [item: string]: string }, defectDescriptions: { [item: string]: string }, okayEvaluationTypes: { [item: string]: string }, missedEvaluationTypes: { [item: string]: string } } } = {};
       
       if (cycleData && cycleData.length > 0) {
         cycleData.forEach((item: any) => {
@@ -237,7 +283,7 @@ const ProductQualityIndex: React.FC = () => {
             completedCycles.add(cycleNo);
             
             if (!cycleDetails[cycleNo]) {
-              cycleDetails[cycleNo] = { defects: [], okays: [], defectCategories: {}, evaluationTypes: {}, defectRemarks: {}, okayEvaluationTypes: {}, missedEvaluationTypes: {} };
+              cycleDetails[cycleNo] = { defects: [], okays: [], defectCategories: {}, evaluationTypes: {}, defectRemarks: {}, defectDescriptions: {}, okayEvaluationTypes: {}, missedEvaluationTypes: {} };
             }
             
             if (item.cr3ea_criteria === 'Okay') {
@@ -270,6 +316,7 @@ const ProductQualityIndex: React.FC = () => {
           defectCategories: cycleDetails[cycleNo]?.defectCategories || {},
           evaluationTypes: cycleDetails[cycleNo]?.evaluationTypes || {},
           defectRemarks: cycleDetails[cycleNo]?.defectRemarks || {},
+          defectDescriptions: cycleDetails[cycleNo]?.defectDescriptions || {},
           okayEvaluationTypes: cycleDetails[cycleNo]?.okayEvaluationTypes || {},
           missedEvaluationTypes: cycleDetails[cycleNo]?.missedEvaluationTypes || {}
         };
@@ -287,69 +334,126 @@ const ProductQualityIndex: React.FC = () => {
     } catch (error) {
       console.error("Error loading data:", error);
       setIsSummaryVisible(false);
-      setSummaryData([]);
-      setCategorySummary({});
-      setCycleCount(0);
+      dispatch(setCycleCount(0));
     } finally {
       setIsLoadingSummary(false);
     }
   };
 
-  // Process offline data for summary display
+  // Process offline data for summary display - match GET cycle data API logic exactly
   const processOfflineData = () => {
-    if (!isOfflineStarted || offlineSubmissions.length === 0) {
+    if (!isOfflineStarted) {
       return;
     }
 
     console.log('Processing offline data for summary display...');
     
-    // Combine all offline submissions into summary data
+    // Get existing cycle data from Redux (data from before going offline)
+    const existingCycleData = cycleData || [];
+    
+    // Get new offline submissions and remove duplicates
     const offlineSummaryData = offlineSubmissions.flatMap(submission => submission.records);
     
-    // Process the offline data
-    const processed = processData(offlineSummaryData);
-    setCategorySummary(processed.summary);
-    setCycleCount(processed.totalCycles);
+    // Remove duplicates from existing cycle data and offline submissions
+    const combinedData = removeDuplicateCycleData(existingCycleData, offlineSummaryData);
+    
+    // Store combined data in Redux
+    dispatch(setSummaryData(combinedData));
+    dispatch(setCycleData(combinedData));
+    
+    // Process the combined data
+    const processed = processData(combinedData);
+    dispatch(setCycleCount(processed.totalCycles));
     setIsSummaryVisible(true);
     
-    // Update cycle status based on offline submissions
-    const newCycleStatus = { ...cycleStatus };
+    // Process cycle details exactly like GET cycle data API
+    const completedCycles = new Set<number>();
+    const cycleDetails: { [cycleNo: number]: { defects: string[], okays: string[], defectCategories: { [item: string]: string }, evaluationTypes: { [item: string]: string }, defectRemarks: { [item: string]: string }, defectDescriptions: { [item: string]: string }, okayEvaluationTypes: { [item: string]: string }, missedEvaluationTypes: { [item: string]: string } } } = {};
+    
+    // Process existing cycle data from Redux
+    existingCycleData.forEach((item: any) => {
+      const cycleMatch = item.cr3ea_cycle?.match(/Cycle-(\d+)/);
+      if (cycleMatch) {
+        const cycleNo = parseInt(cycleMatch[1]);
+        completedCycles.add(cycleNo);
+        
+        if (!cycleDetails[cycleNo]) {
+          cycleDetails[cycleNo] = { defects: [], okays: [], defectCategories: {}, evaluationTypes: {}, defectRemarks: {}, defectDescriptions: {}, okayEvaluationTypes: {}, missedEvaluationTypes: {} };
+        }
+        
+        if (item.cr3ea_criteria === 'Okay') {
+          cycleDetails[cycleNo].okays.push(item.cr3ea_evaluationtype || 'Unknown');
+          cycleDetails[cycleNo].okayEvaluationTypes[item.cr3ea_evaluationtype || 'Unknown'] = item.cr3ea_evaluationtype || 'Unknown';
+        } else if (item.cr3ea_criteria === 'Not Okay') {
+          cycleDetails[cycleNo].defects.push(item.cr3ea_evaluationtype || 'Unknown');
+          cycleDetails[cycleNo].defectCategories[item.cr3ea_evaluationtype || 'Unknown'] = item.cr3ea_defectcategory || 'Category B';
+          cycleDetails[cycleNo].evaluationTypes[item.cr3ea_evaluationtype || 'Unknown'] = item.cr3ea_evaluationtype || 'Unknown';
+          cycleDetails[cycleNo].defectDescriptions[item.cr3ea_evaluationtype || 'Unknown'] = item.cr3ea_defect || '';
+          cycleDetails[cycleNo].defectRemarks[item.cr3ea_evaluationtype || 'Unknown'] = item.cr3ea_defectremarks || '';
+        } else if (!item.cr3ea_criteria || item.cr3ea_criteria === null) {
+          cycleDetails[cycleNo].missedEvaluationTypes[item.cr3ea_evaluationtype] = item.cr3ea_evaluationtype;
+        }
+      }
+    });
+    
+    // Process new offline submissions
     offlineSubmissions.forEach(submission => {
       const cycleNo = submission.cycleNo;
       const records = submission.records;
       
-      const defects: string[] = [];
-      const okays: string[] = [];
-      const defectCategories: { [key: string]: string } = {};
-      const evaluationTypes: { [key: string]: string } = {};
-      const defectRemarks: { [key: string]: string } = {};
+      completedCycles.add(cycleNo);
       
-      records.forEach((record: any) => {
-        if (record.cr3ea_criteria === 'Okay') {
-          okays.push(record.cr3ea_evaluationtype);
-        } else if (record.cr3ea_criteria === 'Not Okay') {
-          defects.push(record.cr3ea_evaluationtype);
-          defectCategories[record.cr3ea_evaluationtype] = record.cr3ea_defectcategory || 'Category B';
-          evaluationTypes[record.cr3ea_evaluationtype] = record.cr3ea_evaluationtype;
-          defectRemarks[record.cr3ea_evaluationtype] = record.cr3ea_defectremarks || '';
+      if (!cycleDetails[cycleNo]) {
+        cycleDetails[cycleNo] = { defects: [], okays: [], defectCategories: {}, evaluationTypes: {}, defectRemarks: {}, defectDescriptions: {}, okayEvaluationTypes: {}, missedEvaluationTypes: {} };
+      }
+      
+      records.forEach((item: any) => {
+        if (item.cr3ea_criteria === 'Okay') {
+          cycleDetails[cycleNo].okays.push(item.cr3ea_evaluationtype || 'Unknown');
+          // Store the evaluation type for okay items
+          cycleDetails[cycleNo].okayEvaluationTypes[item.cr3ea_evaluationtype || 'Unknown'] = item.cr3ea_evaluationtype || 'Unknown';
+        } else if (item.cr3ea_criteria === 'Not Okay') {
+          cycleDetails[cycleNo].defects.push(item.cr3ea_evaluationtype || 'Unknown');
+          // Store the defect category for this item
+          cycleDetails[cycleNo].defectCategories[item.cr3ea_evaluationtype || 'Unknown'] = item.cr3ea_defectcategory || 'Category B';
+          // Store the evaluation type for this item (CBB item name)
+          cycleDetails[cycleNo].evaluationTypes[item.cr3ea_evaluationtype || 'Unknown'] = item.cr3ea_evaluationtype || 'Unknown';
+          // Store the defect description for this item (from defect input field)
+          cycleDetails[cycleNo].defectDescriptions[item.cr3ea_evaluationtype || 'Unknown'] = item.cr3ea_defect || '';
+          // Store the major defect remarks for this item (from major defect input field)
+          cycleDetails[cycleNo].defectRemarks[item.cr3ea_evaluationtype || 'Unknown'] = item.cr3ea_defectremarks || '';
+        } else if (!item.cr3ea_criteria || item.cr3ea_criteria === null) {
+          cycleDetails[cycleNo].missedEvaluationTypes[item.cr3ea_evaluationtype] = item.cr3ea_evaluationtype;
         }
       });
-      
+    });
+    
+    // Update cycle status based on cycle details - exactly like GET cycle data API
+    const newCycleStatus = { ...cycleStatus };
+    completedCycles.forEach(cycleNo => {
       newCycleStatus[cycleNo] = {
         started: true,
         completed: true,
-        defects,
-        okays,
-        defectCategories,
-        evaluationTypes,
-        defectRemarks,
-        okayEvaluationTypes: {},
-        missedEvaluationTypes: {}
+        defects: cycleDetails[cycleNo]?.defects || [],
+        okays: cycleDetails[cycleNo]?.okays || [],
+        defectCategories: cycleDetails[cycleNo]?.defectCategories || {},
+        evaluationTypes: cycleDetails[cycleNo]?.evaluationTypes || {},
+        defectRemarks: cycleDetails[cycleNo]?.defectRemarks || {},
+        defectDescriptions: cycleDetails[cycleNo]?.defectDescriptions || {},
+        okayEvaluationTypes: cycleDetails[cycleNo]?.okayEvaluationTypes || {},
+        missedEvaluationTypes: cycleDetails[cycleNo]?.missedEvaluationTypes || {}
       };
     });
     
+    // Find the next available cycle (first non-completed cycle)
+    let nextAvailableCycle = 1;
+    while (nextAvailableCycle <= totalCycles && completedCycles.has(nextAvailableCycle)) {
+      nextAvailableCycle++;
+    }
+    
+    setActiveCycle(nextAvailableCycle);
     setCycleStatus(newCycleStatus);
-    console.log('Offline data processed for summary display');
+    console.log('Offline data processed for summary display - matching GET cycle data API logic');
   };
 
   // Use this function after save and in useEffect
@@ -357,9 +461,7 @@ const ProductQualityIndex: React.FC = () => {
     const fetchSummary = async () => {
       if (!plantTourId) {
         setIsSummaryVisible(false);
-        setSummaryData([]);
-        setCategorySummary({});
-        setCycleCount(0);
+        dispatch(setCycleCount(0));
         return;
       }
       
@@ -450,7 +552,7 @@ const ProductQualityIndex: React.FC = () => {
     if (isOfflineStarted) {
       console.log('Saving data in offline mode to Redux...');
       
-      // Store submission in Redux
+      // Store submission in Redux (existing offline submission)
       const offlineSubmission = {
         cycleNo,
         records,
@@ -459,7 +561,41 @@ const ProductQualityIndex: React.FC = () => {
       };
       
       dispatch(addOfflineSubmission(offlineSubmission));
+      
+      // Store POST API data (for syncing to server)
+      const postApiData = {
+        cycleNo,
+        records,
+        timestamp: Date.now(),
+        plantTourId: plantTourId || ''
+      };
+      dispatch(addPostApiData(postApiData));
+      
+      // Store GET API data model (for display - matches API response format)
+      const getApiDataModel = records.map(record => ({
+        cr3ea_evaluationtype: record.cr3ea_evaluationtype,
+        cr3ea_criteria: record.cr3ea_criteria,
+        cr3ea_cycle: record.cr3ea_cycle,
+        cr3ea_defect: record.cr3ea_defect,
+        cr3ea_defectcategory: (record as any).cr3ea_defectcategory || '',
+        cr3ea_defectremarks: (record as any).cr3ea_defectremarks || '',
+        cr3ea_title: record.cr3ea_title,
+        cr3ea_expiry: record.cr3ea_expiry,
+        cr3ea_shift: record.cr3ea_shift,
+        cr3ea_batchno: record.cr3ea_batchno,
+        cr3ea_lineno: record.cr3ea_lineno,
+        cr3ea_category: record.cr3ea_category,
+        cr3ea_pkd: record.cr3ea_pkd,
+        cr3ea_tourstartdate: record.cr3ea_tourstartdate,
+        cr3ea_productname: record.cr3ea_productname,
+        cr3ea_observedby: record.cr3ea_observedby,
+        cr3ea_qualitytourid: record.cr3ea_qualitytourid
+      }));
+      dispatch(addGetApiDataModel(getApiDataModel));
+      
       console.log('Data saved to Redux. Total offline submissions:', offlineSubmissions.length + 1);
+      console.log('POST API data saved for syncing');
+      console.log('GET API data model saved for display');
       alert('Data saved offline. Will sync when you cancel or sync offline mode.');
       
       // Refresh offline data display
@@ -499,11 +635,11 @@ const ProductQualityIndex: React.FC = () => {
     }
   };
 
-  // Calculate summary statistics from API data or offline data
+  // Calculate summary statistics from Redux data (API or offline)
   const calculateSummaryStats = () => {
-    let dataToProcess = summaryData;
+    let dataToProcess = summaryData || [];
     
-    // If in offline mode and no API data, use offline submissions
+    // If in offline mode and no Redux summary data, use offline submissions
     if (isOfflineStarted && (!summaryData || summaryData.length === 0)) {
       console.log('Using offline data for summary statistics...');
       dataToProcess = offlineSubmissions.flatMap(submission => submission.records);
@@ -1018,7 +1154,7 @@ const ProductQualityIndex: React.FC = () => {
                                     <tr key={index} className="bg-white">
                                       <td className="px-4 py-2 border font-semibold">{status.evaluationTypes[defect] || defect}</td>
                                       <td className="px-4 py-2 border">{status.defectCategories[defect] || 'Category B'}</td>
-                                      <td className="px-4 py-2 border">{defect}</td>
+                                      <td className="px-4 py-2 border">{status.defectDescriptions[defect] || defect}</td>
                                       <td className="px-4 py-2 border">{status.defectRemarks[defect] || ''}</td>
                                     </tr>
                                   ))
