@@ -13,7 +13,7 @@ import { fetchEmployeeList } from "../Services/getEmployeeDetails";
 import { useDispatch, useSelector } from "react-redux";
 import DashboardLayout from "../components/DashboardLayout";
 import { setPlantTourId, setEmployeeDetails, clearAllDataExceptEssential, setSummaryData, setCycleData, setLastFetchTimestamp, setCategorySummary, setCycleCount } from "../store/planTourSlice";
-import { setOfflineStarted, setOfflineCompleted, setProgress, resetOfflineState, clearOfflineSubmissions } from "../store/stateSlice.ts";
+import { setOfflineStarted, setOfflineCompleted, setProgress, resetOfflineState} from "../store/stateSlice.ts";
 import { createOrFetchPlantTour } from "../Services/createOrFetchPlantTour";
 import { getAccessToken } from "../Services/getAccessToken";
 import { saveSectionData } from "../Services/saveSectionData";
