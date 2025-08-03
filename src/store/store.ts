@@ -17,7 +17,7 @@ const userPersistConfig = {
 const planTourPersistConfig = {
   key: "planTour",
   storage,
-  whitelist: ["plantTourId", "employeeDetails", "selectedCycle", "selectedTour", "sectionDetails"]
+  whitelist: ["plantTourId", "employeeDetails", "selectedCycle", "selectedTour", "sectionDetails", "summaryData", "cycleData", "lastFetchTimestamp"]
 };
 
 // Persist config for appState

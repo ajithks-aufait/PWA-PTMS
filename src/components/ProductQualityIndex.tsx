@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState } from "../store/store";
+import store, { persistor } from "../store/store";
 import DashboardLayout from "./DashboardLayout";
 import { fetchSummaryData } from "../Services/getSummaryData";
 import { getAccessToken } from "../Services/getAccessToken";
@@ -52,39 +53,6 @@ const checklistItems: { [key: number]: string[] } = {
 
 const totalCycles = 8;
 
-// Process data by category and count defects
-function processData(data: any[]) {
-  const summary: Record<string, { okays: number; aDefects: number; bDefects: number; cDefects: number }> = {};
-  const uniqueCycles = new Set();
-
-  data.forEach(item => {
-    const category = item.cr3ea_category || 'Unknown';
-    const cycle = item.cr3ea_cycle;
-
-    if (cycle) {
-      uniqueCycles.add(cycle);
-    }
-
-    if (!summary[category]) {
-      summary[category] = { okays: 0, aDefects: 0, bDefects: 0, cDefects: 0 };
-    }
-
-    if (item.cr3ea_criteria === 'Okay') {
-      summary[category].okays++;
-    } else {
-      if (item.cr3ea_defectcategory === 'Category A') summary[category].aDefects++;
-      if (item.cr3ea_defectcategory === 'Category B') summary[category].bDefects++;
-      if (item.cr3ea_defectcategory === 'Category C') summary[category].cDefects++;
-    }
-  });
-
-  // Return both summary and cycle count
-  return {
-    summary,
-    totalCycles: uniqueCycles.size
-  };
-}
-
 const ProductQualityIndex: React.FC = () => {
   const [activeCycle, setActiveCycle] = useState<number>(1);
   const [cycleStatus, setCycleStatus] = useState<CycleStatusMap>(
@@ -109,9 +77,6 @@ const ProductQualityIndex: React.FC = () => {
   const reduxSummaryData = useSelector((state: RootState) => state.planTour.summaryData);
   const reduxCycleData = useSelector((state: RootState) => state.planTour.cycleData);
   const lastFetchTimestamp = useSelector((state: RootState) => state.planTour.lastFetchTimestamp);
-  const [categorySummary, setCategorySummary] = useState<any>({});
-  const [cycleCount, setCycleCount] = useState<number>(0);
-  const [isSummaryVisible, setIsSummaryVisible] = useState(true);
   // Local state for form fields per cycle
   const [formFields, setFormFields] = useState<{ [cycleNo: number]: any }>({});
   // State for expanded completed cycle
@@ -208,6 +173,102 @@ const ProductQualityIndex: React.FC = () => {
     return (Date.now() - lastFetchTimestamp) < fiveMinutes;
   };
 
+  // Function to fetch completed cycle details using reduxCycleData
+  const fetchCompletedCycleDetails = () => {
+    let cycleDataToProcess = reduxCycleData;
+    
+    // In offline mode, combine Redux cycle data with offline submissions
+    if (isOfflineStarted) {
+      if (reduxCycleData && reduxCycleData.length > 0) {
+        console.log("Offline mode: Using reduxCycleData for completed cycle details:", reduxCycleData.length, "records");
+        cycleDataToProcess = reduxCycleData;
+      } else if (offlineSubmissions && offlineSubmissions.length > 0) {
+        console.log("Offline mode: Using offline submissions for completed cycle details");
+        cycleDataToProcess = offlineSubmissions.flatMap(submission => submission.records);
+      } else {
+        console.log("Offline mode: No cycle data available");
+        return;
+      }
+    } else {
+      if (!reduxCycleData || reduxCycleData.length === 0) {
+        console.log("No cycle data available in Redux");
+        return;
+      }
+      console.log("Using reduxCycleData to fetch completed cycle details:", reduxCycleData.length, "records");
+    }
+    
+    // Process the cycle data to determine completed cycles
+    const completedCycles = new Set<number>();
+    const cycleDetails: { [cycleNo: number]: { defects: string[], okays: string[], defectCategories: { [item: string]: string }, evaluationTypes: { [item: string]: string }, defectRemarks: { [item: string]: string }, okayEvaluationTypes: { [item: string]: string }, missedEvaluationTypes: { [item: string]: string } } } = {};
+    
+    cycleDataToProcess.forEach((item: any) => {
+      const cycleMatch = item.cr3ea_cycle?.match(/Cycle-(\d+)/);
+      if (cycleMatch) {
+        const cycleNo = parseInt(cycleMatch[1]);
+        completedCycles.add(cycleNo);
+        
+        if (!cycleDetails[cycleNo]) {
+          cycleDetails[cycleNo] = { 
+            defects: [], 
+            okays: [], 
+            defectCategories: {}, 
+            evaluationTypes: {}, 
+            defectRemarks: {}, 
+            okayEvaluationTypes: {}, 
+            missedEvaluationTypes: {} 
+          };
+        }
+        
+        // Process based on criteria
+        if (item.cr3ea_criteria === 'Okay') {
+          const evaluationType = item.cr3ea_evaluationtype || item.cr3ea_defect || 'Unknown';
+          cycleDetails[cycleNo].okays.push(evaluationType);
+          cycleDetails[cycleNo].okayEvaluationTypes[evaluationType] = evaluationType;
+        } else if (item.cr3ea_criteria === 'Not Okay') {
+          const defectItem = item.cr3ea_defect || item.cr3ea_evaluationtype || 'Unknown';
+          cycleDetails[cycleNo].defects.push(defectItem);
+          cycleDetails[cycleNo].defectCategories[defectItem] = item.cr3ea_defectcategory || 'Category B';
+          cycleDetails[cycleNo].evaluationTypes[defectItem] = item.cr3ea_evaluationtype || defectItem;
+          cycleDetails[cycleNo].defectRemarks[defectItem] = item.cr3ea_defectremarks || '';
+        } else if (!item.cr3ea_criteria || item.cr3ea_criteria === null) {
+          // Handle missed evaluations
+          const missedItem = item.cr3ea_evaluationtype || item.cr3ea_defect || 'Unknown';
+          cycleDetails[cycleNo].missedEvaluationTypes[missedItem] = missedItem;
+        }
+      }
+    });
+    
+    console.log('Processed cycle details from reduxCycleData:', cycleDetails);
+    
+    // Update cycle status based on cycle details from reduxCycleData
+    const newCycleStatus = { ...cycleStatus };
+    completedCycles.forEach(cycleNo => {
+      newCycleStatus[cycleNo] = {
+        started: true,
+        completed: true,
+        defects: cycleDetails[cycleNo]?.defects || [],
+        okays: cycleDetails[cycleNo]?.okays || [],
+        defectCategories: cycleDetails[cycleNo]?.defectCategories || {},
+        evaluationTypes: cycleDetails[cycleNo]?.evaluationTypes || {},
+        defectRemarks: cycleDetails[cycleNo]?.defectRemarks || {},
+        okayEvaluationTypes: cycleDetails[cycleNo]?.okayEvaluationTypes || {},
+        missedEvaluationTypes: cycleDetails[cycleNo]?.missedEvaluationTypes || {}
+      };
+    });
+    
+    // Find the next available cycle (first non-completed cycle)
+    let nextAvailableCycle = 1;
+    while (nextAvailableCycle <= totalCycles && completedCycles.has(nextAvailableCycle)) {
+      nextAvailableCycle++;
+    }
+    
+    setActiveCycle(nextAvailableCycle);
+    setCycleStatus(newCycleStatus);
+    
+    console.log('Updated cycle status from reduxCycleData:', newCycleStatus);
+    console.log('Next available cycle:', nextAvailableCycle);
+  };
+
   const fetchAndDisplaySummary = async (accessToken: string, qualityTourId: string) => {
     setIsLoadingSummary(true);
     
@@ -215,6 +276,8 @@ const ProductQualityIndex: React.FC = () => {
     if (reduxSummaryData.length > 0 && reduxCycleData.length > 0 && isCacheValid()) {
       console.log("Using cached data from Redux");
       processApiData(reduxSummaryData, reduxCycleData);
+      // Also fetch completed cycle details from reduxCycleData
+      fetchCompletedCycleDetails();
       setIsLoadingSummary(false);
       return;
     }
@@ -237,13 +300,10 @@ const ProductQualityIndex: React.FC = () => {
       // Process the data
       processApiData(summaryData || [], cycleData || []);
       
-          } catch (error) {
-        console.error("Error loading data:", error);
-        setIsSummaryVisible(false);
-        dispatch(setSummaryData([]));
-        setCategorySummary({});
-        setCycleCount(0);
-      } finally {
+    } catch (error) {
+      console.error("Error loading data:", error);
+      dispatch(setSummaryData([]));
+    } finally {
       setIsLoadingSummary(false);
     }
   };
@@ -252,16 +312,9 @@ const ProductQualityIndex: React.FC = () => {
   const processApiData = (summaryData: any[], cycleData: any[]) => {
     // Process summary data
     if (!summaryData || summaryData.length === 0) {
-      setIsSummaryVisible(false);
       dispatch(setSummaryData([]));
-      setCategorySummary({});
-      setCycleCount(0);
     } else {
-      setIsSummaryVisible(true);
       dispatch(setSummaryData(summaryData));
-      const processed = processData(summaryData);
-      setCategorySummary(processed.summary);
-      setCycleCount(processed.totalCycles);
     }
     
     // Process cycle details to determine completed cycles
@@ -269,6 +322,8 @@ const ProductQualityIndex: React.FC = () => {
     const cycleDetails: { [cycleNo: number]: { defects: string[], okays: string[], defectCategories: { [item: string]: string }, evaluationTypes: { [item: string]: string }, defectRemarks: { [item: string]: string }, okayEvaluationTypes: { [item: string]: string }, missedEvaluationTypes: { [item: string]: string } } } = {};
     
     if (cycleData && cycleData.length > 0) {
+      console.log('Processing cycle data:', cycleData.length, 'records');
+      
       cycleData.forEach((item: any) => {
         const cycleMatch = item.cr3ea_cycle?.match(/Cycle-(\d+)/);
         if (cycleMatch) {
@@ -276,22 +331,37 @@ const ProductQualityIndex: React.FC = () => {
           completedCycles.add(cycleNo);
           
           if (!cycleDetails[cycleNo]) {
-            cycleDetails[cycleNo] = { defects: [], okays: [], defectCategories: {}, evaluationTypes: {}, defectRemarks: {}, okayEvaluationTypes: {}, missedEvaluationTypes: {} };
+            cycleDetails[cycleNo] = { 
+              defects: [], 
+              okays: [], 
+              defectCategories: {}, 
+              evaluationTypes: {}, 
+              defectRemarks: {}, 
+              okayEvaluationTypes: {}, 
+              missedEvaluationTypes: {} 
+            };
           }
           
+          // Process based on criteria
           if (item.cr3ea_criteria === 'Okay') {
-            cycleDetails[cycleNo].okays.push(item.cr3ea_evaluationtype || 'Unknown');
-            cycleDetails[cycleNo].okayEvaluationTypes[item.cr3ea_defect || 'Unknown'] = item.cr3ea_evaluationtype || 'Unknown';
+            const evaluationType = item.cr3ea_evaluationtype || item.cr3ea_defect || 'Unknown';
+            cycleDetails[cycleNo].okays.push(evaluationType);
+            cycleDetails[cycleNo].okayEvaluationTypes[evaluationType] = evaluationType;
           } else if (item.cr3ea_criteria === 'Not Okay') {
-            cycleDetails[cycleNo].defects.push(item.cr3ea_defect || 'Unknown');
-            cycleDetails[cycleNo].defectCategories[item.cr3ea_defect || 'Unknown'] = item.cr3ea_defectcategory || 'Category B';
-            cycleDetails[cycleNo].evaluationTypes[item.cr3ea_defect || 'Unknown'] = item.cr3ea_evaluationtype || 'Unknown';
-            cycleDetails[cycleNo].defectRemarks[item.cr3ea_defect || 'Unknown'] = item.cr3ea_defectremarks || '';
+            const defectItem = item.cr3ea_defect || item.cr3ea_evaluationtype || 'Unknown';
+            cycleDetails[cycleNo].defects.push(defectItem);
+            cycleDetails[cycleNo].defectCategories[defectItem] = item.cr3ea_defectcategory || 'Category B';
+            cycleDetails[cycleNo].evaluationTypes[defectItem] = item.cr3ea_evaluationtype || defectItem;
+            cycleDetails[cycleNo].defectRemarks[defectItem] = item.cr3ea_defectremarks || '';
           } else if (!item.cr3ea_criteria || item.cr3ea_criteria === null) {
-            cycleDetails[cycleNo].missedEvaluationTypes[item.cr3ea_evaluationtype] = item.cr3ea_evaluationtype;
+            // Handle missed evaluations
+            const missedItem = item.cr3ea_evaluationtype || item.cr3ea_defect || 'Unknown';
+            cycleDetails[cycleNo].missedEvaluationTypes[missedItem] = missedItem;
           }
         }
       });
+      
+      console.log('Processed cycle details:', cycleDetails);
     }
     
     // Update cycle status based on cycle details API data
@@ -318,25 +388,29 @@ const ProductQualityIndex: React.FC = () => {
     
     setActiveCycle(nextAvailableCycle);
     setCycleStatus(newCycleStatus);
+    
+    console.log('Updated cycle status:', newCycleStatus);
+    console.log('Next available cycle:', nextAvailableCycle);
   };
 
 
   // Process offline data for summary display
   const processOfflineData = () => {
-    if (!isOfflineStarted || offlineSubmissions.length === 0) {
+    if (!isOfflineStarted) {
       return;
     }
 
-    console.log('Processing offline data for summary display...');
-    
-    // Combine all offline submissions into summary data
-    const offlineSummaryData = offlineSubmissions.flatMap(submission => submission.records);
-    
-    // Process the offline data
-    const processed = processData(offlineSummaryData);
-    setCategorySummary(processed.summary);
-    setCycleCount(processed.totalCycles);
-    setIsSummaryVisible(true);
+    // If we have Redux data, use that instead of offline submissions
+    if (reduxCycleData && reduxCycleData.length > 0) {
+      console.log("Offline mode: Using Redux cycle data instead of offline submissions");
+      return; // Let fetchCompletedCycleDetails handle this
+    }
+
+    if (offlineSubmissions.length === 0) {
+      return;
+    }
+
+    console.log("Offline mode: Processing offline submissions for cycle details");
     
     // Update cycle status based on offline submissions
     const newCycleStatus = { ...cycleStatus };
@@ -394,15 +468,23 @@ const ProductQualityIndex: React.FC = () => {
   useEffect(() => {
     const fetchSummary = async () => {
       if (!plantTourId) {
-        setIsSummaryVisible(false);
         dispatch(setSummaryData([]));
-        setCategorySummary({});
-        setCycleCount(0);
         return;
       }
       
-      // If in offline mode, process offline data
+      // If in offline mode, use Redux data for both summary and cycle details
       if (isOfflineStarted) {
+        console.log("Offline mode: Using Redux data for summary and cycle details");
+        // Use reduxSummaryData for summary calculations
+        if (reduxSummaryData && reduxSummaryData.length > 0) {
+          console.log("Using cached summary data from Redux for offline mode");
+        }
+        // Use reduxCycleData for completed cycle details
+        if (reduxCycleData && reduxCycleData.length > 0) {
+          console.log("Using cached cycle data from Redux for offline mode");
+          fetchCompletedCycleDetails();
+        }
+        // Also process offline submissions for additional data
         processOfflineData();
         return;
       }
@@ -414,7 +496,26 @@ const ProductQualityIndex: React.FC = () => {
       await fetchAndDisplaySummary(accessToken, plantTourId);
     };
     fetchSummary();
-  }, [plantTourId, isOfflineStarted, offlineSubmissions]);
+  }, [plantTourId, isOfflineStarted, offlineSubmissions, reduxSummaryData, reduxCycleData]);
+
+  // Effect to fetch completed cycle details when reduxCycleData changes
+  useEffect(() => {
+    if (reduxCycleData && reduxCycleData.length > 0 && !isOfflineStarted) {
+      console.log("reduxCycleData changed, fetching completed cycle details");
+      fetchCompletedCycleDetails();
+    }
+  }, [reduxCycleData, isOfflineStarted]);
+
+  // Debug effect to log Redux data persistence
+  useEffect(() => {
+    console.log("Redux Data Status:", {
+      summaryDataLength: reduxSummaryData?.length || 0,
+      cycleDataLength: reduxCycleData?.length || 0,
+      lastFetchTimestamp,
+      isOfflineStarted,
+      plantTourId
+    });
+  }, [reduxSummaryData, reduxCycleData, lastFetchTimestamp, isOfflineStarted, plantTourId]);
 
   // After save, call fetchAndDisplaySummary instead of fetchSummaryData
   const handleSave = async (cycleNo: number) => {
@@ -535,16 +636,40 @@ const ProductQualityIndex: React.FC = () => {
         await fetchAndDisplaySummary(accessToken, plantTourId || "");
       }
     }
+
+    // Force persist data to localStorage after save
+    console.log("Saving data to localStorage after cycle completion");
+    const currentState = store.getState();
+    console.log("Current Redux state before persist:", {
+      summaryDataLength: currentState.planTour.summaryData?.length || 0,
+      cycleDataLength: currentState.planTour.cycleData?.length || 0
+    });
+    
+    // Manually persist the data
+    try {
+      await persistor.persist();
+      console.log("Data successfully persisted to localStorage");
+    } catch (error) {
+      console.error("Error persisting data:", error);
+    }
   };
 
   // Calculate summary statistics from API data or offline data
   const calculateSummaryStats = () => {
     let dataToProcess = reduxSummaryData;
     
-    // If in offline mode and no API data, use offline submissions
-    if (isOfflineStarted && (!reduxSummaryData || reduxSummaryData.length === 0)) {
-      console.log('Using offline data for summary statistics...');
-      dataToProcess = offlineSubmissions.flatMap(submission => submission.records);
+    // In offline mode, prioritize Redux data, then fall back to offline submissions
+    if (isOfflineStarted) {
+      if (reduxSummaryData && reduxSummaryData.length > 0) {
+        console.log('Offline mode: Using reduxSummaryData for summary statistics');
+        dataToProcess = reduxSummaryData;
+      } else if (offlineSubmissions && offlineSubmissions.length > 0) {
+        console.log('Offline mode: Using offline submissions for summary statistics');
+        dataToProcess = offlineSubmissions.flatMap(submission => submission.records);
+      } else {
+        console.log('Offline mode: No data available for summary statistics');
+        dataToProcess = [];
+      }
     }
     
     if (!dataToProcess || dataToProcess.length === 0) {
@@ -691,6 +816,50 @@ const ProductQualityIndex: React.FC = () => {
 
   const summaryStats = calculateSummaryStats();
 
+  // Check if data was restored from localStorage on component mount
+  useEffect(() => {
+    const checkPersistedData = async () => {
+      // Wait for persistor to rehydrate
+      await persistor.persist();
+      
+      const persistedData = localStorage.getItem('persist:planTour');
+      if (persistedData) {
+        try {
+          const parsed = JSON.parse(persistedData);
+          console.log("Persisted planTour data found:", {
+            hasSummaryData: !!parsed.summaryData,
+            hasCycleData: !!parsed.cycleData,
+            summaryDataLength: parsed.summaryData ? JSON.parse(parsed.summaryData).length : 0,
+            cycleDataLength: parsed.cycleData ? JSON.parse(parsed.cycleData).length : 0
+          });
+          
+          // If we have persisted data but Redux state is empty, try to restore it
+          if ((!reduxSummaryData || reduxSummaryData.length === 0) && parsed.summaryData) {
+            console.log("Attempting to restore summary data from localStorage");
+            const summaryData = JSON.parse(parsed.summaryData);
+            if (summaryData && summaryData.length > 0) {
+              dispatch(setSummaryData(summaryData));
+            }
+          }
+          
+          if ((!reduxCycleData || reduxCycleData.length === 0) && parsed.cycleData) {
+            console.log("Attempting to restore cycle data from localStorage");
+            const cycleData = JSON.parse(parsed.cycleData);
+            if (cycleData && cycleData.length > 0) {
+              dispatch(setCycleData(cycleData));
+            }
+          }
+        } catch (error) {
+          console.error("Error parsing persisted data:", error);
+        }
+      } else {
+        console.log("No persisted planTour data found in localStorage");
+      }
+    };
+    
+    checkPersistedData();
+  }, [dispatch, reduxSummaryData, reduxCycleData]);
+
 
   return (
     <DashboardLayout>
@@ -764,59 +933,127 @@ const ProductQualityIndex: React.FC = () => {
                   <span className="ml-2 text-gray-600">Loading summary data...</span>
                 </div>
               ) : summaryStats.categories.length > 0 ? (
-                <table className="min-w-[600px] w-full text-sm text-left border-separate border-spacing-0">
-                  <thead>
-                    <tr className="text-gray-700 border-b border-gray-200">
-                      <th className="font-semibold py-2 px-2">Category</th>
-                      <th className="font-semibold text-green-700 py-2 px-2">Okays</th>
-                      <th className="font-semibold text-red-700 py-2 px-2">A Defects</th>
-                      <th className="font-semibold text-red-700 py-2 px-2">B Defects</th>
-                      <th className="font-semibold text-red-700 py-2 px-2">C Defects</th>
-                      <th className="font-semibold text-green-700 py-2 px-2">Nos of Hrs inspection/production</th>
-                      <th className="font-semibold text-green-700 py-2 px-2">Max Potential Score</th>
-                      <th className="font-semibold py-2 px-2">Score deduction</th>
-                      <th className="font-semibold py-2 px-2">Score obtained</th>
-                      <th className="font-semibold py-2 px-2">Score%"</th>
-                      <th className="font-semibold py-2 px-2">PQI Score as per weightage</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
+                <div className="space-y-4">
+                  {/* Desktop Table View */}
+                  <div className="hidden lg:block overflow-x-auto">
+                    <table className="min-w-[600px] w-full text-sm text-left border-separate border-spacing-0">
+                      <thead>
+                        <tr className="text-gray-700 border-b border-gray-200">
+                          <th className="font-semibold py-2 px-2">Category</th>
+                          <th className="font-semibold text-green-700 py-2 px-2">Okays</th>
+                          <th className="font-semibold text-red-700 py-2 px-2">A Defects</th>
+                          <th className="font-semibold text-red-700 py-2 px-2">B Defects</th>
+                          <th className="font-semibold text-red-700 py-2 px-2">C Defects</th>
+                          <th className="font-semibold text-green-700 py-2 px-2">Hrs</th>
+                          <th className="font-semibold text-green-700 py-2 px-2">Max Score</th>
+                          <th className="font-semibold py-2 px-2">Deduction</th>
+                          <th className="font-semibold py-2 px-2">Obtained</th>
+                          <th className="font-semibold py-2 px-2">Score%"</th>
+                          <th className="font-semibold py-2 px-2">PQI Score</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {summaryStats.categories.map((category: any, index: number) => (
+                          <tr key={index} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} align-middle`}>
+                            <td className="py-4 px-2">{category.category}</td>
+                            <td className="py-4 px-2">{category.okays}</td>
+                            <td className="py-4 px-2">{category.aDefects}</td>
+                            <td className="py-4 px-2">{category.bDefects}</td>
+                            <td className="py-4 px-2">{category.cDefects}</td>
+                            <td className="py-4 px-2">{category.hours}</td>
+                            <td className="py-4 px-2">{category.maxScore}</td>
+                            <td className="py-4 px-2">{category.scoreDeduction}</td>
+                            <td className="py-4 px-2">{category.scoreObtained}</td>
+                            <td className="py-4 px-2">{category.scorePercent.toFixed(2)}%</td>
+                            <td className="py-4 px-2">{category.pqiScore.toFixed(2)}%</td>
+                          </tr>
+                        ))}
+                        {/* Broken % row */}
+                        <tr className="bg-green-50 align-middle">
+                          <td className="py-4 px-2">Broken %</td>
+                          <td className="py-4 px-2" colSpan={10}>{summaryStats.brokenPercentage}%</td>
+                        </tr>
+                        {/* Final PQI Score row */}
+                        <tr className="bg-yellow-50 align-middle">
+                          <td className="py-4 px-2">Final PQI Score post deduction of broken</td>
+                          <td className="py-4 px-2" colSpan={10}>{summaryStats.finalPQIScore}%</td>
+                        </tr>
+                        {/* PQI Status row */}
+                        <tr className="bg-red-50 align-middle">
+                          <td className="font-semibold py-4 px-2">PQI Status</td>
+                          <td colSpan={10} className="p-0">
+                            <div className={`text-white text-center py-2 rounded-b-lg font-bold ${summaryStats.pqiStatus === 'PASS' ? 'bg-green-500' : 'bg-red-500'}`}>
+                              {summaryStats.pqiStatus}
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile Card View */}
+                  <div className="lg:hidden space-y-4">
                     {summaryStats.categories.map((category: any, index: number) => (
-                      <tr key={index} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} align-middle`}>
-                        <td className="py-4 px-2">{category.category}</td>
-                        <td className="py-4 px-2">{category.okays}</td>
-                        <td className="py-4 px-2">{category.aDefects}</td>
-                        <td className="py-4 px-2">{category.bDefects}</td>
-                        <td className="py-4 px-2">{category.cDefects}</td>
-                        <td className="py-4 px-2">{category.hours}</td>
-                        <td className="py-4 px-2">{category.maxScore}</td>
-                        <td className="py-4 px-2">{category.scoreDeduction}</td>
-                        <td className="py-4 px-2">{category.scoreObtained}</td>
-                        <td className="py-4 px-2">{category.scorePercent.toFixed(2)}%</td>
-                        <td className="py-4 px-2">{category.pqiScore.toFixed(2)}%</td>
-                      </tr>
-                    ))}
-                    {/* Broken % row */}
-                    <tr className="bg-green-50 align-middle">
-                      <td className="py-4 px-2">Broken %</td>
-                      <td className="py-4 px-2" colSpan={10}>{summaryStats.brokenPercentage}%</td>
-                    </tr>
-                    {/* Final PQI Score row */}
-                    <tr className="bg-yellow-50 align-middle">
-                      <td className="py-4 px-2">Final PQI Score post deduction of broken</td>
-                      <td className="py-4 px-2" colSpan={10}>{summaryStats.finalPQIScore}%</td>
-                    </tr>
-                    {/* PQI Status row */}
-                    <tr className="bg-red-50 align-middle">
-                      <td className="font-semibold py-4 px-2">PQI Status</td>
-                      <td colSpan={10} className="p-0">
-                        <div className={`text-white text-center py-2 rounded-b-lg font-bold ${summaryStats.pqiStatus === 'PASS' ? 'bg-green-500' : 'bg-red-500'}`}>
-                          {summaryStats.pqiStatus}
+                      <div key={index} className={`bg-white border rounded-lg p-4 ${index % 2 === 0 ? 'border-gray-200' : 'border-gray-300'}`}>
+                        <div className="flex justify-between items-center mb-3">
+                          <h3 className="font-semibold text-gray-900">{category.category}</h3>
+                          <span className="text-sm font-medium text-blue-600">{category.pqiScore.toFixed(2)}%</span>
                         </div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                        
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Okays:</span>
+                            <span className="font-medium text-green-600">{category.okays}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">A Defects:</span>
+                            <span className="font-medium text-red-600">{category.aDefects}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">B Defects:</span>
+                            <span className="font-medium text-red-600">{category.bDefects}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">C Defects:</span>
+                            <span className="font-medium text-red-600">{category.cDefects}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Hours:</span>
+                            <span className="font-medium">{category.hours}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Score %:</span>
+                            <span className="font-medium">{category.scorePercent.toFixed(2)}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Mobile Summary Cards */}
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-green-800">Broken %</span>
+                        <span className="text-green-700">{summaryStats.brokenPercentage}%</span>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-yellow-800">Final PQI Score</span>
+                        <span className="text-yellow-700">{summaryStats.finalPQIScore}%</span>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-red-800">PQI Status</span>
+                        <span className={`px-3 py-1 rounded-full text-white font-bold text-sm ${summaryStats.pqiStatus === 'PASS' ? 'bg-green-500' : 'bg-red-500'}`}>
+                          {summaryStats.pqiStatus}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               ) : (
                 <div className="text-center py-8 text-gray-500">
                   No summary data available for this tour.
@@ -825,6 +1062,8 @@ const ProductQualityIndex: React.FC = () => {
             </div>
           )}
         </div>
+        
+
       </div>
 
       {/* Main Content - Cycles */}
@@ -1019,14 +1258,33 @@ const ProductQualityIndex: React.FC = () => {
 
                 {/* Show completed cycle summary */}
                 {status.completed && (
-                  <div key={cycleNo} className="">
+                  <div key={cycleNo} className="border-t pt-4">
                     <div
-                      className=" rounded-lg flex items-center justify-between cursor-pointer"
+                      className="flex items-center justify-between cursor-pointer p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                       onClick={() => handleExpand(expandedCompletedCycle === cycleNo ? null : cycleNo)}
                     >
-                      <div className="flex-1"></div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-green-600 font-semibold">✓ Completed</span>
+                          {status.defects.length > 0 && (
+                            <span className="text-red-600 bg-red-100 px-2 py-0.5 rounded-full text-xs font-medium">
+                              {status.defects.length} Defect(s)
+                            </span>
+                          )}
+                          {status.okays.length > 0 && (
+                            <span className="text-green-600 bg-green-100 px-2 py-0.5 rounded-full text-xs font-medium">
+                              {status.okays.length} Okay(s)
+                            </span>
+                          )}
+                          {Object.keys(status.missedEvaluationTypes).length > 0 && (
+                            <span className="text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded-full text-xs font-medium">
+                              {Object.keys(status.missedEvaluationTypes).length} Missed
+                            </span>
+                          )}
+                        </div>
+                      </div>
                       <button
-                        className="text-gray-400 hover:text-gray-600 focus:outline-none"
+                        className="text-gray-400 hover:text-gray-600 focus:outline-none p-1"
                         tabIndex={-1}
                         onClick={e => { e.stopPropagation(); handleExpand(expandedCompletedCycle === cycleNo ? null : cycleNo); }}
                       >
@@ -1036,76 +1294,128 @@ const ProductQualityIndex: React.FC = () => {
                       </button>
                     </div>
                     {expandedCompletedCycle === cycleNo && (
-                      <div className="pt-6">
+                      <div className="pt-4 space-y-4">
                         {/* Defects Table */}
-                        <div className="mb-4">
-                          <div className="text-red-600 font-semibold mb-2">Defects</div>
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm border rounded-md">
-                              <thead className="bg-gray-100">
-                                <tr>
-                                  <th className="px-4 py-2 border">CBB No</th>
-                                  <th className="px-4 py-2 border">Defect Category</th>
-                                  <th className="px-4 py-2 border">Defect</th>
-                                  <th className="px-4 py-2 border">Major Defect</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {status.defects.length > 0 ? (
-                                  status.defects.map((defect, index) => (
-                                    <tr key={index} className="bg-white">
-                                      <td className="px-4 py-2 border font-semibold">{status.evaluationTypes[defect] || defect}</td>
-                                      <td className="px-4 py-2 border">{status.defectCategories[defect] || 'Category B'}</td>
-                                      <td className="px-4 py-2 border">{defect}</td>
-                                      <td className="px-4 py-2 border">{status.defectRemarks[defect] || ''}</td>
+                        {status.defects.length > 0 && (
+                          <div className="mb-4">
+                            <div className="text-red-600 font-semibold mb-2 flex items-center gap-2">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                              </svg>
+                              Defects ({status.defects.length})
+                            </div>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-left text-sm border rounded-md">
+                                <thead className="bg-red-50">
+                                  <tr>
+                                    <th className="px-4 py-2 border font-medium">CBB Item</th>
+                                    <th className="px-4 py-2 border font-medium">Defect Category</th>
+                                    <th className="px-4 py-2 border font-medium">Defect Details</th>
+                                    <th className="px-4 py-2 border font-medium">Remarks</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {status.defects.map((defect, index) => (
+                                    <tr key={index} className="bg-white hover:bg-gray-50">
+                                      <td className="px-4 py-2 border font-medium text-gray-700">
+                                        {status.evaluationTypes[defect] || defect}
+                                      </td>
+                                      <td className="px-4 py-2 border">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                          status.defectCategories[defect] === 'Category A' ? 'bg-red-100 text-red-700' :
+                                          status.defectCategories[defect] === 'Category B' ? 'bg-orange-100 text-orange-700' :
+                                          status.defectCategories[defect] === 'Category C' ? 'bg-yellow-100 text-yellow-700' :
+                                          'bg-gray-100 text-gray-700'
+                                        }`}>
+                                          {status.defectCategories[defect] || 'Category B'}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-2 border text-gray-800">{defect}</td>
+                                      <td className="px-4 py-2 border text-gray-600">{status.defectRemarks[defect] || '-'}</td>
                                     </tr>
-                                  ))
-                                ) : (
-                                  <tr><td colSpan={4} className="px-4 py-2 border text-center text-gray-400">No Defects</td></tr>
-                                )}
-                              </tbody>
-                            </table>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
-                        </div>
-                        {/* Okays and Missed */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <div className="text-green-700 font-semibold mb-1">Okays</div>
+                        )}
+                        
+                        {/* Okays and Missed Summary */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {/* Okays Section */}
+                          <div className="bg-green-50 p-4 rounded-lg">
+                            <div className="text-green-700 font-semibold mb-2 flex items-center gap-2">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                              </svg>
+                              Okays ({status.okays.length})
+                            </div>
                             <div className="flex gap-2 flex-wrap">
                               {status.okays.length > 0 ? (
                                 status.okays
                                   .sort((a, b) => {
-                                    // Extract numbers from CBB items for proper sorting
                                     const aNum = parseInt(a.toString().replace(/\D/g, '')) || 0;
                                     const bNum = parseInt(b.toString().replace(/\D/g, '')) || 0;
                                     return aNum - bNum;
                                   })
                                   .map((okay, i) => (
-                                    <span key={i} className="bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">{status.okayEvaluationTypes[okay] || okay}</span>
+                                    <span key={i} className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm font-medium">
+                                      {status.okayEvaluationTypes[okay] || okay}
+                                    </span>
                                   ))
                               ) : (
-                                <span className="text-gray-400">No Okays</span>
+                                <span className="text-gray-400 italic">No Okays</span>
                               )}
                             </div>
                           </div>
-                          <div>
-                            <div className="text-gray-600 font-semibold mb-1">Missed</div>
+                          
+                          {/* Missed Section */}
+                          <div className="bg-yellow-50 p-4 rounded-lg">
+                            <div className="text-yellow-700 font-semibold mb-2 flex items-center gap-2">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                              </svg>
+                              Missed ({Object.keys(status.missedEvaluationTypes).length})
+                            </div>
                             <div className="flex gap-2 flex-wrap">
-                              {/* Show missed items from API data with null criteria in order */}
                               {Object.keys(status.missedEvaluationTypes).length > 0 ? (
                                 Object.values(status.missedEvaluationTypes)
                                   .sort((a, b) => {
-                                    // Extract numbers from CBB items for proper sorting
                                     const aNum = parseInt(a.toString().replace(/\D/g, '')) || 0;
                                     const bNum = parseInt(b.toString().replace(/\D/g, '')) || 0;
                                     return aNum - bNum;
                                   })
                                   .map((item, i) => (
-                                    <span key={i} className="bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">{item}</span>
+                                    <span key={i} className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-sm font-medium">
+                                      {item}
+                                    </span>
                                   ))
                               ) : (
-                                <span className="text-gray-400">No Missed</span>
+                                <span className="text-gray-400 italic">No Missed Items</span>
                               )}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Cycle Summary Stats */}
+                        <div className="bg-blue-50 p-4 rounded-lg">
+                          <div className="text-blue-700 font-semibold mb-2">Cycle Summary</div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-green-600">{status.okays.length}</div>
+                              <div className="text-gray-600">Okays</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-red-600">{status.defects.length}</div>
+                              <div className="text-gray-600">Defects</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-yellow-600">{Object.keys(status.missedEvaluationTypes).length}</div>
+                              <div className="text-gray-600">Missed</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-blue-600">{checklistItems[cycleNo]?.length || 0}</div>
+                              <div className="text-gray-600">Total Items</div>
                             </div>
                           </div>
                         </div>
@@ -1118,21 +1428,6 @@ const ProductQualityIndex: React.FC = () => {
           })}
         </div>
       </div>
-              {/* Example: Display processed summary and cycle count if summary is visible */}
-        {isSummaryVisible && (
-          <div className="my-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="font-semibold">Cycle Count: {cycleCount}</div>
-              {isOfflineStarted && (
-                <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                  📱 Offline Data
-                </span>
-              )}
-            </div>
-            <div className="font-semibold">Category Summary:</div>
-            <pre className="bg-gray-100 p-2 rounded text-xs">{JSON.stringify(categorySummary, null, 2)}</pre>
-          </div>
-        )}
     </DashboardLayout>
   );
 };
