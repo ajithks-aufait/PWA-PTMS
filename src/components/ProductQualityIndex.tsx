@@ -496,7 +496,7 @@ const ProductQualityIndex: React.FC = () => {
       await fetchAndDisplaySummary(accessToken, plantTourId);
     };
     fetchSummary();
-  }, [plantTourId, isOfflineStarted, offlineSubmissions, reduxSummaryData, reduxCycleData]);
+  }, [plantTourId, isOfflineStarted, offlineSubmissions]);
 
   // Effect to fetch completed cycle details when reduxCycleData changes
   useEffect(() => {
@@ -506,7 +506,7 @@ const ProductQualityIndex: React.FC = () => {
     }
   }, [reduxCycleData, isOfflineStarted]);
 
-  // Debug effect to log Redux data persistence
+  // Debug effect to log Redux data persistence (only on mount and when plantTourId changes)
   useEffect(() => {
     console.log("Redux Data Status:", {
       summaryDataLength: reduxSummaryData?.length || 0,
@@ -515,7 +515,7 @@ const ProductQualityIndex: React.FC = () => {
       isOfflineStarted,
       plantTourId
     });
-  }, [reduxSummaryData, reduxCycleData, lastFetchTimestamp, isOfflineStarted, plantTourId]);
+  }, [plantTourId]); // Only log when plantTourId changes, not on every data change
 
   // After save, call fetchAndDisplaySummary instead of fetchSummaryData
   const handleSave = async (cycleNo: number) => {
@@ -816,7 +816,7 @@ const ProductQualityIndex: React.FC = () => {
 
   const summaryStats = calculateSummaryStats();
 
-  // Check if data was restored from localStorage on component mount
+  // Check if data was restored from localStorage on component mount (only run once)
   useEffect(() => {
     const checkPersistedData = async () => {
       // Wait for persistor to rehydrate
@@ -858,7 +858,7 @@ const ProductQualityIndex: React.FC = () => {
     };
     
     checkPersistedData();
-  }, [dispatch, reduxSummaryData, reduxCycleData]);
+  }, []); // Only run once on mount
 
 
   return (
