@@ -35,6 +35,17 @@ const rootReducer = combineReducers({
 
 const store = configureStore({
   reducer: rootReducer,
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        // Ignore these action types
+        ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
+        // Ignore these field paths in all actions
+        ignoredActionPaths: ['payload.err', 'payload.error', 'error'],
+        // Ignore these paths in the state
+        ignoredPaths: ['appState.offlineSubmissions'],
+      },
+    }),
 });
 
 export const persistor = persistStore(store);
