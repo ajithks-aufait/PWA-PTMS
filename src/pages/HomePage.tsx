@@ -14,6 +14,7 @@ import { useDispatch, useSelector } from "react-redux";
 import DashboardLayout from "../components/DashboardLayout";
 import { setPlantTourId, setEmployeeDetails, clearAllDataExceptEssential, setSummaryData, setCycleData, setLastFetchTimestamp, setCategorySummary, setCycleCount } from "../store/planTourSlice";
 import { setOfflineStarted, setOfflineCompleted, setProgress, resetOfflineState} from "../store/stateSlice.ts";
+import { clearUser } from "../store/userSlice";
 import { createOrFetchPlantTour } from "../Services/createOrFetchPlantTour";
 import { getAccessToken } from "../Services/getAccessToken";
 import { saveSectionData } from "../Services/saveSectionData";
@@ -338,7 +339,51 @@ export default function HomePage() {
   }, [accounts, instance, user?.Name]);
 
   const handleLogout = () => {
-    instance.logoutPopup();
+    console.log("Logging out...");
+    
+    // Clear all Redux state
+    dispatch(clearAllDataExceptEssential());
+    dispatch(resetOfflineState());
+    dispatch(clearUser());
+    
+    // Clear localStorage (but preserve Redux persistence for offline data)
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('tokenExpiry');
+    localStorage.removeItem('offlineData');
+    // Don't clear redux-persist:root as it contains offline data
+    // localStorage.removeItem('redux-persist:root');
+    
+    // Clear sessionStorage
+    sessionStorage.clear();
+    
+    // Perform MSAL logout with redirect to login page
+    instance.logoutPopup({
+      postLogoutRedirectUri: window.location.origin
+    });
+    
+    // Navigate to login page
+    navigate("/", { replace: true });
+  };
+  
+  // Function to clear only user-related Redux persistence while preserving offline data
+  const clearUserReduxData = () => {
+    try {
+      // Get the current Redux persistence data
+      const reduxPersistData = localStorage.getItem('redux-persist:root');
+      if (reduxPersistData) {
+        const parsedData = JSON.parse(reduxPersistData);
+        
+        // Clear only user and planTour data, but preserve appState (offline data)
+        delete parsedData.user;
+        delete parsedData.planTour;
+        
+        // Save back the modified data
+        localStorage.setItem('redux-persist:root', JSON.stringify(parsedData));
+        console.log('Cleared user and planTour data while preserving offline data');
+      }
+    } catch (error) {
+      console.error('Error clearing user Redux data:', error);
+    }
   };
 
   function pad(num: number): string {
@@ -368,6 +413,28 @@ export default function HomePage() {
 
   useEffect(() => {
     startTimer();
+  }, []);
+  
+  // Debug: Check persisted offline data on component mount
+  useEffect(() => {
+    console.log('HomePage: Component mounted - checking persisted offline data');
+    console.log('HomePage: isOfflineStarted:', isOfflineStarted);
+    console.log('HomePage: offlineSubmissions length:', offlineSubmissions?.length);
+    console.log('HomePage: offlineSubmissions:', offlineSubmissions);
+    
+    // Check localStorage for Redux persistence
+    try {
+      const reduxPersistData = localStorage.getItem('redux-persist:root');
+      if (reduxPersistData) {
+        const parsedData = JSON.parse(reduxPersistData);
+        console.log('HomePage: Redux persistence data:', parsedData);
+        console.log('HomePage: appState in persistence:', parsedData.appState);
+      } else {
+        console.log('HomePage: No Redux persistence data found');
+      }
+    } catch (error) {
+      console.error('HomePage: Error reading Redux persistence data:', error);
+    }
   }, []);
 
   function startTimer(): void {
@@ -404,24 +471,41 @@ export default function HomePage() {
     if (!employee || !user || !selectedTour || !selectedShift) return;
     setIsPlantTourLoading(true);
     try {
-      const tokenResult = await getAccessToken();
-      const accessToken = tokenResult?.token;
-      if (!accessToken) throw new Error('No access token available');
-      const plantTourId = await createOrFetchPlantTour({
-        accessToken,
-        departmentId: employee.departmentId,
-        employeeName: employee.employeeName,
-        roleName: employee.roleName,
-        plantId: employee.plantId,
-        userRoleID: employee.roleId,
-      });
-      if (plantTourId) {
-        dispatch(setPlantTourId(plantTourId));
-        setIsModalOpen(false);
-        navigate("/qualityplantour");
+      // Check if we're in offline mode
+      if (isOfflineStarted) {
+        console.log('Starting offline plant tour...');
+        // For offline mode, use existing plantTourId from Redux
+        const existingPlantTourId = planTourState.plantTourId;
+        if (existingPlantTourId) {
+          console.log('Using existing plant tour ID for offline mode:', existingPlantTourId);
+          setIsModalOpen(false);
+          navigate("/qualityplantour");
+        } else {
+          throw new Error('No plant tour ID available for offline mode');
+        }
+      } else {
+        console.log('Starting online plant tour...');
+        // For online mode, create or fetch new plant tour ID
+        const tokenResult = await getAccessToken();
+        const accessToken = tokenResult?.token;
+        if (!accessToken) throw new Error('No access token available');
+        const plantTourId = await createOrFetchPlantTour({
+          accessToken,
+          departmentId: employee.departmentId,
+          employeeName: employee.employeeName,
+          roleName: employee.roleName,
+          plantId: employee.plantId,
+          userRoleID: employee.roleId,
+        });
+        if (plantTourId) {
+          dispatch(setPlantTourId(plantTourId));
+          setIsModalOpen(false);
+          navigate("/qualityplantour");
+        }
       }
     } catch (err) {
-      console.error("Failed to create or fetch plant tour ID", err);
+      console.error("Failed to start plant tour", err);
+      alert('Failed to start plant tour. Please try again.');
     } finally {
       setIsPlantTourLoading(false);
     }
@@ -470,14 +554,15 @@ export default function HomePage() {
                   )}
                 </>
               )}
-              {isOfflineStarted && (
-                <>
-                 <button
-                    className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-                    onClick={() => navigate("/qualityplantour")}
-                  >
-                    + Offline Plant Tour
-                  </button>
+                             {isOfflineStarted && (
+                 <>
+                  <button
+                     className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+                     onClick={() => setIsModalOpen(true)}
+                     disabled={isPlantTourLoading}
+                   >
+                     + Offline Plant Tour
+                   </button>
                   <button
                     className={`w-full sm:w-auto px-4 py-2 rounded-md ${
                       isOnline 

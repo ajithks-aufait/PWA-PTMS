@@ -49,24 +49,16 @@ const checklistItems: { [key: number]: string[] } = {
 const totalCycles = 8;
 
 interface CBBEvaluationProps {
-  cycleStatus: CycleStatusMap;
-  setCycleStatus: React.Dispatch<React.SetStateAction<CycleStatusMap>>;
-  selected: SelectedMap;
-  setSelected: React.Dispatch<React.SetStateAction<SelectedMap>>;
-  activeCycle: number;
-  setActiveCycle: React.Dispatch<React.SetStateAction<number>>;
-  onCycleComplete: () => void;
+  onCycleComplete?: () => void;
 }
 
 const CBBEvaluation: React.FC<CBBEvaluationProps> = ({
-  cycleStatus,
-  setCycleStatus,
-  selected,
-  setSelected,
-  activeCycle,
-  setActiveCycle,
   onCycleComplete
 }) => {
+  // Internal state management
+  const [cycleStatus, setCycleStatus] = useState<CycleStatusMap>({});
+  const [selected, setSelected] = useState<SelectedMap>({});
+  const [activeCycle, setActiveCycle] = useState<number>(1);
   const dispatch = useDispatch();
   const sectionDetails = useSelector((state: RootState) => state.planTour.sectionDetails);
   const user = useSelector((state: RootState) => state.user.user);
@@ -100,58 +92,75 @@ const CBBEvaluation: React.FC<CBBEvaluationProps> = ({
     }));
   };
 
-  // Function to process CBB-specific data from Redux
-  const processCBBData = (cycleData: any[]) => {
-    console.log('CBBEvaluation: Processing CBB data', { cycleDataLength: cycleData?.length });
-    if (!cycleData || cycleData.length === 0) return;
+     // Function to process CBB-specific data from Redux
+   const processCBBData = (cycleData: any[]) => {
+     console.log('CBBEvaluation: Processing CBB data', { cycleDataLength: cycleData?.length });
+     if (!cycleData || cycleData.length === 0) return;
 
-    // Filter data for CBB Evaluation category
-    const cbbData = cycleData.filter((item: any) => 
-      item.cr3ea_category === 'CBB Evaluation'
-    );
+     // Filter data for CBB Evaluation category
+     const cbbData = cycleData.filter((item: any) => 
+       item.cr3ea_category === 'CBB Evaluation'
+     );
 
-    console.log('CBBEvaluation: Filtered CBB data', { cbbDataLength: cbbData.length });
+     console.log('CBBEvaluation: Filtered CBB data', { cbbDataLength: cbbData.length });
 
-    // Process the cycle data to determine completed cycles
-    const completedCycles = new Set<number>();
-    const cycleDetails: { [cycleNo: number]: { defects: string[], okays: string[], defectCategories: { [item: string]: string }, evaluationTypes: { [item: string]: string }, defectRemarks: { [item: string]: string }, okayEvaluationTypes: { [item: string]: string }, missedEvaluationTypes: { [item: string]: string } } } = {};
-    
-    cbbData.forEach((item: any) => {
-      const cycleMatch = item.cr3ea_cycle?.match(/Cycle-(\d+)/);
-      if (cycleMatch) {
-        const cycleNo = parseInt(cycleMatch[1]);
-        completedCycles.add(cycleNo);
-        
-        if (!cycleDetails[cycleNo]) {
-          cycleDetails[cycleNo] = { 
-            defects: [], 
-            okays: [], 
-            defectCategories: {}, 
-            evaluationTypes: {}, 
-            defectRemarks: {}, 
-            okayEvaluationTypes: {}, 
-            missedEvaluationTypes: {} 
-          };
-        }
-        
-        // Process based on criteria
-        if (item.cr3ea_criteria === 'Okay') {
-          const evaluationType = item.cr3ea_evaluationtype || item.cr3ea_defect || 'Unknown';
-          cycleDetails[cycleNo].okays.push(evaluationType);
-          cycleDetails[cycleNo].okayEvaluationTypes[evaluationType] = evaluationType;
-        } else if (item.cr3ea_criteria === 'Not Okay') {
-          const defectItem = item.cr3ea_defect || item.cr3ea_evaluationtype || 'Unknown';
-          cycleDetails[cycleNo].defects.push(defectItem);
-          cycleDetails[cycleNo].defectCategories[defectItem] = item.cr3ea_defectcategory || 'Category B';
-          cycleDetails[cycleNo].evaluationTypes[defectItem] = item.cr3ea_evaluationtype || defectItem;
-          cycleDetails[cycleNo].defectRemarks[defectItem] = item.cr3ea_defectremarks || '';
-        } else if (!item.cr3ea_criteria || item.cr3ea_criteria === null) {
-          // Handle missed evaluations
-          const missedItem = item.cr3ea_evaluationtype || item.cr3ea_defect || 'Unknown';
-          cycleDetails[cycleNo].missedEvaluationTypes[missedItem] = missedItem;
-        }
-      }
-    });
+     // Process the cycle data to determine completed cycles
+     const completedCycles = new Set<number>();
+     const cycleDetails: { [cycleNo: number]: { defects: string[], okays: string[], defectCategories: { [item: string]: string }, evaluationTypes: { [item: string]: string }, defectRemarks: { [item: string]: string }, okayEvaluationTypes: { [item: string]: string }, missedEvaluationTypes: { [item: string]: string } } } = {};
+     const newSelected: SelectedMap = {};
+     
+     cbbData.forEach((item: any) => {
+       const cycleMatch = item.cr3ea_cycle?.match(/Cycle-(\d+)/);
+       if (cycleMatch) {
+         const cycleNo = parseInt(cycleMatch[1]);
+         completedCycles.add(cycleNo);
+         
+         if (!cycleDetails[cycleNo]) {
+           cycleDetails[cycleNo] = { 
+             defects: [], 
+             okays: [], 
+             defectCategories: {}, 
+             evaluationTypes: {}, 
+             defectRemarks: {}, 
+             okayEvaluationTypes: {}, 
+             missedEvaluationTypes: {} 
+           };
+         }
+         
+         // Initialize selected state for this cycle if not exists
+         if (!newSelected[cycleNo]) {
+           newSelected[cycleNo] = {};
+         }
+         
+         // Process based on criteria
+         if (item.cr3ea_criteria === 'Okay') {
+           const evaluationType = item.cr3ea_evaluationtype || item.cr3ea_defect || 'Unknown';
+           cycleDetails[cycleNo].okays.push(evaluationType);
+           cycleDetails[cycleNo].okayEvaluationTypes[evaluationType] = evaluationType;
+           
+           // Add to selected state
+           newSelected[cycleNo][evaluationType] = { status: 'Okay' };
+         } else if (item.cr3ea_criteria === 'Not Okay') {
+           const defectItem = item.cr3ea_defect || item.cr3ea_evaluationtype || 'Unknown';
+           cycleDetails[cycleNo].defects.push(defectItem);
+           cycleDetails[cycleNo].defectCategories[defectItem] = item.cr3ea_defectcategory || 'Category B';
+           cycleDetails[cycleNo].evaluationTypes[defectItem] = item.cr3ea_evaluationtype || defectItem;
+           cycleDetails[cycleNo].defectRemarks[defectItem] = item.cr3ea_defectremarks || '';
+           
+           // Add to selected state with defect details
+           newSelected[cycleNo][defectItem] = { 
+             status: 'Not Okay',
+             category: item.cr3ea_defectcategory || 'Category B',
+             defect: item.cr3ea_defect || defectItem,
+             majorDefect: item.cr3ea_defectremarks || ''
+           };
+         } else if (!item.cr3ea_criteria || item.cr3ea_criteria === null) {
+           // Handle missed evaluations
+           const missedItem = item.cr3ea_evaluationtype || item.cr3ea_defect || 'Unknown';
+           cycleDetails[cycleNo].missedEvaluationTypes[missedItem] = missedItem;
+         }
+       }
+     });
     
     console.log('CBBEvaluation: Processed cycle details:', cycleDetails);
     
@@ -187,16 +196,19 @@ const CBBEvaluation: React.FC<CBBEvaluationProps> = ({
       nextAvailableCycle++;
     }
     
-    // Only update state if there are actual changes
-    if (hasChanges || nextAvailableCycle !== activeCycle) {
-      setActiveCycle(nextAvailableCycle);
-      setCycleStatus(newCycleStatus);
-      
-      console.log('CBBEvaluation: Updated cycle status:', newCycleStatus);
-      console.log('CBBEvaluation: Next available cycle:', nextAvailableCycle);
-    } else {
-      console.log('CBBEvaluation: No changes detected, skipping state updates');
-    }
+         // Only update state if there are actual changes
+     if (hasChanges || nextAvailableCycle !== activeCycle) {
+       console.log(`CBBEvaluation: Updating activeCycle from ${activeCycle} to ${nextAvailableCycle}`);
+       setActiveCycle(nextAvailableCycle);
+       setCycleStatus(newCycleStatus);
+       setSelected(newSelected); // Update selected state with processed data
+       
+       console.log('CBBEvaluation: Updated cycle status:', newCycleStatus);
+       console.log('CBBEvaluation: Updated selected state:', newSelected);
+       console.log('CBBEvaluation: Next available cycle:', nextAvailableCycle);
+     } else {
+       console.log('CBBEvaluation: No changes detected, skipping state updates');
+     }
   };
 
   // Process CBB data when reduxCycleData changes
@@ -213,6 +225,12 @@ const CBBEvaluation: React.FC<CBBEvaluationProps> = ({
       } else {
         console.log('CBBEvaluation: Skipping CBB data processing - no changes detected');
       }
+    } else {
+      // If no data, reset to initial state
+      console.log('CBBEvaluation: No CBB data found, resetting to initial state');
+      setCycleStatus({});
+      setSelected({});
+      setActiveCycle(1);
     }
   }, [reduxCycleData]);
 
@@ -390,39 +408,101 @@ const CBBEvaluation: React.FC<CBBEvaluationProps> = ({
       await saveSectionData(accessToken, records);
     }
 
-    setCycleStatus((prev) => ({
-      ...prev,
-      [cycleNo]: {
-        ...prev[cycleNo],
-        completed: true,
-        defects,
-        okays,
-      },
-    }));
-    setActiveCycle((prev) => prev + 1);
+         // Collect defect details and remarks from current selections
+     const defectCategories: { [item: string]: string } = {};
+     const evaluationTypes: { [item: string]: string } = {};
+     const defectRemarks: { [item: string]: string } = {};
+     const okayEvaluationTypes: { [item: string]: string } = {};
+     const missedEvaluationTypes: { [item: string]: string } = {};
+     
+     // Process current selections to collect details
+     Object.entries(currentSelections || {}).forEach(([item, val]) => {
+       if (val.status === "Okay") {
+         okayEvaluationTypes[item] = item;
+       } else if (val.status === "Not Okay") {
+         defectCategories[item] = val.category || 'Category B';
+         evaluationTypes[item] = item;
+         defectRemarks[item] = val.majorDefect || '';
+       }
+     });
+     
+     // Add missed items
+     missedItems.forEach(item => {
+       missedEvaluationTypes[item] = item;
+     });
+     
+     // Update cycle status to completed with all details
+     setCycleStatus((prev) => ({
+       ...prev,
+       [cycleNo]: {
+         ...prev[cycleNo],
+         started: true,
+         completed: true,
+         defects,
+         okays,
+         defectCategories,
+         evaluationTypes,
+         defectRemarks,
+         okayEvaluationTypes,
+         missedEvaluationTypes
+       },
+     }));
+    
+    // Find the next available cycle
+    let nextAvailableCycle = 1;
+    const completedCycles = new Set<number>();
+    
+    // Check which cycles are completed
+    Object.entries(cycleStatus).forEach(([cycleNoStr, status]) => {
+      if (status.completed) {
+        completedCycles.add(parseInt(cycleNoStr));
+      }
+    });
+    // Add the current cycle as completed
+    completedCycles.add(cycleNo);
+    
+    // Find the first non-completed cycle
+    while (nextAvailableCycle <= totalCycles && completedCycles.has(nextAvailableCycle)) {
+      nextAvailableCycle++;
+    }
+    
+    // Update active cycle
+    setActiveCycle(nextAvailableCycle);
+    console.log(`CBBEvaluation: Cycle ${cycleNo} completed, updating activeCycle to ${nextAvailableCycle}`);
+    
     dispatch(clearSectionDetails(cycleNo));
     
-    // Call the parent's onCycleComplete callback
-    onCycleComplete();
+    // Call the parent's onCycleComplete callback if provided
+    if (onCycleComplete) {
+      onCycleComplete();
+    }
   };
+
+  // Debug logging
+  console.log('CBBEvaluation: Current state:', {
+    activeCycle,
+    cycleStatus: Object.keys(cycleStatus).length,
+    completedCycles: Object.entries(cycleStatus).filter(([_, status]) => status.completed).map(([cycleNo, _]) => cycleNo),
+    isOfflineStarted
+  });
 
   return (
     <div className="space-y-6 max-h-[70vh] overflow-y-auto">
-      {Array.from({ length: totalCycles }, (_, i) => {
-        const cycleNo = i + 1;
-        const status = cycleStatus[cycleNo];
-        const items = checklistItems[cycleNo] || [];
+             {Array.from({ length: totalCycles }, (_, i) => {
+         const cycleNo = i + 1;
+         const status = cycleStatus[cycleNo] || { started: false, completed: false, defects: [], okays: [], defectCategories: {}, evaluationTypes: {}, defectRemarks: {}, okayEvaluationTypes: {}, missedEvaluationTypes: {} };
+         const items = checklistItems[cycleNo] || [];
 
-        // Only show cycles that are: completed, active, or the immediate next cycle (disabled)
-        const shouldShow = status.completed || cycleNo === activeCycle || cycleNo === activeCycle + 1;
-        
-        // Don't render cycles that shouldn't be shown
-        if (!shouldShow) {
-          return null;
-        }
+         // Show all cycles that are completed, active, or the next available cycle
+         const shouldShow = status.completed || cycleNo === activeCycle || cycleNo === activeCycle + 1;
+         
+         // Don't render cycles that shouldn't be shown
+         if (!shouldShow) {
+           return null;
+         }
 
-        // A cycle is disabled if it's not completed and is the immediate next cycle after the active cycle
-        const isDisabled = !status.completed && cycleNo === activeCycle + 1;
+         // A cycle is disabled if it's not completed and is not the active cycle
+         const isDisabled = !status.completed && cycleNo !== activeCycle;
 
         return (
           <div
@@ -642,27 +722,33 @@ const CBBEvaluation: React.FC<CBBEvaluationProps> = ({
                                 <th className="px-4 py-2 border font-medium">Remarks</th>
                               </tr>
                             </thead>
-                            <tbody>
-                              {status.defects.map((defect, index) => (
-                                <tr key={index} className="bg-white hover:bg-gray-50">
-                                  <td className="px-4 py-2 border font-medium text-gray-700">
-                                    {status.evaluationTypes[defect] || defect}
-                                  </td>
-                                  <td className="px-4 py-2 border">
-                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                      status.defectCategories[defect] === 'Category A' ? 'bg-red-100 text-red-700' :
-                                      status.defectCategories[defect] === 'Category B' ? 'bg-orange-100 text-orange-700' :
-                                      status.defectCategories[defect] === 'Category C' ? 'bg-yellow-100 text-yellow-700' :
-                                      'bg-gray-100 text-gray-700'
-                                    }`}>
-                                      {status.defectCategories[defect] || 'Category B'}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-2 border text-gray-800">{defect}</td>
-                                  <td className="px-4 py-2 border text-gray-600">{status.defectRemarks[defect] || '-'}</td>
-                                </tr>
-                              ))}
-                            </tbody>
+                                                         <tbody>
+                               {status.defects.map((defect, index) => (
+                                 <tr key={index} className="bg-white hover:bg-gray-50">
+                                   <td className="px-4 py-2 border font-medium text-gray-700">
+                                     {status.evaluationTypes[defect] || defect}
+                                   </td>
+                                   <td className="px-4 py-2 border">
+                                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                       status.defectCategories[defect] === 'Category A' ? 'bg-red-100 text-red-700' :
+                                       status.defectCategories[defect] === 'Category B' ? 'bg-orange-100 text-orange-700' :
+                                       status.defectCategories[defect] === 'Category C' ? 'bg-yellow-100 text-yellow-700' :
+                                       'bg-gray-100 text-gray-700'
+                                     }`}>
+                                       {status.defectCategories[defect] || 'Category B'}
+                                     </span>
+                                   </td>
+                                   <td className="px-4 py-2 border text-gray-800">
+                                     {/* Show the actual defect details entered by user */}
+                                     {selected[cycleNo]?.[defect]?.defect || defect}
+                                   </td>
+                                   <td className="px-4 py-2 border text-gray-600">
+                                     {/* Show the actual remarks entered by user */}
+                                     {selected[cycleNo]?.[defect]?.majorDefect || status.defectRemarks[defect] || '-'}
+                                   </td>
+                                 </tr>
+                               ))}
+                             </tbody>
                           </table>
                         </div>
                       </div>

@@ -47,13 +47,16 @@ const stateSlice = createSlice({
       state.progress = action.payload;
     },
     resetOfflineState(state) {
+      console.log('StateSlice: Resetting offline state - clearing all offline data');
       state.isOfflineStarted = false;
       state.isOfflineCompleted = false;
       state.progress = 0;
       state.offlineSubmissions = [];
     },
     addOfflineSubmission(state, action: PayloadAction<any>) {
+      console.log('StateSlice: Adding offline submission:', action.payload);
       state.offlineSubmissions.push(action.payload);
+      console.log('StateSlice: Current offline submissions:', state.offlineSubmissions);
     },
     clearOfflineSubmissions(state) {
       state.offlineSubmissions = [];

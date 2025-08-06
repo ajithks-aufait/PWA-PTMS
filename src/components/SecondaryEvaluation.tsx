@@ -94,51 +94,70 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
     console.log('SecondaryEvaluation: Processing Secondary data', { cycleDataLength: cycleData?.length });
     if (!cycleData || cycleData.length === 0) return;
 
-    // Since reduxCycleData is already filtered for Secondary category, we don't need to filter again
-    const secondaryData = cycleData;
+    // Filter data for Secondary category
+    const secondaryData = cycleData.filter((item: any) => 
+      item.cr3ea_category === 'Secondary'
+    );
 
-    console.log('SecondaryEvaluation: Using Secondary data', { secondaryDataLength: secondaryData.length });
+    console.log('SecondaryEvaluation: Filtered Secondary data', { secondaryDataLength: secondaryData.length });
 
     // Process the cycle data to determine completed cycles
     const completedCycles = new Set<number>();
     const cycleDetails: { [cycleNo: number]: { defects: string[], okays: string[], defectCategories: { [item: string]: string }, evaluationTypes: { [item: string]: string }, defectRemarks: { [item: string]: string }, okayEvaluationTypes: { [item: string]: string }, missedEvaluationTypes: { [item: string]: string } } } = {};
+    const newSelected: SelectedMap = {};
     
-    secondaryData.forEach((item: any) => {
-      const cycleMatch = item.cr3ea_cycle?.match(/Cycle-(\d+)/);
-      if (cycleMatch) {
-        const cycleNo = parseInt(cycleMatch[1]);
-        completedCycles.add(cycleNo);
-        
-        if (!cycleDetails[cycleNo]) {
-          cycleDetails[cycleNo] = { 
-            defects: [], 
-            okays: [], 
-            defectCategories: {}, 
-            evaluationTypes: {}, 
-            defectRemarks: {}, 
-            okayEvaluationTypes: {}, 
-            missedEvaluationTypes: {} 
-          };
+          secondaryData.forEach((item: any) => {
+        const cycleMatch = item.cr3ea_cycle?.match(/Cycle-(\d+)/);
+        if (cycleMatch) {
+          const cycleNo = parseInt(cycleMatch[1]);
+          completedCycles.add(cycleNo);
+          
+          if (!cycleDetails[cycleNo]) {
+            cycleDetails[cycleNo] = { 
+              defects: [], 
+              okays: [], 
+              defectCategories: {}, 
+              evaluationTypes: {}, 
+              defectRemarks: {}, 
+              okayEvaluationTypes: {}, 
+              missedEvaluationTypes: {} 
+            };
+          }
+          
+          // Initialize selected state for this cycle if not exists
+          if (!newSelected[cycleNo]) {
+            newSelected[cycleNo] = {};
+          }
+          
+          // Process based on criteria
+          if (item.cr3ea_criteria === 'Okay') {
+            const evaluationType = item.cr3ea_evaluationtype || item.cr3ea_defect || 'Unknown';
+            cycleDetails[cycleNo].okays.push(evaluationType);
+            cycleDetails[cycleNo].okayEvaluationTypes[evaluationType] = evaluationType;
+            
+            // Add to selected state
+            newSelected[cycleNo][evaluationType] = { status: 'Okay' };
+          } else if (item.cr3ea_criteria === 'Not Okay') {
+            const defectItem = item.cr3ea_defect || item.cr3ea_evaluationtype || 'Unknown';
+            cycleDetails[cycleNo].defects.push(defectItem);
+            cycleDetails[cycleNo].defectCategories[defectItem] = item.cr3ea_defectcategory || 'Category B';
+            cycleDetails[cycleNo].evaluationTypes[defectItem] = item.cr3ea_evaluationtype || defectItem;
+            cycleDetails[cycleNo].defectRemarks[defectItem] = item.cr3ea_defectremarks || '';
+            
+            // Add to selected state with defect details
+            newSelected[cycleNo][defectItem] = { 
+              status: 'Not Okay',
+              category: item.cr3ea_defectcategory || 'Category B',
+              defect: item.cr3ea_defect || defectItem,
+              majorDefect: item.cr3ea_defectremarks || ''
+            };
+          } else if (!item.cr3ea_criteria || item.cr3ea_criteria === null) {
+            // Handle missed evaluations
+            const missedItem = item.cr3ea_evaluationtype || item.cr3ea_defect || 'Unknown';
+            cycleDetails[cycleNo].missedEvaluationTypes[missedItem] = missedItem;
+          }
         }
-        
-        // Process based on criteria
-        if (item.cr3ea_criteria === 'Okay') {
-          const evaluationType = item.cr3ea_evaluationtype || item.cr3ea_defect || 'Unknown';
-          cycleDetails[cycleNo].okays.push(evaluationType);
-          cycleDetails[cycleNo].okayEvaluationTypes[evaluationType] = evaluationType;
-        } else if (item.cr3ea_criteria === 'Not Okay') {
-          const defectItem = item.cr3ea_defect || item.cr3ea_evaluationtype || 'Unknown';
-          cycleDetails[cycleNo].defects.push(defectItem);
-          cycleDetails[cycleNo].defectCategories[defectItem] = item.cr3ea_defectcategory || 'Category B';
-          cycleDetails[cycleNo].evaluationTypes[defectItem] = item.cr3ea_evaluationtype || defectItem;
-          cycleDetails[cycleNo].defectRemarks[defectItem] = item.cr3ea_defectremarks || '';
-        } else if (!item.cr3ea_criteria || item.cr3ea_criteria === null) {
-          // Handle missed evaluations
-          const missedItem = item.cr3ea_evaluationtype || item.cr3ea_defect || 'Unknown';
-          cycleDetails[cycleNo].missedEvaluationTypes[missedItem] = missedItem;
-        }
-      }
-    });
+      });
     
     console.log('SecondaryEvaluation: Processed cycle details:', cycleDetails);
     
@@ -174,16 +193,19 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
       nextAvailableCycle++;
     }
     
-    // Only update state if there are actual changes
-    if (hasChanges || nextAvailableCycle !== activeCycle) {
-      setActiveCycle(nextAvailableCycle);
-      setCycleStatus(newCycleStatus);
-      
-      console.log('SecondaryEvaluation: Updated cycle status:', newCycleStatus);
-      console.log('SecondaryEvaluation: Next available cycle:', nextAvailableCycle);
-    } else {
-      console.log('SecondaryEvaluation: No changes detected, skipping state updates');
-    }
+         // Only update state if there are actual changes
+     if (hasChanges || nextAvailableCycle !== activeCycle) {
+       console.log(`SecondaryEvaluation: Updating activeCycle from ${activeCycle} to ${nextAvailableCycle}`);
+       setActiveCycle(nextAvailableCycle);
+       setCycleStatus(newCycleStatus);
+       setSelected(newSelected); // Update selected state with processed data
+       
+       console.log('SecondaryEvaluation: Updated cycle status:', newCycleStatus);
+       console.log('SecondaryEvaluation: Updated selected state:', newSelected);
+       console.log('SecondaryEvaluation: Next available cycle:', nextAvailableCycle);
+     } else {
+       console.log('SecondaryEvaluation: No changes detected, skipping state updates');
+     }
   }, [cycleStatus, activeCycle]);
 
   // Process offline data for Secondary evaluation
@@ -192,12 +214,14 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
       return;
     }
 
-    // If we have Redux data, use that instead of offline submissions
-    if (reduxCycleData && reduxCycleData.length > 0) {
-      console.log("SecondaryEvaluation: Offline mode: Using Redux cycle data instead of offline submissions");
-      console.log("SecondaryEvaluation: Redux cycle data length:", reduxCycleData.length);
-      return; // Let processSecondaryData handle this
-    }
+         // If we have Redux data, use that instead of offline submissions
+     if (reduxCycleData && reduxCycleData.length > 0) {
+       console.log("SecondaryEvaluation: Offline mode: Using Redux cycle data instead of offline submissions");
+       console.log("SecondaryEvaluation: Redux cycle data length:", reduxCycleData.length);
+       // Process the Redux data directly here for offline mode
+       processSecondaryData(reduxCycleData);
+       return;
+     }
 
     if (offlineSubmissions.length === 0) {
       return;
@@ -252,22 +276,54 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
       };
     });
     
-    // Find the next available cycle (first non-completed cycle)
-    let nextAvailableCycle = 1;
-    while (nextAvailableCycle <= totalCycles && newCycleStatus[nextAvailableCycle]?.completed) {
-      nextAvailableCycle++;
-    }
-    
-    setCycleStatus(newCycleStatus);
-    setActiveCycle(nextAvailableCycle);
-    console.log('SecondaryEvaluation: Offline data processed for summary display');
-    console.log('SecondaryEvaluation: Processed cycle status:', newCycleStatus);
-    console.log('SecondaryEvaluation: Next available cycle:', nextAvailableCycle);
+         // Find the next available cycle (first non-completed cycle)
+     let nextAvailableCycle = 1;
+     while (nextAvailableCycle <= totalCycles && newCycleStatus[nextAvailableCycle]?.completed) {
+       nextAvailableCycle++;
+     }
+     
+     console.log('SecondaryEvaluation: Offline mode - calculated nextAvailableCycle:', nextAvailableCycle);
+     console.log('SecondaryEvaluation: Offline mode - completed cycles:', Object.entries(newCycleStatus).filter(([_, status]) => status.completed).map(([cycleNo, _]) => cycleNo));
+     
+     // Create selected state from offline submissions
+     const newSelected: SelectedMap = {};
+     offlineSubmissions.forEach(submission => {
+       const cycleNo = submission.cycleNo;
+       const records = submission.records;
+       
+       if (!newSelected[cycleNo]) {
+         newSelected[cycleNo] = {};
+       }
+       
+       records.forEach((record: any) => {
+         if (record.cr3ea_criteria === 'Okay') {
+           newSelected[cycleNo][record.cr3ea_evaluationtype] = { status: 'Okay' };
+         } else if (record.cr3ea_criteria === 'Not Okay') {
+           newSelected[cycleNo][record.cr3ea_evaluationtype] = { 
+             status: 'Not Okay',
+             category: record.cr3ea_defectcategory || 'Category B',
+             defect: record.cr3ea_defect || record.cr3ea_evaluationtype,
+             majorDefect: record.cr3ea_defectremarks || ''
+           };
+         }
+       });
+     });
+     
+     // Update cycle status and active cycle together
+     setCycleStatus(newCycleStatus);
+     setSelected(newSelected);
+     setActiveCycle(nextAvailableCycle);
+     
+     console.log('SecondaryEvaluation: Offline data processed for summary display');
+     console.log('SecondaryEvaluation: Processed cycle status:', newCycleStatus);
+     console.log('SecondaryEvaluation: Updated selected state:', newSelected);
+     console.log('SecondaryEvaluation: Next available cycle:', nextAvailableCycle);
+     console.log('SecondaryEvaluation: Active cycle updated to:', nextAvailableCycle);
   };
 
   useEffect(() => {
     console.log('SecondaryEvaluation: useEffect triggered with reduxCycleData length:', reduxCycleData?.length, 'isOfflineStarted:', isOfflineStarted);
-    if (reduxCycleData && reduxCycleData.length > 0 && !isOfflineStarted) {
+    if (reduxCycleData && reduxCycleData.length > 0) {
       const currentDataHash = JSON.stringify(reduxCycleData);
       const lastProcessedHash = localStorage.getItem('lastProcessedSecondaryDataHash');
       
@@ -283,14 +339,37 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
     }
   }, [reduxCycleData, isOfflineStarted]);
 
-  // Effect to handle offline mode and process offline submissions
-  useEffect(() => {
-    console.log("SecondaryEvaluation: Offline mode useEffect triggered - isOfflineStarted:", isOfflineStarted, "offlineSubmissions length:", offlineSubmissions?.length);
-    if (isOfflineStarted) {
-      console.log("SecondaryEvaluation: Offline mode detected, processing offline data");
-      processOfflineData();
-    }
-  }, [isOfflineStarted, offlineSubmissions]);
+     // Effect to handle offline mode and process offline submissions
+   useEffect(() => {
+     console.log("SecondaryEvaluation: Offline mode useEffect triggered - isOfflineStarted:", isOfflineStarted, "offlineSubmissions length:", offlineSubmissions?.length);
+     if (isOfflineStarted) {
+       console.log("SecondaryEvaluation: Offline mode detected, processing offline data");
+       processOfflineData();
+     }
+   }, [isOfflineStarted, offlineSubmissions]);
+   
+   // Effect to handle active cycle updates when offline submissions change
+   useEffect(() => {
+     if (isOfflineStarted && offlineSubmissions.length > 0) {
+       // Find the highest completed cycle number
+       const completedCycleNumbers = offlineSubmissions.map(submission => submission.cycleNo);
+       const maxCompletedCycle = Math.max(...completedCycleNumbers);
+       
+       // Calculate next available cycle
+       let nextAvailableCycle = maxCompletedCycle + 1;
+       if (nextAvailableCycle > totalCycles) {
+         nextAvailableCycle = totalCycles;
+       }
+       
+       console.log('SecondaryEvaluation: Offline submissions changed - max completed cycle:', maxCompletedCycle, 'next available cycle:', nextAvailableCycle);
+       
+       // Update active cycle if needed
+       if (nextAvailableCycle !== activeCycle) {
+         setActiveCycle(nextAvailableCycle);
+         console.log('SecondaryEvaluation: Active cycle updated due to offline submissions change:', nextAvailableCycle);
+       }
+     }
+   }, [offlineSubmissions, isOfflineStarted, activeCycle]);
 
   useEffect(() => {
     return () => {
@@ -303,13 +382,23 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
     console.log('SecondaryEvaluation: Cleared localStorage data hash due to plantTourId change');
   }, [plantTourId]);
 
-  // Initialize expanded cycle from localStorage
-  useEffect(() => {
-    const savedExpandedCycle = localStorage.getItem('expandedSecondaryCycle');
-    if (savedExpandedCycle) {
-      setExpandedCompletedCycle(parseInt(savedExpandedCycle));
-    }
-  }, []);
+     // Initialize expanded cycle from localStorage
+   useEffect(() => {
+     const savedExpandedCycle = localStorage.getItem('expandedSecondaryCycle');
+     if (savedExpandedCycle) {
+       setExpandedCompletedCycle(parseInt(savedExpandedCycle));
+     }
+   }, []);
+   
+   // Debug: Log persisted data on component mount
+   useEffect(() => {
+     console.log('SecondaryEvaluation: Component mounted - checking persisted data');
+     console.log('SecondaryEvaluation: isOfflineStarted:', isOfflineStarted);
+     console.log('SecondaryEvaluation: offlineSubmissions length:', offlineSubmissions?.length);
+     console.log('SecondaryEvaluation: offlineSubmissions:', offlineSubmissions);
+     console.log('SecondaryEvaluation: reduxCycleData length:', reduxCycleData?.length);
+     console.log('SecondaryEvaluation: reduxCycleData:', reduxCycleData);
+   }, []);
 
   const handleStart = (cycleNo: number) => {
     const items = secondaryItems[cycleNo] || [];
@@ -472,25 +561,82 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
       await saveSectionData(accessToken, records);
     }
 
-    setCycleStatus((prev: CycleStatusMap) => ({
-      ...prev,
-      [cycleNo]: {
-        ...prev[cycleNo],
-        completed: true,
-        defects,
-        okays,
-        defectCategories: {},
-        evaluationTypes: {},
-        defectRemarks: {},
-        okayEvaluationTypes: {},
-        missedEvaluationTypes: {}
-      },
-    }));
-    setActiveCycle((prev: number) => prev + 1);
+    // Collect defect details and remarks from current selections
+    const defectCategories: { [item: string]: string } = {};
+    const evaluationTypes: { [item: string]: string } = {};
+    const defectRemarks: { [item: string]: string } = {};
+    const okayEvaluationTypes: { [item: string]: string } = {};
+    const missedEvaluationTypes: { [item: string]: string } = {};
+    
+    // Process current selections to collect details
+    Object.entries(currentSelections || {}).forEach(([item, val]) => {
+      if (val.status === "Okay") {
+        okayEvaluationTypes[item] = item;
+      } else if (val.status === "Not Okay") {
+        defectCategories[item] = val.category || 'Category B';
+        evaluationTypes[item] = item;
+        defectRemarks[item] = val.majorDefect || '';
+      }
+    });
+    
+    // Add missed items
+    missedItems.forEach(item => {
+      missedEvaluationTypes[item] = item;
+    });
+    
+         // Update cycle status to completed with all details
+     setCycleStatus((prev: CycleStatusMap) => {
+       const updatedStatus = {
+         ...prev,
+         [cycleNo]: {
+           ...prev[cycleNo],
+           started: true,
+           completed: true,
+           defects,
+           okays,
+           defectCategories,
+           evaluationTypes,
+           defectRemarks,
+           okayEvaluationTypes,
+           missedEvaluationTypes
+         },
+       };
+       
+       // Find the next available cycle after updating the status
+       let nextAvailableCycle = 1;
+       const completedCycles = new Set<number>();
+       
+       // Check which cycles are completed (including the current one)
+       Object.entries(updatedStatus).forEach(([cycleNoStr, status]) => {
+         if (status.completed) {
+           completedCycles.add(parseInt(cycleNoStr));
+         }
+       });
+       
+       // Find the first non-completed cycle
+       while (nextAvailableCycle <= totalCycles && completedCycles.has(nextAvailableCycle)) {
+         nextAvailableCycle++;
+       }
+       
+       // Update active cycle immediately
+       setActiveCycle(nextAvailableCycle);
+       console.log(`SecondaryEvaluation: Cycle ${cycleNo} completed, updating activeCycle to ${nextAvailableCycle}`);
+       
+       return updatedStatus;
+     });
+    
     dispatch(clearSectionDetails(cycleNo));
     
     onCycleComplete();
   };
+
+  // Debug logging
+  console.log('SecondaryEvaluation: Current state:', {
+    activeCycle,
+    cycleStatus: Object.keys(cycleStatus).length,
+    completedCycles: Object.entries(cycleStatus).filter(([_, status]) => status.completed).map(([cycleNo, _]) => cycleNo),
+    isOfflineStarted
+  });
 
   return (
     <div className="space-y-6 max-h-[70vh] overflow-y-auto">
@@ -507,7 +653,7 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
           return null;
         }
 
-        const isDisabled = !status.completed && cycleNo === activeCycle + 1;
+        const isDisabled = !status.completed && cycleNo !== activeCycle;
 
         return (
           <div
@@ -587,137 +733,87 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
               </div>
             )}
 
-            {/* Show active session form (product table and save/cancel) only if started and not completed */}
-            {status.started && !status.completed && (
-              <div className="space-y-6 mt-4">
-                {/* Product Table Header */}
-                <div className="bg-blue-100 p-3 rounded-lg">
-                  <div className="grid grid-cols-6 gap-4 text-sm font-medium text-gray-700">
-                    <div>Product</div>
-                    <div className="text-center">Batch No</div>
-                    <div className="text-center">Line No</div>
-                    <div className="text-center">Packaged</div>
-                    <div className="text-center">Expiry</div>
-                    <div className="text-center">Status</div>
-                  </div>
-                </div>
-
-                {/* Product Rows */}
-                {items.map((item) => {
-                  const current = selected[cycleNo]?.[item];
-                  return (
-                    <div key={item} className="border rounded-lg p-4 bg-white">
-                      <div className="grid grid-cols-6 gap-4 items-center">
-                        <div className="font-semibold text-gray-800">{item}</div>
-                        <div className="text-center text-gray-600">
-                          <input
-                            type="text"
-                            className="w-full border rounded px-2 py-1 text-sm"
-                            placeholder="Batch No"
-                            value={formFields[cycleNo]?.[`${item}_batchNo`] || ''}
-                            onChange={e => handleFormFieldChange(cycleNo, `${item}_batchNo`, e.target.value)}
-                          />
-                        </div>
-                        <div className="text-center text-gray-600">
-                          <input
-                            type="text"
-                            className="w-full border rounded px-2 py-1 text-sm"
-                            placeholder="Line No"
-                            value={formFields[cycleNo]?.[`${item}_lineNo`] || ''}
-                            onChange={e => handleFormFieldChange(cycleNo, `${item}_lineNo`, e.target.value)}
-                          />
-                        </div>
-                        <div className="text-center text-gray-600">
-                          <input
-                            type="date"
-                            className="w-full border rounded px-2 py-1 text-sm"
-                            value={formFields[cycleNo]?.[`${item}_packaged`] || ''}
-                            onChange={e => handleFormFieldChange(cycleNo, `${item}_packaged`, e.target.value)}
-                          />
-                        </div>
-                        <div className="text-center text-gray-600">
-                          <input
-                            type="date"
-                            className="w-full border rounded px-2 py-1 text-sm"
-                            value={formFields[cycleNo]?.[`${item}_expiry`] || ''}
-                            onChange={e => handleFormFieldChange(cycleNo, `${item}_expiry`, e.target.value)}
-                          />
-                        </div>
-                        <div className="flex gap-2 justify-center">
-                          <button
-                            onClick={() => handleSelect(cycleNo, item, "Not Okay")}
-                            className={`px-3 py-1 rounded border text-sm ${current?.status === "Not Okay"
-                              ? "bg-red-100 border-red-600 text-red-600"
-                              : "border-red-400 text-red-500"
-                              }`}
-                          >
-                            Not Okay
-                          </button>
-                          <button
-                            onClick={() => handleSelect(cycleNo, item, "Okay")}
-                            className={`px-3 py-1 rounded border text-sm ${current?.status === "Okay"
-                              ? "bg-green-100 border-green-600 text-green-600"
-                              : "border-green-400 text-green-500"
-                              }`}
-                          >
-                            Okay
-                          </button>
-                        </div>
-                      </div>
-                      
-                      {/* Additional fields for Not Okay items */}
-                      {current?.status === "Not Okay" && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t">
-                          <div>
-                            <label className="block text-sm font-medium mb-1">Select Category</label>
-                            <select
-                              className="w-full border rounded px-3 py-2"
-                              value={current.category || ""}
-                              onChange={(e) => updateField(cycleNo, item, "category", e.target.value)}
-                            >
-                              <option value="">Select</option>
-                              <option value="Category A">Category A</option>
-                              <option value="Category B">Category B</option>
-                              <option value="Category C">Category C</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium mb-1">Defect</label>
-                            <input
-                              type="text"
-                              className="w-full border rounded px-3 py-2"
-                              placeholder="Enter Defect"
-                              value={current.defect || ""}
-                              onChange={(e) => updateField(cycleNo, item, "defect", e.target.value)}
-                            />
-                          </div>
-                          <div className="sm:col-span-2">
-                            <label className="block text-sm font-medium mb-1">Major Defect and Remarks</label>
-                            <input
-                              type="text"
-                              className="w-full border rounded px-3 py-2"
-                              placeholder="Enter Major Defect or Remarks"
-                              value={current.majorDefect || ""}
-                              onChange={(e) => updateField(cycleNo, item, "majorDefect", e.target.value)}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                
-                <div className="flex justify-end gap-2 mt-4">
-                  <button className="px-4 py-2 border rounded">Cancel</button>
-                  <button
-                    onClick={() => handleSave(cycleNo)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded"
-                  >
-                    Save Session
-                  </button>
-                </div>
-              </div>
-            )}
+                         {/* Show active session form (checklist and save/cancel) only if started and not completed */}
+             {status.started && !status.completed && (
+               <div className="space-y-6 mt-4">
+                 {items.map((item) => {
+                   const current = selected[cycleNo]?.[item];
+                   return (
+                     <div key={item} className="border p-4 rounded">
+                       <div className="flex justify-between items-center mb-2">
+                         <h3 className="font-semibold">{item}</h3>
+                         <div className="flex gap-2">
+                           <button
+                             onClick={() => handleSelect(cycleNo, item, "Not Okay")}
+                             className={`px-3 py-1 rounded border ${current?.status === "Not Okay"
+                               ? "bg-red-100 border-red-600 text-red-600"
+                               : "border-red-400 text-red-500"
+                               }`}
+                           >
+                             Not Okay
+                           </button>
+                           <button
+                             onClick={() => handleSelect(cycleNo, item, "Okay")}
+                             className={`px-3 py-1 rounded border ${current?.status === "Okay"
+                               ? "bg-green-100 border-green-600 text-green-600"
+                               : "border-green-400 text-green-500"
+                               }`}
+                           >
+                             Okay
+                           </button>
+                         </div>
+                       </div>
+                       {current?.status === "Not Okay" && (
+                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                           <div>
+                             <label className="block text-sm font-medium mb-1">Select Category</label>
+                             <select
+                               className="w-full border rounded px-3 py-2"
+                               value={current.category || ""}
+                               onChange={(e) => updateField(cycleNo, item, "category", e.target.value)}
+                             >
+                               <option value="">Select</option>
+                               <option value="Category A">Category A</option>
+                               <option value="Category B">Category B</option>
+                               <option value="Category C">Category C</option>
+                             </select>
+                           </div>
+                           <div>
+                             <label className="block text-sm font-medium mb-1">Defect</label>
+                             <input
+                               type="text"
+                               className="w-full border rounded px-3 py-2"
+                               placeholder="Enter Defect"
+                               value={current.defect || ""}
+                               onChange={(e) => updateField(cycleNo, item, "defect", e.target.value)}
+                             />
+                           </div>
+                           <div className="sm:col-span-2">
+                             <label className="block text-sm font-medium mb-1">Major Defect and Remarks</label>
+                             <input
+                               type="text"
+                               className="w-full border rounded px-3 py-2"
+                               placeholder="Enter Major Defect or Remarks"
+                               value={current.majorDefect || ""}
+                               onChange={(e) => updateField(cycleNo, item, "majorDefect", e.target.value)}
+                             />
+                           </div>
+                         </div>
+                       )}
+                     </div>
+                   );
+                 })}
+                 <div className="flex justify-end gap-2 mt-4">
+                   <button className="px-4 py-2 border rounded">Cancel</button>
+                   <button
+                     onClick={() => handleSave(cycleNo)}
+                     className="px-4 py-2 bg-blue-600 text-white rounded"
+                   >
+                     Save Session
+                   </button>
+                 </div>
+               </div>
+             )}
 
             {/* Show completed cycle summary */}
             {status.completed && (
@@ -793,8 +889,14 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
                                       {status.defectCategories[defect] || 'Category B'}
                                     </span>
                                   </td>
-                                  <td className="px-4 py-2 border text-gray-800">{defect}</td>
-                                  <td className="px-4 py-2 border text-gray-600">{status.defectRemarks[defect] || '-'}</td>
+                                  <td className="px-4 py-2 border text-gray-800">
+                                    {/* Show the actual defect details entered by user */}
+                                    {selected[cycleNo]?.[defect]?.defect || defect}
+                                  </td>
+                                  <td className="px-4 py-2 border text-gray-600">
+                                    {/* Show the actual remarks entered by user */}
+                                    {selected[cycleNo]?.[defect]?.majorDefect || status.defectRemarks[defect] || '-'}
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>

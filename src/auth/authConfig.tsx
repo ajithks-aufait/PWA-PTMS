@@ -2,8 +2,7 @@ export const msalConfig = {
   auth: {
     clientId: "b71d2039-dadc-4393-8744-e7f648d085a1",
     authority: "https://login.microsoftonline.com/8efa5ce2-86e4-4882-840c-f2578cdf094c",
-    redirectUri: "https://pwa-ptms.vercel.app"
-    // redirectUri: "http://localhost:5173",https://pwa-ptms.vercel.app/
+    redirectUri: window.location.origin
   },
   cache: {
     cacheLocation: "localStorage",
