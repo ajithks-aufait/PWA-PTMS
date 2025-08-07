@@ -972,12 +972,6 @@ const ProductQualityIndex: React.FC = () => {
         <div className="md:col-span-3">
           {selectedEvaluationType === 'CBB' && (
             <CBBEvaluation
-              cycleStatus={cycleStatus}
-              setCycleStatus={setCycleStatus}
-              selected={selected}
-              setSelected={setSelected}
-              activeCycle={activeCycle}
-              setActiveCycle={setActiveCycle}
               onCycleComplete={onCycleComplete}
             />
           )}
