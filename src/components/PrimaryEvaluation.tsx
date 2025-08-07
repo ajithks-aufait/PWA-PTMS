@@ -35,24 +35,24 @@ type SelectedMap = {
   [cycleNo: number]: Record<string, SelectionItem>;
 };
 
-const secondaryItems: { [key: number]: string[] } = {
-  1: ["SP 1", "SP 2", "SP 3", "SP 4"],
-  2: ["SP 1", "SP 2", "SP 3", "SP 4"],
-  3: ["SP 1", "SP 2", "SP 3", "SP 4"],
-  4: ["SP 1", "SP 2", "SP 3", "SP 4"],
-  5: ["SP 1", "SP 2", "SP 3", "SP 4"],
-  6: ["SP 1", "SP 2", "SP 3", "SP 4"],
-  7: ["SP 1", "SP 2", "SP 3", "SP 4"],
-  8: ["SP 1", "SP 2", "SP 3", "SP 4"],
+const productItems: { [key: number]: string[] } = {
+  1: ["PR 1", "PR 2", "PR 3", "PR 4"],
+  2: ["PR 1", "PR 2", "PR 3", "PR 4"],
+  3: ["PR 1", "PR 2", "PR 3", "PR 4"],
+  4: ["PR 1", "PR 2", "PR 3", "PR 4"],
+  5: ["PR 1", "PR 2", "PR 3", "PR 4"],
+  6: ["PR 1", "PR 2", "PR 3", "PR 4"],
+  7: ["PR 1", "PR 2", "PR 3", "PR 4"],
+  8: ["PR 1", "PR 2", "PR 3", "PR 4"],
 };
 
 const totalCycles = 8;
 
-interface SecondaryEvaluationProps {
+interface PrimaryEvaluationProps {
   onCycleComplete: () => void;
 }
 
-const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
+const PrimaryEvaluation: React.FC<PrimaryEvaluationProps> = ({
   onCycleComplete
 }) => {
   const dispatch = useDispatch();
@@ -65,10 +65,10 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
   const offlineSubmissionsByCategory = useSelector((state: RootState) => state.appState.offlineSubmissionsByCategory);
   const reduxData = useSelector((state: RootState) => state.planTour.cycleData);
   const reduxCycleData = reduxData.filter((item: any) => 
-    item.cr3ea_category === 'Secondary'
+    item.cr3ea_category === 'Primary'
   );
   
-  // Local state for Secondary evaluation
+  // Local state for Product evaluation
   const [cycleStatus, setCycleStatus] = useState<CycleStatusMap>({});
   const [selected, setSelected] = useState<SelectedMap>({});
   const [activeCycle, setActiveCycle] = useState<number>(1);
@@ -77,7 +77,7 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
 
   const handleExpand = (cycleNo: number | null) => {
     setExpandedCompletedCycle(cycleNo);
-    localStorage.setItem('expandedSecondaryCycle', cycleNo !== null ? String(cycleNo) : '');
+    localStorage.setItem('expandedPrimaryCycle', cycleNo !== null ? String(cycleNo) : '');
   };
 
   const handleFormFieldChange = (cycleNo: number, field: string, value: string) => {
@@ -90,23 +90,23 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
     }));
   };
 
-  const processSecondaryData = useCallback((cycleData: any[]) => {
-    console.log('SecondaryEvaluation: Processing Secondary data', { cycleDataLength: cycleData?.length });
+  const processPrimaryData = useCallback((cycleData: any[]) => {
+    console.log('PrimaryEvaluation: Processing Primary data', { cycleDataLength: cycleData?.length });
     if (!cycleData || cycleData.length === 0) return;
 
-    // Filter data for Secondary category
-    const secondaryData = cycleData.filter((item: any) => 
-      item.cr3ea_category === 'Secondary'
+    // Filter data for Primary category
+    const primaryData = cycleData.filter((item: any) => 
+      item.cr3ea_category === 'Primary'
     );
 
-    console.log('SecondaryEvaluation: Filtered Secondary data', { secondaryDataLength: secondaryData.length });
+    console.log('PrimaryEvaluation: Filtered Primary data', { primaryDataLength: primaryData.length });
 
     // Process the cycle data to determine completed cycles
     const completedCycles = new Set<number>();
     const cycleDetails: { [cycleNo: number]: { defects: string[], okays: string[], defectCategories: { [item: string]: string }, evaluationTypes: { [item: string]: string }, defectRemarks: { [item: string]: string }, okayEvaluationTypes: { [item: string]: string }, missedEvaluationTypes: { [item: string]: string } } } = {};
     const newSelected: SelectedMap = {};
     
-          secondaryData.forEach((item: any) => {
+          primaryData.forEach((item: any) => {
         const cycleMatch = item.cr3ea_cycle?.match(/Cycle-(\d+)/);
         if (cycleMatch) {
           const cycleNo = parseInt(cycleMatch[1]);
@@ -159,7 +159,7 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
         }
       });
     
-    console.log('SecondaryEvaluation: Processed cycle details:', cycleDetails);
+    console.log('PrimaryEvaluation: Processed cycle details:', cycleDetails);
     
     // Check if cycle status actually needs to be updated
     const newCycleStatus = { ...cycleStatus };
@@ -195,28 +195,28 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
     
          // Only update state if there are actual changes
      if (hasChanges || nextAvailableCycle !== activeCycle) {
-       console.log(`SecondaryEvaluation: Updating activeCycle from ${activeCycle} to ${nextAvailableCycle}`);
+       console.log(`PrimaryEvaluation: Updating activeCycle from ${activeCycle} to ${nextAvailableCycle}`);
        setActiveCycle(nextAvailableCycle);
        setCycleStatus(newCycleStatus);
        setSelected(newSelected); // Update selected state with processed data
        
-       console.log('SecondaryEvaluation: Updated cycle status:', newCycleStatus);
-       console.log('SecondaryEvaluation: Updated selected state:', newSelected);
-       console.log('SecondaryEvaluation: Next available cycle:', nextAvailableCycle);
+       console.log('PrimaryEvaluation: Updated cycle status:', newCycleStatus);
+       console.log('PrimaryEvaluation: Updated selected state:', newSelected);
+       console.log('PrimaryEvaluation: Next available cycle:', nextAvailableCycle);
      } else {
-       console.log('SecondaryEvaluation: No changes detected, skipping state updates');
+       console.log('PrimaryEvaluation: No changes detected, skipping state updates');
      }
   }, [cycleStatus, activeCycle]);
 
-  // Process offline data for Secondary evaluation
+  // Process offline data for Primary evaluation
   const processOfflineData = () => {
     if (!isOfflineStarted) {
       return;
     }
 
-    console.log("SecondaryEvaluation: Offline mode: Processing offline submissions for cycle details");
-    console.log("SecondaryEvaluation: Offline submissions length:", offlineSubmissions.length);
-    console.log("SecondaryEvaluation: Redux cycle data length:", reduxCycleData?.length || 0);
+    console.log("PrimaryEvaluation: Offline mode: Processing offline submissions for cycle details");
+    console.log("PrimaryEvaluation: Offline submissions length:", offlineSubmissions.length);
+    console.log("PrimaryEvaluation: Redux cycle data length:", reduxCycleData?.length || 0);
 
     // Initialize cycle status and selected state
     const newCycleStatus: CycleStatusMap = {};
@@ -224,17 +224,17 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
 
     // First, process Redux data if available (for existing completed cycles)
     if (reduxCycleData && reduxCycleData.length > 0) {
-      console.log("SecondaryEvaluation: Offline mode: Processing Redux data for existing completed cycles");
+      console.log("PrimaryEvaluation: Offline mode: Processing Redux data for existing completed cycles");
       
-      // Filter data for Secondary category
-      const secondaryData = reduxCycleData.filter((item: any) => 
-        item.cr3ea_category === 'Secondary'
+      // Filter data for Primary category
+      const primaryData = reduxCycleData.filter((item: any) => 
+        item.cr3ea_category === 'Primary'
       );
 
-      if (secondaryData.length > 0) {
+      if (primaryData.length > 0) {
         // Process each cycle from Redux data
         for (let cycleNo = 1; cycleNo <= totalCycles; cycleNo++) {
-          const cycleData = secondaryData.filter((item: any) => {
+          const cycleData = primaryData.filter((item: any) => {
             const cycleMatch = item.cr3ea_cycle?.match(/Cycle-(\d+)/);
             return cycleMatch && parseInt(cycleMatch[1]) === cycleNo;
           });
@@ -300,13 +300,13 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
     }
 
         // Then, process offline submissions (this will override/add to Redux data)
-    const secondaryOfflineSubmissions = offlineSubmissionsByCategory['Secondary'] || [];
-    if (secondaryOfflineSubmissions.length > 0) {
-      console.log("SecondaryEvaluation: Offline mode: Processing Secondary offline submissions:", secondaryOfflineSubmissions.length);
+    const primaryOfflineSubmissions = offlineSubmissionsByCategory['Primary'] || [];
+    if (primaryOfflineSubmissions.length > 0) {
+      console.log("PrimaryEvaluation: Offline mode: Processing Primary offline submissions:", primaryOfflineSubmissions.length);
       
-      secondaryOfflineSubmissions.forEach(submission => {
+      primaryOfflineSubmissions.forEach(submission => {
         const cycleNo = submission.cycleNo;
-        const secondaryRecords = submission.records;
+        const primaryRecords = submission.records;
         
         const defects: string[] = [];
         const okays: string[] = [];
@@ -321,7 +321,7 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
           newSelected[cycleNo] = {};
         }
         
-        secondaryRecords.forEach((record: any) => {
+        primaryRecords.forEach((record: any) => {
           if (record.cr3ea_criteria === 'Okay') {
             okays.push(record.cr3ea_evaluationtype);
             okayEvaluationTypes[record.cr3ea_evaluationtype] = record.cr3ea_evaluationtype;
@@ -376,100 +376,78 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
        nextAvailableCycle++;
      }
      
-     console.log('SecondaryEvaluation: Offline mode - calculated nextAvailableCycle:', nextAvailableCycle);
-     console.log('SecondaryEvaluation: Offline mode - completed cycles:', Object.entries(newCycleStatus).filter(([_, status]) => status.completed).map(([cycleNo, _]) => cycleNo));
+     console.log('PrimaryEvaluation: Offline mode - calculated nextAvailableCycle:', nextAvailableCycle);
+     console.log('PrimaryEvaluation: Offline mode - completed cycles:', Object.entries(newCycleStatus).filter(([_, status]) => status.completed).map(([cycleNo, _]) => cycleNo));
      
-
-     
-     // Update cycle status and active cycle together
+     // Update cycle status and selected state
      setCycleStatus(newCycleStatus);
      setSelected(newSelected);
      setActiveCycle(nextAvailableCycle);
      
-     console.log('SecondaryEvaluation: Offline data processed for summary display');
-     console.log('SecondaryEvaluation: Processed cycle status:', newCycleStatus);
-     console.log('SecondaryEvaluation: Updated selected state:', newSelected);
-     console.log('SecondaryEvaluation: Next available cycle:', nextAvailableCycle);
-     console.log('SecondaryEvaluation: Active cycle updated to:', nextAvailableCycle);
+     console.log('PrimaryEvaluation: Offline mode - Updated cycle status to:', newCycleStatus);
+     console.log('PrimaryEvaluation: Offline mode - Updated active cycle to:', nextAvailableCycle);
   };
 
   useEffect(() => {
-    console.log('SecondaryEvaluation: useEffect triggered with reduxCycleData length:', reduxCycleData?.length, 'isOfflineStarted:', isOfflineStarted);
+    console.log('PrimaryEvaluation: useEffect triggered with reduxCycleData length:', reduxCycleData?.length, 'isOfflineStarted:', isOfflineStarted);
     if (reduxCycleData && reduxCycleData.length > 0) {
-      // Filter for Secondary category only
-      const secondaryData = reduxCycleData.filter((item: any) => 
-        item.cr3ea_category === 'Secondary'
-      );
+      const currentDataHash = JSON.stringify(reduxCycleData);
+      const lastProcessedHash = localStorage.getItem('lastProcessedPrimaryDataHash');
       
-      if (secondaryData.length > 0) {
-        const currentDataHash = JSON.stringify(secondaryData);
-        const lastProcessedHash = localStorage.getItem('lastProcessedSecondaryDataHash');
-        
-        if (currentDataHash !== lastProcessedHash) {
-          console.log('SecondaryEvaluation: Processing new Secondary data');
-          processSecondaryData(secondaryData);
-          localStorage.setItem('lastProcessedSecondaryDataHash', currentDataHash);
-        } else {
-          console.log('SecondaryEvaluation: Skipping Secondary data processing - no changes detected');
-        }
+      if (currentDataHash !== lastProcessedHash) {
+        console.log('PrimaryEvaluation: Processing new Primary data');
+        processPrimaryData(reduxCycleData);
+        localStorage.setItem('lastProcessedPrimaryDataHash', currentDataHash);
       } else {
-        console.log('SecondaryEvaluation: No Secondary data found in reduxCycleData');
+        console.log('PrimaryEvaluation: Skipping Primary data processing - no changes detected');
       }
     } else {
-      console.log('SecondaryEvaluation: Skipping data processing - conditions not met');
+      console.log('PrimaryEvaluation: Skipping data processing - conditions not met');
     }
   }, [reduxCycleData, isOfflineStarted]);
 
-           // Effect to handle offline mode and process offline submissions
+      // Effect to handle offline mode and process offline submissions
     useEffect(() => {
-      console.log("SecondaryEvaluation: Offline mode useEffect triggered - isOfflineStarted:", isOfflineStarted, "offlineSubmissionsByCategory:", offlineSubmissionsByCategory);
+      console.log("PrimaryEvaluation: Offline mode useEffect triggered - isOfflineStarted:", isOfflineStarted, "offlineSubmissionsByCategory:", offlineSubmissionsByCategory);
       if (isOfflineStarted) {
-        console.log("SecondaryEvaluation: Offline mode detected, processing offline data");
+        console.log("PrimaryEvaluation: Offline mode detected, processing offline data");
         processOfflineData();
       }
     }, [isOfflineStarted, offlineSubmissionsByCategory]);
-   
+    
 
 
   useEffect(() => {
     return () => {
-      localStorage.removeItem('lastProcessedSecondaryDataHash');
+      localStorage.removeItem('lastProcessedPrimaryDataHash');
     };
   }, [plantTourId]);
 
   useEffect(() => {
-    localStorage.removeItem('lastProcessedSecondaryDataHash');
-    console.log('SecondaryEvaluation: Cleared localStorage data hash due to plantTourId change');
+    localStorage.removeItem('lastProcessedPrimaryDataHash');
+    console.log('PrimaryEvaluation: Cleared localStorage data hash due to plantTourId change');
   }, [plantTourId]);
 
-     // Initialize expanded cycle from localStorage
-   useEffect(() => {
-     const savedExpandedCycle = localStorage.getItem('expandedSecondaryCycle');
-     if (savedExpandedCycle) {
-       setExpandedCompletedCycle(parseInt(savedExpandedCycle));
-     }
-   }, []);
-   
-   // Debug: Log persisted data on component mount
-   useEffect(() => {
-     console.log('SecondaryEvaluation: Component mounted - checking persisted data');
-     console.log('SecondaryEvaluation: isOfflineStarted:', isOfflineStarted);
-     console.log('SecondaryEvaluation: offlineSubmissions length:', offlineSubmissions?.length);
-     console.log('SecondaryEvaluation: offlineSubmissions:', offlineSubmissions);
-     console.log('SecondaryEvaluation: reduxCycleData length:', reduxCycleData?.length);
-     console.log('SecondaryEvaluation: reduxCycleData:', reduxCycleData);
-     console.log('SecondaryEvaluation: Current cycleStatus:', cycleStatus);
-     console.log('SecondaryEvaluation: Current activeCycle:', activeCycle);
-   }, []);
-
-   // Debug effect to monitor cycle status changes
-   useEffect(() => {
-     console.log('SecondaryEvaluation: Cycle status changed:', cycleStatus);
-     console.log('SecondaryEvaluation: Active cycle changed to:', activeCycle);
-   }, [cycleStatus, activeCycle]);
+      // Initialize expanded cycle from localStorage
+    useEffect(() => {
+      const savedExpandedCycle = localStorage.getItem('expandedPrimaryCycle');
+      if (savedExpandedCycle) {
+        setExpandedCompletedCycle(parseInt(savedExpandedCycle));
+      }
+    }, []);
+    
+    // Debug: Log persisted data on component mount
+    useEffect(() => {
+      console.log('PrimaryEvaluation: Component mounted - checking persisted data');
+      console.log('PrimaryEvaluation: isOfflineStarted:', isOfflineStarted);
+      console.log('PrimaryEvaluation: offlineSubmissions length:', offlineSubmissions?.length);
+      console.log('PrimaryEvaluation: offlineSubmissions:', offlineSubmissions);
+      console.log('PrimaryEvaluation: reduxCycleData length:', reduxCycleData?.length);
+      console.log('PrimaryEvaluation: reduxCycleData:', reduxCycleData);
+    }, []);
 
   const handleStart = (cycleNo: number) => {
-    const items = secondaryItems[cycleNo] || [];
+    const items = productItems[cycleNo] || [];
     const initialState: Record<string, SelectionItem> = {};
     items.forEach((item) => {
       initialState[item] = { status: null };
@@ -565,7 +543,7 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
         cr3ea_shift: details.shift || '',
         cr3ea_batchno: details.batchNo || '',
         cr3ea_lineno: details.lineNo || '',
-        cr3ea_category: 'Secondary',
+        cr3ea_category: 'Primary',
         cr3ea_pkd: details.packaged || '',
         cr3ea_tourstartdate: moment().format('MM-DD-YYYY'),
         cr3ea_productname: details.product || '',
@@ -583,9 +561,9 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
       return base;
     });
 
-    const allSecondaryItems = secondaryItems[cycleNo] || [];
+    const allProductItems = productItems[cycleNo] || [];
     const evaluatedItems = Object.keys(currentSelections || {});
-    const missedItems = allSecondaryItems.filter(item => !evaluatedItems.includes(item));
+    const missedItems = allProductItems.filter(item => !evaluatedItems.includes(item));
     
     missedItems.forEach(item => {
       records.push({
@@ -597,7 +575,7 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
         cr3ea_shift: details.shift || '',
         cr3ea_batchno: details.batchNo || '',
         cr3ea_lineno: details.lineNo || '',
-        cr3ea_category: 'Secondary',
+        cr3ea_category: 'Primary',
         cr3ea_pkd: details.packaged || '',
         cr3ea_tourstartdate: moment().format('MM-DD-YYYY'),
         cr3ea_productname: details.product || '',
@@ -617,8 +595,8 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
         plantTourId: plantTourId || ''
       };
       
-      dispatch(addOfflineSubmissionByCategory({ category: 'Secondary', submission: offlineSubmission }));
-      alert('Secondary data saved offline. Will sync when you cancel or sync offline mode.');
+      dispatch(addOfflineSubmissionByCategory({ category: 'Primary', submission: offlineSubmission }));
+      alert('Primary data saved offline. Will sync when you cancel or sync offline mode.');
     } else {
       const tokenResult = await getAccessToken();
       const accessToken = tokenResult?.token;
@@ -652,46 +630,46 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
       missedEvaluationTypes[item] = item;
     });
     
-         // Update cycle status to completed with all details
-     setCycleStatus((prev: CycleStatusMap) => {
-       const updatedStatus = {
-         ...prev,
-         [cycleNo]: {
-           ...prev[cycleNo],
-           started: true,
-           completed: true,
-           defects,
-           okays,
-           defectCategories,
-           evaluationTypes,
-           defectRemarks,
-           okayEvaluationTypes,
-           missedEvaluationTypes
-         },
-       };
-       
-       // Find the next available cycle after updating the status
-       let nextAvailableCycle = 1;
-       const completedCycles = new Set<number>();
-       
-       // Check which cycles are completed (including the current one)
-       Object.entries(updatedStatus).forEach(([cycleNoStr, status]) => {
-         if (status.completed) {
-           completedCycles.add(parseInt(cycleNoStr));
-         }
-       });
-       
-       // Find the first non-completed cycle
-       while (nextAvailableCycle <= totalCycles && completedCycles.has(nextAvailableCycle)) {
-         nextAvailableCycle++;
-       }
-       
-       // Update active cycle immediately
-       setActiveCycle(nextAvailableCycle);
-       console.log(`SecondaryEvaluation: Cycle ${cycleNo} completed, updating activeCycle to ${nextAvailableCycle}`);
-       
-       return updatedStatus;
-     });
+          // Update cycle status to completed with all details
+      setCycleStatus((prev: CycleStatusMap) => {
+        const updatedStatus = {
+          ...prev,
+          [cycleNo]: {
+            ...prev[cycleNo],
+            started: true,
+            completed: true,
+            defects,
+            okays,
+            defectCategories,
+            evaluationTypes,
+            defectRemarks,
+            okayEvaluationTypes,
+            missedEvaluationTypes
+          },
+        };
+        
+        // Find the next available cycle after updating the status
+        let nextAvailableCycle = 1;
+        const completedCycles = new Set<number>();
+        
+        // Check which cycles are completed (including the current one)
+        Object.entries(updatedStatus).forEach(([cycleNoStr, status]) => {
+          if (status.completed) {
+            completedCycles.add(parseInt(cycleNoStr));
+          }
+        });
+        
+        // Find the first non-completed cycle
+        while (nextAvailableCycle <= totalCycles && completedCycles.has(nextAvailableCycle)) {
+          nextAvailableCycle++;
+        }
+        
+        // Update active cycle immediately
+        setActiveCycle(nextAvailableCycle);
+        console.log(`PrimaryEvaluation: Cycle ${cycleNo} completed, updating activeCycle to ${nextAvailableCycle}`);
+        
+        return updatedStatus;
+      });
     
     dispatch(clearSectionDetails(cycleNo));
     
@@ -699,7 +677,7 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
   };
 
   // Debug logging
-  console.log('SecondaryEvaluation: Current state:', {
+  console.log('PrimaryEvaluation: Current state:', {
     activeCycle,
     cycleStatus: Object.keys(cycleStatus).length,
     completedCycles: Object.entries(cycleStatus).filter(([_, status]) => status.completed).map(([cycleNo, _]) => cycleNo),
@@ -711,11 +689,11 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
       {Array.from({ length: totalCycles }, (_, i) => {
         const cycleNo = i + 1;
         const status = cycleStatus[cycleNo] || { started: false, completed: false, defects: [], okays: [], defectCategories: {}, evaluationTypes: {}, defectRemarks: {}, okayEvaluationTypes: {}, missedEvaluationTypes: {} };
-        const items = secondaryItems[cycleNo] || [];
+        const items = productItems[cycleNo] || [];
 
         const shouldShow = status.completed || cycleNo === activeCycle || cycleNo === activeCycle + 1;
         
-        console.log(`SecondaryEvaluation: Cycle ${cycleNo} - status:`, status, 'shouldShow:', shouldShow, 'activeCycle:', activeCycle, 'completed:', status.completed);
+        console.log(`PrimaryEvaluation: Cycle ${cycleNo} - status:`, status, 'shouldShow:', shouldShow, 'activeCycle:', activeCycle);
         
         if (!shouldShow) {
           return null;
@@ -939,7 +917,7 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
                           <table className="w-full text-left text-sm border rounded-md">
                             <thead className="bg-red-50">
                               <tr>
-                                <th className="px-4 py-2 border font-medium">SP No</th>
+                                <th className="px-4 py-2 border font-medium">PP No</th>
                                 <th className="px-4 py-2 border font-medium">Defect Category</th>
                                 <th className="px-4 py-2 border font-medium">Defect</th>
                                 <th className="px-4 py-2 border font-medium">Major Defect</th>
@@ -1044,4 +1022,4 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
   );
   };
   
-  export default SecondaryEvaluation; 
+export default PrimaryEvaluation; 

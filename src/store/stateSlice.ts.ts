@@ -9,6 +9,7 @@ interface StateSlice {
   isModalOpen: boolean;
   progress: number;
   offlineSubmissions: any[];
+  offlineSubmissionsByCategory: { [category: string]: any[] };
 }
 
 const initialState: StateSlice = {
@@ -19,6 +20,7 @@ const initialState: StateSlice = {
   isModalOpen: false,
   progress: 0,
   offlineSubmissions: [],
+  offlineSubmissionsByCategory: {},
 };
 
 const stateSlice = createSlice({
@@ -52,14 +54,27 @@ const stateSlice = createSlice({
       state.isOfflineCompleted = false;
       state.progress = 0;
       state.offlineSubmissions = [];
+      state.offlineSubmissionsByCategory = {};
     },
     addOfflineSubmission(state, action: PayloadAction<any>) {
       console.log('StateSlice: Adding offline submission:', action.payload);
       state.offlineSubmissions.push(action.payload);
       console.log('StateSlice: Current offline submissions:', state.offlineSubmissions);
     },
+    addOfflineSubmissionByCategory(state, action: PayloadAction<{ category: string; submission: any }>) {
+      const { category, submission } = action.payload;
+      console.log('StateSlice: Adding offline submission by category:', { category, submission });
+      
+      if (!state.offlineSubmissionsByCategory[category]) {
+        state.offlineSubmissionsByCategory[category] = [];
+      }
+      
+      state.offlineSubmissionsByCategory[category].push(submission);
+      console.log('StateSlice: Current offline submissions by category:', state.offlineSubmissionsByCategory);
+    },
     clearOfflineSubmissions(state) {
       state.offlineSubmissions = [];
+      state.offlineSubmissionsByCategory = {};
     },
   },
 });
@@ -74,6 +89,7 @@ export const {
   setProgress,
   resetOfflineState,
   addOfflineSubmission,
+  addOfflineSubmissionByCategory,
   clearOfflineSubmissions,
 } = stateSlice.actions;
 

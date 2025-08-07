@@ -24,7 +24,7 @@ const planTourPersistConfig = {
 const appStatePersistConfig = {
   key: "appState",
   storage,
-  whitelist: ["isOfflineStarted", "isOfflineCompleted", "progress", "offlineSubmissions"]
+  whitelist: ["isOfflineStarted", "isOfflineCompleted", "progress", "offlineSubmissions", "offlineSubmissionsByCategory"]
 };
 
 const rootReducer = combineReducers({

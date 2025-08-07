@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState } from "../store/store";
 import { setSectionDetails, clearSectionDetails } from "../store/planTourSlice";
-import { addOfflineSubmission } from "../store/stateSlice.ts";
+import { addOfflineSubmissionByCategory } from "../store/stateSlice.ts";
 import { saveSectionData } from "../Services/saveSectionData";
 import { getAccessToken } from "../Services/getAccessToken";
 // @ts-ignore
@@ -66,6 +66,7 @@ const CBBEvaluation: React.FC<CBBEvaluationProps> = ({
   const plantTourId = useSelector((state: RootState) => state.planTour.plantTourId);
   const isOfflineStarted = useSelector((state: RootState) => state.appState.isOfflineStarted);
   const offlineSubmissions = useSelector((state: RootState) => state.appState.offlineSubmissions);
+  const offlineSubmissionsByCategory = useSelector((state: RootState) => state.appState.offlineSubmissionsByCategory);
   const reduxData = useSelector((state: RootState) => state.planTour.cycleData);
   const reduxCycleData = reduxData.filter((item: any) => 
     item.cr3ea_category === 'CBB Evaluation'
@@ -75,6 +76,10 @@ const CBBEvaluation: React.FC<CBBEvaluationProps> = ({
   const [formFields, setFormFields] = useState<{ [cycleNo: number]: any }>({});
   // State for expanded completed cycle
   const [expandedCompletedCycle, setExpandedCompletedCycle] = useState<number | null>(null);
+  
+  // Refs to access current state values in callbacks
+  const cycleStatusRef = useRef<CycleStatusMap>({});
+  const activeCycleRef = useRef<number>(1);
 
   // Handler to expand/collapse and persist to localStorage
   const handleExpand = (cycleNo: number | null) => {
@@ -93,7 +98,7 @@ const CBBEvaluation: React.FC<CBBEvaluationProps> = ({
   };
 
      // Function to process CBB-specific data from Redux
-   const processCBBData = (cycleData: any[]) => {
+   const processCBBData = useCallback((cycleData: any[]) => {
      console.log('CBBEvaluation: Processing CBB data', { cycleDataLength: cycleData?.length });
      if (!cycleData || cycleData.length === 0) return;
 
@@ -164,9 +169,9 @@ const CBBEvaluation: React.FC<CBBEvaluationProps> = ({
     
     console.log('CBBEvaluation: Processed cycle details:', cycleDetails);
     
-    // Check if cycle status actually needs to be updated
-    const newCycleStatus = { ...cycleStatus };
-    let hasChanges = false;
+         // Check if cycle status actually needs to be updated
+     const newCycleStatus = { ...cycleStatusRef.current };
+     let hasChanges = false;
     
     completedCycles.forEach(cycleNo => {
       const newStatus = {
@@ -181,13 +186,13 @@ const CBBEvaluation: React.FC<CBBEvaluationProps> = ({
         missedEvaluationTypes: cycleDetails[cycleNo]?.missedEvaluationTypes || {}
       };
       
-      // Compare with existing status to avoid unnecessary updates
-      const existingStatus = cycleStatus[cycleNo];
-      if (!existingStatus || 
-          JSON.stringify(existingStatus) !== JSON.stringify(newStatus)) {
-        newCycleStatus[cycleNo] = newStatus;
-        hasChanges = true;
-      }
+             // Compare with existing status to avoid unnecessary updates
+       const existingStatus = cycleStatusRef.current[cycleNo];
+       if (!existingStatus || 
+           JSON.stringify(existingStatus) !== JSON.stringify(newStatus)) {
+         newCycleStatus[cycleNo] = newStatus;
+         hasChanges = true;
+       }
     });
     
     // Find the next available cycle (first non-completed cycle)
@@ -197,8 +202,8 @@ const CBBEvaluation: React.FC<CBBEvaluationProps> = ({
     }
     
          // Only update state if there are actual changes
-     if (hasChanges || nextAvailableCycle !== activeCycle) {
-       console.log(`CBBEvaluation: Updating activeCycle from ${activeCycle} to ${nextAvailableCycle}`);
+     if (hasChanges || nextAvailableCycle !== activeCycleRef.current) {
+       console.log(`CBBEvaluation: Updating activeCycle from ${activeCycleRef.current} to ${nextAvailableCycle}`);
        setActiveCycle(nextAvailableCycle);
        setCycleStatus(newCycleStatus);
        setSelected(newSelected); // Update selected state with processed data
@@ -209,12 +214,114 @@ const CBBEvaluation: React.FC<CBBEvaluationProps> = ({
      } else {
        console.log('CBBEvaluation: No changes detected, skipping state updates');
      }
-  };
+     }, []);
+
+  // Function to process offline submissions for CBB Evaluation
+  const processOfflineData = useCallback(() => {
+    console.log('CBBEvaluation: Processing offline data');
+    
+    // Get CBB-specific offline submissions
+    const cbbOfflineSubmissions = offlineSubmissionsByCategory['CBB Evaluation'] || [];
+    
+    if (cbbOfflineSubmissions.length === 0) {
+      console.log('CBBEvaluation: No offline submissions found for CBB Evaluation');
+      return;
+    }
+    
+    console.log('CBBEvaluation: Found offline submissions:', cbbOfflineSubmissions.length);
+    
+    // Process each offline submission
+    cbbOfflineSubmissions.forEach(submission => {
+      const cycleNo = submission.cycleNo;
+      const records = submission.records;
+      
+      console.log(`CBBEvaluation: Processing offline submission for cycle ${cycleNo}`, records);
+      
+      // Process the records to update cycle status
+      const defects: string[] = [];
+      const okays: string[] = [];
+      const defectCategories: { [key: string]: string } = {};
+      const evaluationTypes: { [key: string]: string } = {};
+      const defectRemarks: { [key: string]: string } = {};
+      const okayEvaluationTypes: { [key: string]: string } = {};
+      const missedEvaluationTypes: { [key: string]: string } = {};
+      
+      // Initialize selected state for this cycle
+      const newSelected: Record<string, SelectionItem> = {};
+      
+      records.forEach((record: any) => {
+        const item = record.cr3ea_evaluationtype || record.cr3ea_defect || 'Unknown';
+        
+        if (record.cr3ea_criteria === 'Okay') {
+          okays.push(item);
+          okayEvaluationTypes[item] = item;
+          newSelected[item] = { status: 'Okay' };
+        } else if (record.cr3ea_criteria === 'Not Okay') {
+          defects.push(item);
+          defectCategories[item] = record.cr3ea_defectcategory || 'Category B';
+          evaluationTypes[item] = item;
+          defectRemarks[item] = record.cr3ea_defectremarks || '';
+          newSelected[item] = {
+            status: 'Not Okay',
+            category: record.cr3ea_defectcategory || 'Category B',
+            defect: record.cr3ea_defect || item,
+            majorDefect: record.cr3ea_defectremarks || ''
+          };
+        }
+      });
+      
+      // Update cycle status
+      setCycleStatus(prev => ({
+        ...prev,
+        [cycleNo]: {
+          started: true,
+          completed: true,
+          defects,
+          okays,
+          defectCategories,
+          evaluationTypes,
+          defectRemarks,
+          okayEvaluationTypes,
+          missedEvaluationTypes
+        }
+      }));
+      
+      // Update selected state
+      setSelected(prev => ({
+        ...prev,
+        [cycleNo]: newSelected
+      }));
+      
+      console.log(`CBBEvaluation: Updated cycle ${cycleNo} with offline data`);
+    });
+    
+    // Find the next available cycle
+    const completedCycles = new Set<number>();
+    Object.entries(cycleStatus).forEach(([cycleNoStr, status]) => {
+      if (status.completed) {
+        completedCycles.add(parseInt(cycleNoStr));
+      }
+    });
+    
+    // Add cycles from offline submissions
+    cbbOfflineSubmissions.forEach(submission => {
+      completedCycles.add(submission.cycleNo);
+    });
+    
+    let nextAvailableCycle = 1;
+    while (nextAvailableCycle <= totalCycles && completedCycles.has(nextAvailableCycle)) {
+      nextAvailableCycle++;
+    }
+    
+    setActiveCycle(nextAvailableCycle);
+    console.log(`CBBEvaluation: Set active cycle to ${nextAvailableCycle}`);
+    
+  }, [offlineSubmissionsByCategory, cycleStatus]);
 
   // Process CBB data when reduxCycleData changes
   useEffect(() => {
+    // Only process if we have data and it's different from what we've processed before
     if (reduxCycleData && reduxCycleData.length > 0) {
-      // Add a check to prevent processing if data hasn't actually changed
       const currentDataHash = JSON.stringify(reduxCycleData);
       const lastProcessedHash = localStorage.getItem('lastProcessedCBBDataHash');
       
@@ -225,12 +332,17 @@ const CBBEvaluation: React.FC<CBBEvaluationProps> = ({
       } else {
         console.log('CBBEvaluation: Skipping CBB data processing - no changes detected');
       }
-    } else {
-      // If no data, reset to initial state
-      console.log('CBBEvaluation: No CBB data found, resetting to initial state');
-      setCycleStatus({});
-      setSelected({});
-      setActiveCycle(1);
+    } else if (reduxCycleData && reduxCycleData.length === 0) {
+      // Only reset if we actually have an empty array (not undefined/null)
+      // and if we haven't already reset
+      const hasReset = localStorage.getItem('cbbDataReset');
+      if (!hasReset) {
+        console.log('CBBEvaluation: No CBB data found, resetting to initial state');
+        setCycleStatus({});
+        setSelected({});
+        setActiveCycle(1);
+        localStorage.setItem('cbbDataReset', 'true');
+      }
     }
   }, [reduxCycleData]);
 
@@ -239,14 +351,34 @@ const CBBEvaluation: React.FC<CBBEvaluationProps> = ({
     return () => {
       // Clear the data hash when component unmounts
       localStorage.removeItem('lastProcessedCBBDataHash');
+      localStorage.removeItem('cbbDataReset');
     };
   }, [plantTourId]);
 
   // Clear localStorage when plantTourId changes to ensure fresh data processing
   useEffect(() => {
     localStorage.removeItem('lastProcessedCBBDataHash');
+    localStorage.removeItem('cbbDataReset');
     console.log('CBBEvaluation: Cleared localStorage data hash due to plantTourId change');
   }, [plantTourId]);
+
+  // Keep refs updated with current state values
+  useEffect(() => {
+    cycleStatusRef.current = cycleStatus;
+  }, [cycleStatus]);
+
+  useEffect(() => {
+    activeCycleRef.current = activeCycle;
+  }, [activeCycle]);
+
+  // Effect to handle offline mode and process offline submissions
+  useEffect(() => {
+    console.log('CBBEvaluation: Offline mode useEffect triggered - isOfflineStarted:', isOfflineStarted, 'offlineSubmissionsByCategory:', offlineSubmissionsByCategory);
+    if (isOfflineStarted) {
+      console.log('CBBEvaluation: Offline mode detected, processing offline data');
+      processOfflineData();
+    }
+  }, [isOfflineStarted, offlineSubmissionsByCategory, processOfflineData]);
 
   const handleStart = (cycleNo: number) => {
     const items = checklistItems[cycleNo] || [];
@@ -394,8 +526,8 @@ const CBBEvaluation: React.FC<CBBEvaluationProps> = ({
         plantTourId: plantTourId || ''
       };
       
-      dispatch(addOfflineSubmission(offlineSubmission));
-      console.log('CBB data saved to Redux. Total offline submissions:', offlineSubmissions.length + 1);
+      dispatch(addOfflineSubmissionByCategory({ category: 'CBB Evaluation', submission: offlineSubmission }));
+      console.log('CBB data saved to Redux. Total CBB offline submissions:', (offlineSubmissionsByCategory['CBB Evaluation'] || []).length + 1);
       alert('CBB data saved offline. Will sync when you cancel or sync offline mode.');
     } else {
       // Online mode - save to API

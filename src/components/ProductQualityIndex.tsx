@@ -6,6 +6,8 @@ import store, { persistor } from "../store/store";
 import DashboardLayout from "./DashboardLayout";
 import CBBEvaluation from "./CBBEvaluation";
 import SecondaryEvaluation from "./SecondaryEvaluation";
+import PrimaryEvaluation from "./PrimaryEvaluation";
+import ProductEvaluation from "./ProductEvaluation";
 import { fetchSummaryData } from "../Services/getSummaryData";
 import { getAccessToken } from "../Services/getAccessToken";
 import { setSectionDetails, clearSectionDetails, setSummaryData, setCycleData } from "../store/planTourSlice";
@@ -985,14 +987,14 @@ const ProductQualityIndex: React.FC = () => {
             />
           )}
           {selectedEvaluationType === 'Primary' && (
-            <div className="text-center py-8 text-gray-500">
-              Primary Evaluation component will be implemented here.
-            </div>
+            <PrimaryEvaluation
+              onCycleComplete={onCycleComplete}
+            />
           )}
           {selectedEvaluationType === 'Product' && (
-            <div className="text-center py-8 text-gray-500">
-              Product Evaluation component will be implemented here.
-            </div>
+            <ProductEvaluation
+              onCycleComplete={onCycleComplete}
+            />
           )}
         </div>
       </div>

@@ -35,24 +35,24 @@ type SelectedMap = {
   [cycleNo: number]: Record<string, SelectionItem>;
 };
 
-const secondaryItems: { [key: number]: string[] } = {
-  1: ["SP 1", "SP 2", "SP 3", "SP 4"],
-  2: ["SP 1", "SP 2", "SP 3", "SP 4"],
-  3: ["SP 1", "SP 2", "SP 3", "SP 4"],
-  4: ["SP 1", "SP 2", "SP 3", "SP 4"],
-  5: ["SP 1", "SP 2", "SP 3", "SP 4"],
-  6: ["SP 1", "SP 2", "SP 3", "SP 4"],
-  7: ["SP 1", "SP 2", "SP 3", "SP 4"],
-  8: ["SP 1", "SP 2", "SP 3", "SP 4"],
+const productItems: { [key: number]: string[] } = {
+  1: ["PR 1", "PR 2", "PR 3", "PR 4"],
+  2: ["PR 1", "PR 2", "PR 3", "PR 4"],
+  3: ["PR 1", "PR 2", "PR 3", "PR 4"],
+  4: ["PR 1", "PR 2", "PR 3", "PR 4"],
+  5: ["PR 1", "PR 2", "PR 3", "PR 4"],
+  6: ["PR 1", "PR 2", "PR 3", "PR 4"],
+  7: ["PR 1", "PR 2", "PR 3", "PR 4"],
+  8: ["PR 1", "PR 2", "PR 3", "PR 4"],
 };
 
 const totalCycles = 8;
 
-interface SecondaryEvaluationProps {
+interface ProductEvaluationProps {
   onCycleComplete: () => void;
 }
 
-const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
+const ProductEvaluation: React.FC<ProductEvaluationProps> = ({
   onCycleComplete
 }) => {
   const dispatch = useDispatch();
@@ -65,10 +65,11 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
   const offlineSubmissionsByCategory = useSelector((state: RootState) => state.appState.offlineSubmissionsByCategory);
   const reduxData = useSelector((state: RootState) => state.planTour.cycleData);
   const reduxCycleData = reduxData.filter((item: any) => 
-    item.cr3ea_category === 'Secondary'
+    item.cr3ea_category === 'Product'
   );
+  console.log(reduxCycleData,'reduxCycleData');
   
-  // Local state for Secondary evaluation
+  // Local state for Product evaluation
   const [cycleStatus, setCycleStatus] = useState<CycleStatusMap>({});
   const [selected, setSelected] = useState<SelectedMap>({});
   const [activeCycle, setActiveCycle] = useState<number>(1);
@@ -77,7 +78,7 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
 
   const handleExpand = (cycleNo: number | null) => {
     setExpandedCompletedCycle(cycleNo);
-    localStorage.setItem('expandedSecondaryCycle', cycleNo !== null ? String(cycleNo) : '');
+    localStorage.setItem('expandedProductCycle', cycleNo !== null ? String(cycleNo) : '');
   };
 
   const handleFormFieldChange = (cycleNo: number, field: string, value: string) => {
@@ -90,133 +91,124 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
     }));
   };
 
-  const processSecondaryData = useCallback((cycleData: any[]) => {
-    console.log('SecondaryEvaluation: Processing Secondary data', { cycleDataLength: cycleData?.length });
+  const processProductData = useCallback((cycleData: any[]) => {
+    console.log('ProductEvaluation: Processing Product data', { cycleDataLength: cycleData?.length });
     if (!cycleData || cycleData.length === 0) return;
 
-    // Filter data for Secondary category
-    const secondaryData = cycleData.filter((item: any) => 
-      item.cr3ea_category === 'Secondary'
+    // Filter data for Product category
+    const productData = cycleData.filter((item: any) => 
+      item.cr3ea_category === 'Product'
     );
 
-    console.log('SecondaryEvaluation: Filtered Secondary data', { secondaryDataLength: secondaryData.length });
+    console.log('ProductEvaluation: Filtered Product data', { productDataLength: productData.length });
 
-    // Process the cycle data to determine completed cycles
-    const completedCycles = new Set<number>();
-    const cycleDetails: { [cycleNo: number]: { defects: string[], okays: string[], defectCategories: { [item: string]: string }, evaluationTypes: { [item: string]: string }, defectRemarks: { [item: string]: string }, okayEvaluationTypes: { [item: string]: string }, missedEvaluationTypes: { [item: string]: string } } } = {};
+    if (productData.length === 0) return;
+
+    // Initialize new state objects
+    const newCycleStatus: CycleStatusMap = {};
     const newSelected: SelectedMap = {};
-    
-          secondaryData.forEach((item: any) => {
+
+    // Process each cycle
+    for (let cycleNo = 1; cycleNo <= totalCycles; cycleNo++) {
+      const cycleData = productData.filter((item: any) => {
         const cycleMatch = item.cr3ea_cycle?.match(/Cycle-(\d+)/);
-        if (cycleMatch) {
-          const cycleNo = parseInt(cycleMatch[1]);
-          completedCycles.add(cycleNo);
+        return cycleMatch && parseInt(cycleMatch[1]) === cycleNo;
+      });
+
+      if (cycleData.length > 0) {
+        const defects: string[] = [];
+        const okays: string[] = [];
+        const defectCategories: { [key: string]: string } = {};
+        const evaluationTypes: { [key: string]: string } = {};
+        const defectRemarks: { [key: string]: string } = {};
+        const okayEvaluationTypes: { [key: string]: string } = {};
+        const missedEvaluationTypes: { [key: string]: string } = {};
+
+        // Initialize selected state for this cycle
+        if (!newSelected[cycleNo]) {
+          newSelected[cycleNo] = {};
+        }
+
+        cycleData.forEach((item: any) => {
+          const evaluationType = item.cr3ea_evaluationtype || item.cr3ea_defect || 'Unknown';
           
-          if (!cycleDetails[cycleNo]) {
-            cycleDetails[cycleNo] = { 
-              defects: [], 
-              okays: [], 
-              defectCategories: {}, 
-              evaluationTypes: {}, 
-              defectRemarks: {}, 
-              okayEvaluationTypes: {}, 
-              missedEvaluationTypes: {} 
-            };
-          }
-          
-          // Initialize selected state for this cycle if not exists
-          if (!newSelected[cycleNo]) {
-            newSelected[cycleNo] = {};
-          }
-          
-          // Process based on criteria
           if (item.cr3ea_criteria === 'Okay') {
-            const evaluationType = item.cr3ea_evaluationtype || item.cr3ea_defect || 'Unknown';
-            cycleDetails[cycleNo].okays.push(evaluationType);
-            cycleDetails[cycleNo].okayEvaluationTypes[evaluationType] = evaluationType;
+            okays.push(evaluationType);
+            okayEvaluationTypes[evaluationType] = evaluationType;
             
-            // Add to selected state
-            newSelected[cycleNo][evaluationType] = { status: 'Okay' };
+            // Update selected state for okay items
+            newSelected[cycleNo][evaluationType] = {
+              status: 'Okay',
+              category: undefined,
+              defect: undefined,
+              majorDefect: undefined
+            };
           } else if (item.cr3ea_criteria === 'Not Okay') {
-            const defectItem = item.cr3ea_defect || item.cr3ea_evaluationtype || 'Unknown';
-            cycleDetails[cycleNo].defects.push(defectItem);
-            cycleDetails[cycleNo].defectCategories[defectItem] = item.cr3ea_defectcategory || 'Category B';
-            cycleDetails[cycleNo].evaluationTypes[defectItem] = item.cr3ea_evaluationtype || defectItem;
-            cycleDetails[cycleNo].defectRemarks[defectItem] = item.cr3ea_defectremarks || '';
+            defects.push(evaluationType);
+            defectCategories[evaluationType] = item.cr3ea_defectcategory || 'Category B';
+            evaluationTypes[evaluationType] = evaluationType;
+            defectRemarks[evaluationType] = item.cr3ea_defectremarks || '';
             
-            // Add to selected state with defect details
-            newSelected[cycleNo][defectItem] = { 
+            // Update selected state for defect items
+            newSelected[cycleNo][evaluationType] = {
               status: 'Not Okay',
               category: item.cr3ea_defectcategory || 'Category B',
-              defect: item.cr3ea_defect || defectItem,
+              defect: item.cr3ea_defect || '',
               majorDefect: item.cr3ea_defectremarks || ''
             };
-          } else if (!item.cr3ea_criteria || item.cr3ea_criteria === null) {
-            // Handle missed evaluations
-            const missedItem = item.cr3ea_evaluationtype || item.cr3ea_defect || 'Unknown';
-            cycleDetails[cycleNo].missedEvaluationTypes[missedItem] = missedItem;
           }
-        }
-      });
-    
-    console.log('SecondaryEvaluation: Processed cycle details:', cycleDetails);
-    
-    // Check if cycle status actually needs to be updated
-    const newCycleStatus = { ...cycleStatus };
-    let hasChanges = false;
-    
-    completedCycles.forEach(cycleNo => {
-      const newStatus = {
-        started: true,
-        completed: true,
-        defects: cycleDetails[cycleNo]?.defects || [],
-        okays: cycleDetails[cycleNo]?.okays || [],
-        defectCategories: cycleDetails[cycleNo]?.defectCategories || {},
-        evaluationTypes: cycleDetails[cycleNo]?.evaluationTypes || {},
-        defectRemarks: cycleDetails[cycleNo]?.defectRemarks || {},
-        okayEvaluationTypes: cycleDetails[cycleNo]?.okayEvaluationTypes || {},
-        missedEvaluationTypes: cycleDetails[cycleNo]?.missedEvaluationTypes || {}
-      };
-      
-      // Compare with existing status to avoid unnecessary updates
-      const existingStatus = cycleStatus[cycleNo];
-      if (!existingStatus || 
-          JSON.stringify(existingStatus) !== JSON.stringify(newStatus)) {
-        newCycleStatus[cycleNo] = newStatus;
-        hasChanges = true;
+        });
+
+        newCycleStatus[cycleNo] = {
+          started: true,
+          completed: true,
+          defects,
+          okays,
+          defectCategories,
+          evaluationTypes,
+          defectRemarks,
+          okayEvaluationTypes,
+          missedEvaluationTypes
+        };
       }
-    });
-    
-    // Find the next available cycle (first non-completed cycle)
+    }
+
+    // Find the next available cycle
     let nextAvailableCycle = 1;
-    while (nextAvailableCycle <= totalCycles && completedCycles.has(nextAvailableCycle)) {
+    while (nextAvailableCycle <= totalCycles && newCycleStatus[nextAvailableCycle]?.completed) {
       nextAvailableCycle++;
     }
-    
-         // Only update state if there are actual changes
-     if (hasChanges || nextAvailableCycle !== activeCycle) {
-       console.log(`SecondaryEvaluation: Updating activeCycle from ${activeCycle} to ${nextAvailableCycle}`);
-       setActiveCycle(nextAvailableCycle);
-       setCycleStatus(newCycleStatus);
-       setSelected(newSelected); // Update selected state with processed data
-       
-       console.log('SecondaryEvaluation: Updated cycle status:', newCycleStatus);
-       console.log('SecondaryEvaluation: Updated selected state:', newSelected);
-       console.log('SecondaryEvaluation: Next available cycle:', nextAvailableCycle);
-     } else {
-       console.log('SecondaryEvaluation: No changes detected, skipping state updates');
-     }
-  }, [cycleStatus, activeCycle]);
 
-  // Process offline data for Secondary evaluation
+    console.log('ProductEvaluation: Processed cycle details:', newCycleStatus);
+    console.log('ProductEvaluation: Updated selected state:', newSelected);
+    console.log('ProductEvaluation: Next available cycle:', nextAvailableCycle);
+
+    // Only update state if there are actual changes
+    const currentStatusHash = JSON.stringify(cycleStatus);
+    const newStatusHash = JSON.stringify(newCycleStatus);
+    
+    if (currentStatusHash !== newStatusHash || nextAvailableCycle !== activeCycle) {
+      console.log(`ProductEvaluation: Updating activeCycle from ${activeCycle} to ${nextAvailableCycle}`);
+      setCycleStatus(newCycleStatus);
+      setSelected(newSelected);
+      setActiveCycle(nextAvailableCycle);
+      console.log('ProductEvaluation: Updated cycle status:', newCycleStatus);
+      console.log('ProductEvaluation: Updated selected state:', newSelected);
+      console.log('ProductEvaluation: Next available cycle:', nextAvailableCycle);
+    } else {
+      console.log('ProductEvaluation: No changes detected, skipping state updates');
+    }
+  }, [reduxCycleData]);
+
+  // Process offline data for Product evaluation
   const processOfflineData = () => {
     if (!isOfflineStarted) {
       return;
     }
 
-    console.log("SecondaryEvaluation: Offline mode: Processing offline submissions for cycle details");
-    console.log("SecondaryEvaluation: Offline submissions length:", offlineSubmissions.length);
-    console.log("SecondaryEvaluation: Redux cycle data length:", reduxCycleData?.length || 0);
+    console.log("ProductEvaluation: Offline mode: Processing offline submissions for cycle details");
+    console.log("ProductEvaluation: Offline submissions length:", offlineSubmissions.length);
+    console.log("ProductEvaluation: Redux cycle data length:", reduxCycleData?.length || 0);
 
     // Initialize cycle status and selected state
     const newCycleStatus: CycleStatusMap = {};
@@ -224,17 +216,17 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
 
     // First, process Redux data if available (for existing completed cycles)
     if (reduxCycleData && reduxCycleData.length > 0) {
-      console.log("SecondaryEvaluation: Offline mode: Processing Redux data for existing completed cycles");
+      console.log("ProductEvaluation: Offline mode: Processing Redux data for existing completed cycles");
       
-      // Filter data for Secondary category
-      const secondaryData = reduxCycleData.filter((item: any) => 
-        item.cr3ea_category === 'Secondary'
+      // Filter data for Product category
+      const productData = reduxCycleData.filter((item: any) => 
+        item.cr3ea_category === 'Product'
       );
 
-      if (secondaryData.length > 0) {
+      if (productData.length > 0) {
         // Process each cycle from Redux data
         for (let cycleNo = 1; cycleNo <= totalCycles; cycleNo++) {
-          const cycleData = secondaryData.filter((item: any) => {
+          const cycleData = productData.filter((item: any) => {
             const cycleMatch = item.cr3ea_cycle?.match(/Cycle-(\d+)/);
             return cycleMatch && parseInt(cycleMatch[1]) === cycleNo;
           });
@@ -299,14 +291,14 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
       }
     }
 
-        // Then, process offline submissions (this will override/add to Redux data)
-    const secondaryOfflineSubmissions = offlineSubmissionsByCategory['Secondary'] || [];
-    if (secondaryOfflineSubmissions.length > 0) {
-      console.log("SecondaryEvaluation: Offline mode: Processing Secondary offline submissions:", secondaryOfflineSubmissions.length);
+    // Then, process offline submissions (this will override/add to Redux data)
+    const productOfflineSubmissions = offlineSubmissionsByCategory['Product'] || [];
+    if (productOfflineSubmissions.length > 0) {
+      console.log("ProductEvaluation: Offline mode: Processing Product offline submissions:", productOfflineSubmissions.length);
       
-      secondaryOfflineSubmissions.forEach(submission => {
+      productOfflineSubmissions.forEach(submission => {
         const cycleNo = submission.cycleNo;
-        const secondaryRecords = submission.records;
+        const productRecords = submission.records;
         
         const defects: string[] = [];
         const okays: string[] = [];
@@ -316,160 +308,157 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
         const okayEvaluationTypes: { [key: string]: string } = {};
         const missedEvaluationTypes: { [key: string]: string } = {};
 
-        // Initialize selected state for this cycle
-        if (!newSelected[cycleNo]) {
-          newSelected[cycleNo] = {};
-        }
-        
-        secondaryRecords.forEach((record: any) => {
-          if (record.cr3ea_criteria === 'Okay') {
-            okays.push(record.cr3ea_evaluationtype);
-            okayEvaluationTypes[record.cr3ea_evaluationtype] = record.cr3ea_evaluationtype;
-            
-            // Update selected state for okay items
-            newSelected[cycleNo][record.cr3ea_evaluationtype] = {
-              status: 'Okay',
-              category: undefined,
-              defect: undefined,
-              majorDefect: undefined
-            };
-          } else if (record.cr3ea_criteria === 'Not Okay') {
-            // Check if this is a missed item
-            if (record.cr3ea_defectcategory === 'Missed') {
-              // This is a missed item, add to missedEvaluationTypes
-              missedEvaluationTypes[record.cr3ea_defect] = record.cr3ea_defect;
-            } else {
-              // This is a regular defect
-              defects.push(record.cr3ea_evaluationtype);
-              defectCategories[record.cr3ea_evaluationtype] = record.cr3ea_defectcategory || 'Category B';
-              evaluationTypes[record.cr3ea_evaluationtype] = record.cr3ea_evaluationtype;
-              defectRemarks[record.cr3ea_evaluationtype] = record.cr3ea_defectremarks || '';
-              
-              // Update selected state for defect items
-              newSelected[cycleNo][record.cr3ea_evaluationtype] = {
-                status: 'Not Okay',
-                category: record.cr3ea_defectcategory || 'Category B',
-                defect: record.cr3ea_defect || '',
-                majorDefect: record.cr3ea_defectremarks || ''
-              };
-            }
-          }
-        });
-        
-        newCycleStatus[cycleNo] = {
-          started: true,
-          completed: true,
-          defects,
-          okays,
-          defectCategories,
-          evaluationTypes,
-          defectRemarks,
-          okayEvaluationTypes,
-          missedEvaluationTypes
-        };
-      });
+                 // Initialize selected state for this cycle
+         if (!newSelected[cycleNo]) {
+           newSelected[cycleNo] = {};
+         }
+         
+         productRecords.forEach((record: any) => {
+           if (record.cr3ea_criteria === 'Okay') {
+             okays.push(record.cr3ea_evaluationtype);
+             okayEvaluationTypes[record.cr3ea_evaluationtype] = record.cr3ea_evaluationtype;
+             
+             // Update selected state for okay items
+             newSelected[cycleNo][record.cr3ea_evaluationtype] = {
+               status: 'Okay',
+               category: undefined,
+               defect: undefined,
+               majorDefect: undefined
+             };
+           } else if (record.cr3ea_criteria === 'Not Okay') {
+             // Check if this is a missed item
+             if (record.cr3ea_defectcategory === 'Missed') {
+               // This is a missed item, add to missedEvaluationTypes
+               missedEvaluationTypes[record.cr3ea_defect] = record.cr3ea_defect;
+             } else {
+               // This is a regular defect
+               defects.push(record.cr3ea_evaluationtype);
+               defectCategories[record.cr3ea_evaluationtype] = record.cr3ea_defectcategory || 'Category B';
+               evaluationTypes[record.cr3ea_evaluationtype] = record.cr3ea_evaluationtype;
+               defectRemarks[record.cr3ea_evaluationtype] = record.cr3ea_defectremarks || '';
+               
+               // Update selected state for defect items
+               newSelected[cycleNo][record.cr3ea_evaluationtype] = {
+                 status: 'Not Okay',
+                 category: record.cr3ea_defectcategory || 'Category B',
+                 defect: record.cr3ea_defect || '',
+                 majorDefect: record.cr3ea_defectremarks || ''
+               };
+             }
+           }
+         });
+         
+         newCycleStatus[cycleNo] = {
+           started: true,
+           completed: true,
+           defects,
+           okays,
+           defectCategories,
+           evaluationTypes,
+           defectRemarks,
+           okayEvaluationTypes,
+           missedEvaluationTypes
+         };
+       });
+     }
+    
+    // Find the next available cycle (first non-completed cycle)
+    let nextAvailableCycle = 1;
+    while (nextAvailableCycle <= totalCycles && newCycleStatus[nextAvailableCycle]?.completed) {
+      nextAvailableCycle++;
     }
     
-         // Find the next available cycle (first non-completed cycle)
-     let nextAvailableCycle = 1;
-     while (nextAvailableCycle <= totalCycles && newCycleStatus[nextAvailableCycle]?.completed) {
-       nextAvailableCycle++;
-     }
-     
-     console.log('SecondaryEvaluation: Offline mode - calculated nextAvailableCycle:', nextAvailableCycle);
-     console.log('SecondaryEvaluation: Offline mode - completed cycles:', Object.entries(newCycleStatus).filter(([_, status]) => status.completed).map(([cycleNo, _]) => cycleNo));
-     
-
-     
-     // Update cycle status and active cycle together
-     setCycleStatus(newCycleStatus);
-     setSelected(newSelected);
-     setActiveCycle(nextAvailableCycle);
-     
-     console.log('SecondaryEvaluation: Offline data processed for summary display');
-     console.log('SecondaryEvaluation: Processed cycle status:', newCycleStatus);
-     console.log('SecondaryEvaluation: Updated selected state:', newSelected);
-     console.log('SecondaryEvaluation: Next available cycle:', nextAvailableCycle);
-     console.log('SecondaryEvaluation: Active cycle updated to:', nextAvailableCycle);
+    console.log('ProductEvaluation: Offline mode - calculated nextAvailableCycle:', nextAvailableCycle);
+    console.log('ProductEvaluation: Offline mode - completed cycles:', Object.entries(newCycleStatus).filter(([_, status]) => status.completed).map(([cycleNo, _]) => cycleNo));
+    console.log('ProductEvaluation: Offline mode - newCycleStatus:', newCycleStatus);
+    console.log('ProductEvaluation: Offline mode - newSelected:', newSelected);
+    
+    // Update cycle status and selected state
+    setCycleStatus(newCycleStatus);
+    setSelected(newSelected);
+    setActiveCycle(nextAvailableCycle);
+    
+    console.log('ProductEvaluation: Offline mode - Updated cycle status to:', newCycleStatus);
+    console.log('ProductEvaluation: Offline mode - Updated active cycle to:', nextAvailableCycle);
+    
+    console.log('ProductEvaluation: Offline data processed for summary display');
+    console.log('ProductEvaluation: Processed cycle status:', newCycleStatus);
+    console.log('ProductEvaluation: Updated selected state:', newSelected);
+    console.log('ProductEvaluation: Next available cycle:', nextAvailableCycle);
+    console.log('ProductEvaluation: Active cycle updated to:', nextAvailableCycle);
   };
 
+  // Effect to process Redux data when it changes
   useEffect(() => {
-    console.log('SecondaryEvaluation: useEffect triggered with reduxCycleData length:', reduxCycleData?.length, 'isOfflineStarted:', isOfflineStarted);
+    console.log('ProductEvaluation: useEffect triggered with reduxCycleData length:', reduxCycleData?.length, 'isOfflineStarted:', isOfflineStarted);
+    
     if (reduxCycleData && reduxCycleData.length > 0) {
-      // Filter for Secondary category only
-      const secondaryData = reduxCycleData.filter((item: any) => 
-        item.cr3ea_category === 'Secondary'
-      );
+      const currentDataHash = JSON.stringify(reduxCycleData);
+      const lastProcessedHash = localStorage.getItem('lastProcessedProductDataHash');
       
-      if (secondaryData.length > 0) {
-        const currentDataHash = JSON.stringify(secondaryData);
-        const lastProcessedHash = localStorage.getItem('lastProcessedSecondaryDataHash');
-        
-        if (currentDataHash !== lastProcessedHash) {
-          console.log('SecondaryEvaluation: Processing new Secondary data');
-          processSecondaryData(secondaryData);
-          localStorage.setItem('lastProcessedSecondaryDataHash', currentDataHash);
-        } else {
-          console.log('SecondaryEvaluation: Skipping Secondary data processing - no changes detected');
-        }
+      if (currentDataHash !== lastProcessedHash) {
+        console.log('ProductEvaluation: Processing new Product data');
+        processProductData(reduxCycleData);
+        localStorage.setItem('lastProcessedProductDataHash', currentDataHash);
       } else {
-        console.log('SecondaryEvaluation: No Secondary data found in reduxCycleData');
+        console.log('ProductEvaluation: Skipping Product data processing - no changes detected');
       }
-    } else {
-      console.log('SecondaryEvaluation: Skipping data processing - conditions not met');
     }
-  }, [reduxCycleData, isOfflineStarted]);
+  }, [reduxCycleData, processProductData]);
 
-           // Effect to handle offline mode and process offline submissions
-    useEffect(() => {
-      console.log("SecondaryEvaluation: Offline mode useEffect triggered - isOfflineStarted:", isOfflineStarted, "offlineSubmissionsByCategory:", offlineSubmissionsByCategory);
-      if (isOfflineStarted) {
-        console.log("SecondaryEvaluation: Offline mode detected, processing offline data");
-        processOfflineData();
-      }
-    }, [isOfflineStarted, offlineSubmissionsByCategory]);
-   
+  // Effect to handle offline mode cycle progression
+  useEffect(() => {
+    console.log("ProductEvaluation: Offline mode useEffect triggered - isOfflineStarted:", isOfflineStarted, "offlineSubmissionsByCategory:", offlineSubmissionsByCategory);
+    
+    if (isOfflineStarted) {
+      console.log("ProductEvaluation: Offline mode detected, processing offline data");
+      processOfflineData();
+    }
+  }, [isOfflineStarted, offlineSubmissionsByCategory]);
 
-
+  // Cleanup effect to clear localStorage when plantTourId changes or component unmounts
   useEffect(() => {
     return () => {
-      localStorage.removeItem('lastProcessedSecondaryDataHash');
+      localStorage.removeItem('lastProcessedProductDataHash');
     };
   }, [plantTourId]);
 
+  // Clear localStorage when plantTourId changes to ensure fresh data processing
   useEffect(() => {
-    localStorage.removeItem('lastProcessedSecondaryDataHash');
-    console.log('SecondaryEvaluation: Cleared localStorage data hash due to plantTourId change');
+    localStorage.removeItem('lastProcessedProductDataHash');
+    console.log('ProductEvaluation: Cleared localStorage data hash due to plantTourId change');
   }, [plantTourId]);
 
-     // Initialize expanded cycle from localStorage
-   useEffect(() => {
-     const savedExpandedCycle = localStorage.getItem('expandedSecondaryCycle');
-     if (savedExpandedCycle) {
-       setExpandedCompletedCycle(parseInt(savedExpandedCycle));
-     }
-   }, []);
-   
-   // Debug: Log persisted data on component mount
-   useEffect(() => {
-     console.log('SecondaryEvaluation: Component mounted - checking persisted data');
-     console.log('SecondaryEvaluation: isOfflineStarted:', isOfflineStarted);
-     console.log('SecondaryEvaluation: offlineSubmissions length:', offlineSubmissions?.length);
-     console.log('SecondaryEvaluation: offlineSubmissions:', offlineSubmissions);
-     console.log('SecondaryEvaluation: reduxCycleData length:', reduxCycleData?.length);
-     console.log('SecondaryEvaluation: reduxCycleData:', reduxCycleData);
-     console.log('SecondaryEvaluation: Current cycleStatus:', cycleStatus);
-     console.log('SecondaryEvaluation: Current activeCycle:', activeCycle);
-   }, []);
+  // Effect to restore expanded cycle state on mount
+  useEffect(() => {
+    const savedExpandedCycle = localStorage.getItem('expandedProductCycle');
+    if (savedExpandedCycle) {
+      setExpandedCompletedCycle(parseInt(savedExpandedCycle));
+    }
+  }, []);
 
-   // Debug effect to monitor cycle status changes
-   useEffect(() => {
-     console.log('SecondaryEvaluation: Cycle status changed:', cycleStatus);
-     console.log('SecondaryEvaluation: Active cycle changed to:', activeCycle);
-   }, [cycleStatus, activeCycle]);
+  // Debug effect to log component state on mount
+  useEffect(() => {
+    console.log('ProductEvaluation: Component mounted - checking persisted data');
+    console.log('ProductEvaluation: isOfflineStarted:', isOfflineStarted);
+    console.log('ProductEvaluation: offlineSubmissions length:', offlineSubmissions?.length);
+    console.log('ProductEvaluation: offlineSubmissions:', offlineSubmissions);
+    console.log('ProductEvaluation: reduxCycleData length:', reduxCycleData?.length);
+    console.log('ProductEvaluation: reduxCycleData:', reduxCycleData);
+    console.log('ProductEvaluation: Current cycleStatus:', cycleStatus);
+    console.log('ProductEvaluation: Current activeCycle:', activeCycle);
+    console.log('ProductEvaluation: Offline submissions:', offlineSubmissions);
+  }, []);
+
+  // Debug effect to monitor cycle status changes
+  useEffect(() => {
+    console.log('ProductEvaluation: Cycle status changed:', cycleStatus);
+    console.log('ProductEvaluation: Active cycle changed to:', activeCycle);
+    console.log('ProductEvaluation: Offline submissions changed:', offlineSubmissions);
+  }, [cycleStatus, activeCycle, offlineSubmissions]);
 
   const handleStart = (cycleNo: number) => {
-    const items = secondaryItems[cycleNo] || [];
+    const items = productItems[cycleNo] || [];
     const initialState: Record<string, SelectionItem> = {};
     items.forEach((item) => {
       initialState[item] = { status: null };
@@ -565,27 +554,28 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
         cr3ea_shift: details.shift || '',
         cr3ea_batchno: details.batchNo || '',
         cr3ea_lineno: details.lineNo || '',
-        cr3ea_category: 'Secondary',
+        cr3ea_category: 'Product',
         cr3ea_pkd: details.packaged || '',
         cr3ea_tourstartdate: moment().format('MM-DD-YYYY'),
         cr3ea_productname: details.product || '',
         cr3ea_observedby: user?.Name || '',
         cr3ea_qualitytourid: plantTourId || '',
-        cr3ea_defect: val.defect || '',
       };
+
       if (val.status === "Not Okay") {
         return {
           ...base,
-          cr3ea_defectcategory: val.category || '',
+          cr3ea_defectcategory: val.category || 'Category B',
+          cr3ea_defect: val.defect || '',
           cr3ea_defectremarks: val.majorDefect || '',
         };
       }
       return base;
     });
 
-    const allSecondaryItems = secondaryItems[cycleNo] || [];
+    const allProductItems = productItems[cycleNo] || [];
     const evaluatedItems = Object.keys(currentSelections || {});
-    const missedItems = allSecondaryItems.filter(item => !evaluatedItems.includes(item));
+    const missedItems = allProductItems.filter(item => !evaluatedItems.includes(item));
     
     missedItems.forEach(item => {
       records.push({
@@ -597,7 +587,7 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
         cr3ea_shift: details.shift || '',
         cr3ea_batchno: details.batchNo || '',
         cr3ea_lineno: details.lineNo || '',
-        cr3ea_category: 'Secondary',
+        cr3ea_category: 'Product',
         cr3ea_pkd: details.packaged || '',
         cr3ea_tourstartdate: moment().format('MM-DD-YYYY'),
         cr3ea_productname: details.product || '',
@@ -617,8 +607,8 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
         plantTourId: plantTourId || ''
       };
       
-      dispatch(addOfflineSubmissionByCategory({ category: 'Secondary', submission: offlineSubmission }));
-      alert('Secondary data saved offline. Will sync when you cancel or sync offline mode.');
+      dispatch(addOfflineSubmissionByCategory({ category: 'Product', submission: offlineSubmission }));
+      alert('Product data saved offline. Will sync when you cancel or sync offline mode.');
     } else {
       const tokenResult = await getAccessToken();
       const accessToken = tokenResult?.token;
@@ -652,70 +642,71 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
       missedEvaluationTypes[item] = item;
     });
     
-         // Update cycle status to completed with all details
-     setCycleStatus((prev: CycleStatusMap) => {
-       const updatedStatus = {
-         ...prev,
-         [cycleNo]: {
-           ...prev[cycleNo],
-           started: true,
-           completed: true,
-           defects,
-           okays,
-           defectCategories,
-           evaluationTypes,
-           defectRemarks,
-           okayEvaluationTypes,
-           missedEvaluationTypes
-         },
-       };
-       
-       // Find the next available cycle after updating the status
-       let nextAvailableCycle = 1;
-       const completedCycles = new Set<number>();
-       
-       // Check which cycles are completed (including the current one)
-       Object.entries(updatedStatus).forEach(([cycleNoStr, status]) => {
-         if (status.completed) {
-           completedCycles.add(parseInt(cycleNoStr));
-         }
-       });
-       
-       // Find the first non-completed cycle
-       while (nextAvailableCycle <= totalCycles && completedCycles.has(nextAvailableCycle)) {
-         nextAvailableCycle++;
-       }
-       
-       // Update active cycle immediately
-       setActiveCycle(nextAvailableCycle);
-       console.log(`SecondaryEvaluation: Cycle ${cycleNo} completed, updating activeCycle to ${nextAvailableCycle}`);
-       
-       return updatedStatus;
-     });
-    
-    dispatch(clearSectionDetails(cycleNo));
-    
-    onCycleComplete();
-  };
+    // Update cycle status to completed with all details
+    setCycleStatus((prev: CycleStatusMap) => {
+      const updatedStatus = {
+        ...prev,
+        [cycleNo]: {
+          ...prev[cycleNo],
+          started: true,
+          completed: true,
+          defects,
+          okays,
+          defectCategories,
+          evaluationTypes,
+          defectRemarks,
+          okayEvaluationTypes,
+          missedEvaluationTypes
+        },
+      };
+      
+      // Find the next available cycle after updating the status
+      let nextAvailableCycle = 1;
+      const completedCycles = new Set<number>();
+      
+      // Check which cycles are completed (including the current one)
+      Object.entries(updatedStatus).forEach(([cycleNoStr, status]) => {
+        if (status.completed) {
+          completedCycles.add(parseInt(cycleNoStr));
+        }
+      });
+      
+      // Find the next available cycle
+      while (nextAvailableCycle <= totalCycles && completedCycles.has(nextAvailableCycle)) {
+        nextAvailableCycle++;
+      }
+      
+      // Update active cycle inside the setCycleStatus callback to ensure atomic update
+      setActiveCycle(nextAvailableCycle);
+      console.log(`ProductEvaluation: Cycle ${cycleNo} completed, updating activeCycle to ${nextAvailableCycle}`);
+      
+      return updatedStatus;
+    });
 
-  // Debug logging
-  console.log('SecondaryEvaluation: Current state:', {
-    activeCycle,
-    cycleStatus: Object.keys(cycleStatus).length,
-    completedCycles: Object.entries(cycleStatus).filter(([_, status]) => status.completed).map(([cycleNo, _]) => cycleNo),
-    isOfflineStarted
-  });
+    // Call the onCycleComplete callback
+    if (onCycleComplete) {
+      onCycleComplete();
+    }
+
+    console.log('ProductEvaluation: Current state:', {
+      cycleStatus,
+      selected: currentSelections,
+      activeCycle,
+      savedData: records
+    });
+  };
 
   return (
     <div className="space-y-6 max-h-[70vh] overflow-y-auto">
       {Array.from({ length: totalCycles }, (_, i) => {
         const cycleNo = i + 1;
         const status = cycleStatus[cycleNo] || { started: false, completed: false, defects: [], okays: [], defectCategories: {}, evaluationTypes: {}, defectRemarks: {}, okayEvaluationTypes: {}, missedEvaluationTypes: {} };
-        const items = secondaryItems[cycleNo] || [];
+        const items = productItems[cycleNo] || [];
 
+        // Show all completed cycles, active cycle, and next cycle
         const shouldShow = status.completed || cycleNo === activeCycle || cycleNo === activeCycle + 1;
         
-        console.log(`SecondaryEvaluation: Cycle ${cycleNo} - status:`, status, 'shouldShow:', shouldShow, 'activeCycle:', activeCycle, 'completed:', status.completed);
+        console.log(`ProductEvaluation: Cycle ${cycleNo} - status:`, status, 'shouldShow:', shouldShow, 'activeCycle:', activeCycle, 'completed:', status.completed);
         
         if (!shouldShow) {
           return null;
@@ -801,46 +792,49 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
               </div>
             )}
 
-                         {/* Show active session form (checklist and save/cancel) only if started and not completed */}
-             {status.started && !status.completed && (
-               <div className="space-y-6 mt-4">
-                 {items.map((item) => {
-                   const current = selected[cycleNo]?.[item];
+            {/* Show active session form (checklist and save/cancel) only if started and not completed */}
+            {status.started && !status.completed && (
+              <div className="space-y-6 mt-4">
+                                 {items.map((item) => {
+                   const currentSelection = selected[cycleNo]?.[item];
+                   
                    return (
                      <div key={item} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
                        <div className="flex justify-between items-center">
-                         <h3 className="font-semibold text-gray-900">{item}</h3>
+                         <h4 className="font-semibold text-gray-900">{item}</h4>
                          <div className="flex gap-2">
-                           <button
-                             onClick={() => handleSelect(cycleNo, item, "Not Okay")}
-                             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                               current?.status === "Not Okay"
-                                 ? "bg-red-600 text-white border border-red-600"
-                                 : "bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
-                             }`}
-                           >
-                             Not Okay
-                           </button>
                            <button
                              onClick={() => handleSelect(cycleNo, item, "Okay")}
                              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                               current?.status === "Okay"
+                               currentSelection?.status === "Okay"
                                  ? "bg-green-600 text-white border border-green-600"
                                  : "bg-green-50 text-green-600 border border-green-200 hover:bg-green-100"
                              }`}
                            >
                              Okay
                            </button>
+                           <button
+                             onClick={() => handleSelect(cycleNo, item, "Not Okay")}
+                             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                               currentSelection?.status === "Not Okay"
+                                 ? "bg-red-600 text-white border border-red-600"
+                                 : "bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
+                             }`}
+                           >
+                             Not Okay
+                           </button>
                          </div>
                        </div>
-                       {current?.status === "Not Okay" && (
+
+                                             {/* Defect Fields (only show if "Not Okay" is selected) */}
+                       {currentSelection?.status === "Not Okay" && (
                          <div className="mt-4 pt-4 border-t border-gray-100">
                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                              <div>
                                <label className="block text-sm font-medium text-gray-700 mb-2">Select Category</label>
                                <select
                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                 value={current.category || ""}
+                                 value={currentSelection.category || ""}
                                  onChange={(e) => updateField(cycleNo, item, "category", e.target.value)}
                                >
                                  <option value="">Select Category</option>
@@ -855,7 +849,7 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
                                  type="text"
                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                  placeholder="Enter defect description"
-                                 value={current.defect || ""}
+                                 value={currentSelection.defect || ""}
                                  onChange={(e) => updateField(cycleNo, item, "defect", e.target.value)}
                                />
                              </div>
@@ -864,7 +858,7 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
                                <textarea
                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                  placeholder="Enter major defect or remarks"
-                                 value={current.majorDefect || ""}
+                                 value={currentSelection.majorDefect || ""}
                                  onChange={(e) => updateField(cycleNo, item, "majorDefect", e.target.value)}
                                  rows={2}
                                />
@@ -872,20 +866,21 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
                            </div>
                          </div>
                        )}
-                     </div>
-                   );
-                 })}
-                 <div className="flex justify-end gap-2 mt-4">
-                   <button className="px-4 py-2 border rounded">Cancel</button>
-                   <button
-                     onClick={() => handleSave(cycleNo)}
-                     className="px-4 py-2 bg-blue-600 text-white rounded"
-                   >
-                     Save Session
-                   </button>
-                 </div>
-               </div>
-             )}
+                    </div>
+                  );
+                })}
+
+                {/* Save Button */}
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => handleSave(cycleNo)}
+                    className="px-4 py-2 bg-green-600 text-white rounded"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Show completed cycle summary */}
             {status.completed && (
@@ -939,7 +934,7 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
                           <table className="w-full text-left text-sm border rounded-md">
                             <thead className="bg-red-50">
                               <tr>
-                                <th className="px-4 py-2 border font-medium">SP No</th>
+                                <th className="px-4 py-2 border font-medium">PP No</th>
                                 <th className="px-4 py-2 border font-medium">Defect Category</th>
                                 <th className="px-4 py-2 border font-medium">Defect</th>
                                 <th className="px-4 py-2 border font-medium">Major Defect</th>
@@ -1042,6 +1037,6 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
       })}
     </div>
   );
-  };
-  
-  export default SecondaryEvaluation; 
+};
+
+export default ProductEvaluation; 

@@ -58,14 +58,18 @@ function processData(data: any[]) {
 // Remove duplicate submissions based on cycle number and timestamp
 function removeDuplicateSubmissions(submissions: any[]) {
   const uniqueSubmissions: any[] = [];
-  const seenCycles = new Set<number>();
+  const seenSubmissions = new Set<string>();
 
-  // Create a new array and sort by timestamp (newest first) to keep the latest submission for each cycle
+  // Create a new array and sort by timestamp (newest first) to keep the latest submission for each cycle-category combination
   const sortedSubmissions = [...submissions].sort((a, b) => b.timestamp - a.timestamp);
 
   for (const submission of sortedSubmissions) {
-    if (!seenCycles.has(submission.cycleNo)) {
-      seenCycles.add(submission.cycleNo);
+    // Create a unique key based on cycle number and category
+    const category = submission.records?.[0]?.cr3ea_category || 'Unknown';
+    const submissionKey = `${category}-${submission.cycleNo}`;
+    
+    if (!seenSubmissions.has(submissionKey)) {
+      seenSubmissions.add(submissionKey);
       uniqueSubmissions.push(submission);
     }
   }
@@ -88,6 +92,7 @@ export default function HomePage() {
   const isOfflineCompleted = useSelector((state: any) => state.appState.isOfflineCompleted);
   const progress = useSelector((state: any) => state.appState.progress);
   const offlineSubmissions = useSelector((state: any) => state.appState.offlineSubmissions);
+  const offlineSubmissionsByCategory = useSelector((state: any) => state.appState.offlineSubmissionsByCategory);
   const user = useSelector((state: any) => state.user.user);
   const userState = useSelector((state: any) => state.user);
   const planTourState = useSelector((state: any) => state.planTour);
@@ -232,7 +237,12 @@ export default function HomePage() {
     }
     
     // Sync offline submissions if any exist
-    if (offlineSubmissions.length > 0) {
+    // Sync offline submissions if any
+    const allOfflineSubmissions = Object.values(offlineSubmissionsByCategory).flat();
+    console.log('HomePage: All offline submissions by category:', offlineSubmissionsByCategory);
+    console.log('HomePage: Flattened offline submissions:', allOfflineSubmissions);
+    
+    if (allOfflineSubmissions.length > 0) {
       console.log('Syncing offline submissions before canceling...');
       try {
         const tokenResult = await getAccessToken();
@@ -241,8 +251,9 @@ export default function HomePage() {
         
         if (accessToken) {
           // Remove duplicates before syncing
-          const uniqueSubmissions = removeDuplicateSubmissions(offlineSubmissions);
-          console.log(`Original submissions: ${offlineSubmissions.length}, Unique submissions: ${uniqueSubmissions.length}`);
+          const uniqueSubmissions = removeDuplicateSubmissions(allOfflineSubmissions);
+          console.log(`Original submissions: ${allOfflineSubmissions.length}, Unique submissions: ${uniqueSubmissions.length}`);
+          console.log('HomePage: Unique submissions to sync:', uniqueSubmissions);
           
           for (const submission of uniqueSubmissions) {
             console.log(`Processing submission for cycle ${submission.cycleNo}:`, {
@@ -288,7 +299,7 @@ export default function HomePage() {
           error: error,
           errorMessage: error instanceof Error ? error.message : 'Unknown error',
           errorStack: error instanceof Error ? error.stack : 'No stack trace',
-          offlineSubmissionsCount: offlineSubmissions.length
+          offlineSubmissionsCount: allOfflineSubmissions.length
         });
         
         alert(errorMessage);
