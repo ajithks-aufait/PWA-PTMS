@@ -376,26 +376,6 @@ export default function HomePage() {
     navigate("/", { replace: true });
   };
   
-  // Function to clear only user-related Redux persistence while preserving offline data
-  const clearUserReduxData = () => {
-    try {
-      // Get the current Redux persistence data
-      const reduxPersistData = localStorage.getItem('redux-persist:root');
-      if (reduxPersistData) {
-        const parsedData = JSON.parse(reduxPersistData);
-        
-        // Clear only user and planTour data, but preserve appState (offline data)
-        delete parsedData.user;
-        delete parsedData.planTour;
-        
-        // Save back the modified data
-        localStorage.setItem('redux-persist:root', JSON.stringify(parsedData));
-        console.log('Cleared user and planTour data while preserving offline data');
-      }
-    } catch (error) {
-      console.error('Error clearing user Redux data:', error);
-    }
-  };
 
   function pad(num: number): string {
     return num.toString().padStart(2, "0");
