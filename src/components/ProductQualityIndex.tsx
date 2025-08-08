@@ -53,8 +53,6 @@ const ProductQualityIndex: React.FC = () => {
   const [selectedEvaluationType, setSelectedEvaluationType] = useState<'CBB' | 'Secondary' | 'Primary' | 'Product'>('CBB');
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const sectionDetails = useSelector((state: RootState) => state.planTour.sectionDetails);
-  const user = useSelector((state: RootState) => state.user.user);
   const selectedShift = useSelector((state: RootState) => state.planTour.selectedCycle);
   const plantTourId = useSelector((state: RootState) => state.planTour.plantTourId);
   const isOfflineStarted = useSelector((state: RootState) => state.appState.isOfflineStarted);
@@ -62,26 +60,6 @@ const ProductQualityIndex: React.FC = () => {
   const reduxSummaryData = useSelector((state: RootState) => state.planTour.summaryData);
   const reduxCycleData = useSelector((state: RootState) => state.planTour.cycleData);
   const lastFetchTimestamp = useSelector((state: RootState) => state.planTour.lastFetchTimestamp);
-  // Local state for form fields per cycle
-  const [formFields, setFormFields] = useState<{ [cycleNo: number]: any }>({});
-  // State for expanded completed cycle
-  const [expandedCompletedCycle, setExpandedCompletedCycle] = useState<number | null>(null);
-
-  // Handler to expand/collapse and persist to localStorage
-  const handleExpand = (cycleNo: number | null) => {
-    setExpandedCompletedCycle(cycleNo);
-    localStorage.setItem('expandedCompletedCycle', cycleNo !== null ? String(cycleNo) : '');
-  };
-
-  const handleFormFieldChange = (cycleNo: number, field: string, value: string) => {
-    setFormFields((prev) => ({
-      ...prev,
-      [cycleNo]: {
-        ...prev[cycleNo],
-        [field]: value,
-      },
-    }));
-  };
 
 
 
