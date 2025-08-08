@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState } from "../store/store";
-import store, { persistor } from "../store/store";
+import  { persistor } from "../store/store";
 import DashboardLayout from "./DashboardLayout";
 import CBBEvaluation from "./CBBEvaluation";
 import SecondaryEvaluation from "./SecondaryEvaluation";
@@ -10,9 +10,7 @@ import PrimaryEvaluation from "./PrimaryEvaluation";
 import ProductEvaluation from "./ProductEvaluation";
 import { fetchSummaryData } from "../Services/getSummaryData";
 import { getAccessToken } from "../Services/getAccessToken";
-import { setSectionDetails, clearSectionDetails, setSummaryData, setCycleData } from "../store/planTourSlice";
-import { addOfflineSubmission } from "../store/stateSlice.ts";
-import { saveSectionData } from "../Services/saveSectionData";
+import {  setSummaryData, setCycleData } from "../store/planTourSlice";
 import { fetchCycleDetails } from "../Services/getCycleDetails";
 // @ts-ignore
 import moment from "moment";
@@ -33,16 +31,7 @@ type CycleStatusMap = {
   [cycleNo: number]: CycleResult;
 };
 
-type SelectionItem = {
-  status: "Okay" | "Not Okay" | null;
-  category?: string;
-  defect?: string;
-  majorDefect?: string;
-};
 
-type SelectedMap = {
-  [cycleNo: number]: Record<string, SelectionItem>;
-};
 
 
 
@@ -58,7 +47,6 @@ const ProductQualityIndex: React.FC = () => {
       ])
     )
   );
-  const [selected, setSelected] = useState<SelectedMap>({});
   const [showDetails, setShowDetails] = useState(false);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [isProcessingCycleCompletion, setIsProcessingCycleCompletion] = useState(false);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState } from "../store/store";
-import { setSectionDetails, clearSectionDetails } from "../store/planTourSlice";
+import { setSectionDetails } from "../store/planTourSlice";
 import { addOfflineSubmissionByCategory } from "../store/stateSlice.ts";
 import { saveSectionData } from "../Services/saveSectionData";
 import { getAccessToken } from "../Services/getAccessToken";

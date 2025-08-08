@@ -65,7 +65,6 @@ const CBBEvaluation: React.FC<CBBEvaluationProps> = ({
   const selectedShift = useSelector((state: RootState) => state.planTour.selectedCycle);
   const plantTourId = useSelector((state: RootState) => state.planTour.plantTourId);
   const isOfflineStarted = useSelector((state: RootState) => state.appState.isOfflineStarted);
-  const offlineSubmissions = useSelector((state: RootState) => state.appState.offlineSubmissions);
   const offlineSubmissionsByCategory = useSelector((state: RootState) => state.appState.offlineSubmissionsByCategory);
   const reduxData = useSelector((state: RootState) => state.planTour.cycleData);
   const reduxCycleData = reduxData.filter((item: any) => 
