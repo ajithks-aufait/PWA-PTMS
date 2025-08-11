@@ -5,7 +5,7 @@ import { setSelectedTour, setSelectedCycle } from "../store/planTourSlice";
 interface PlantTourModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onDone?: () => void;
+  onDone?: (selectedTour: string, selectedShift: string) => void;
   isLoading?: boolean;
 }
 
@@ -16,9 +16,11 @@ const PlantTourModal: React.FC<PlantTourModalProps> = ({ isOpen, onClose, onDone
   if (!isOpen) return null;
 
   const handleDone = () => {
+    console.log('PlantTourModal handleDone called with:', { selectedTour, selectedShift });
     dispatch(setSelectedTour(selectedTour));
     dispatch(setSelectedCycle(selectedShift));
-    if (onDone) onDone();
+    console.log('Redux state updated, calling onDone callback');
+    if (onDone) onDone(selectedTour, selectedShift);
   };
 
   return (
@@ -43,8 +45,6 @@ const PlantTourModal: React.FC<PlantTourModalProps> = ({ isOpen, onClose, onDone
             <option>Product Quality Index</option>
             <option>Cream Percentage Index</option>
             <option>Sieves and magnets old plant</option>
-            <option>Cream Percentage Index</option>
-            <option>Cream Percentage Index</option>
           </select>
         </div>
 

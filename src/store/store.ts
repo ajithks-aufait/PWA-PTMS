@@ -3,6 +3,7 @@ import { configureStore, combineReducers } from "@reduxjs/toolkit";
 import userReducer from "./userSlice";
 import planTourReducer from './planTourSlice';
 import stateReducer from './stateSlice.ts';
+import creamPercentageReducer from './creamPercentageSlice';
 import { persistStore, persistReducer } from "redux-persist";
 import storage from "redux-persist/lib/storage";
 
@@ -27,10 +28,18 @@ const appStatePersistConfig = {
   whitelist: ["isOfflineStarted", "isOfflineCompleted", "progress", "offlineSubmissions", "offlineSubmissionsByCategory"]
 };
 
+// Persist config for creamPercentage
+const creamPercentagePersistConfig = {
+  key: "creamPercentage",
+  storage,
+  whitelist: ["cycleData", "completedCycles", "currentCycle", "isOffline", "pendingSync"]
+};
+
 const rootReducer = combineReducers({
   user: persistReducer(userPersistConfig, userReducer),
   planTour: persistReducer(planTourPersistConfig, planTourReducer),
   appState: persistReducer(appStatePersistConfig, stateReducer),
+  creamPercentage: persistReducer(creamPercentagePersistConfig, creamPercentageReducer),
 });
 
 const store = configureStore({

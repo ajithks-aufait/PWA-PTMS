@@ -4,6 +4,7 @@ import { BrowserRouter as Router } from "react-router-dom";
 import LoginPage from './pages/LoginPage';
 import ProtectedRoute from './auth/ProtectedRoute';
 import ProductQualityIndex from './components/ProductQualityIndex';
+import CreamPercentageIndex from './components/CreamPercentageIndex';
 import DashboardLayout from './pages/HomePage';
 
 
@@ -27,6 +28,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ProductQualityIndex />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/creampercentage"
+            element={
+              <ProtectedRoute>
+                <CreamPercentageIndex />
               </ProtectedRoute>
             }
           />

@@ -15,9 +15,11 @@ import DashboardLayout from "../components/DashboardLayout";
 import { setPlantTourId, setEmployeeDetails, clearAllDataExceptEssential, setSummaryData, setCycleData, setLastFetchTimestamp, setCategorySummary, setCycleCount } from "../store/planTourSlice";
 import { setOfflineStarted, setOfflineCompleted, setProgress, resetOfflineState} from "../store/stateSlice.ts";
 import { clearUser } from "../store/userSlice";
+import { resetCreamPercentage } from "../store/creamPercentageSlice";
 import { createOrFetchPlantTour } from "../Services/createOrFetchPlantTour";
 import { getAccessToken } from "../Services/getAccessToken";
 import { saveSectionData } from "../Services/saveSectionData";
+import { saveCreamPercentageData } from "../Services/saveCreamPercentageData";
 import { fetchSummaryData } from "../Services/getSummaryData";
 import { fetchCycleDetails } from "../Services/getCycleDetails";
 import { useNavigate } from "react-router-dom";
@@ -93,6 +95,10 @@ export default function HomePage() {
   const progress = useSelector((state: any) => state.appState.progress);
   const offlineSubmissions = useSelector((state: any) => state.appState.offlineSubmissions);
   const offlineSubmissionsByCategory = useSelector((state: any) => state.appState.offlineSubmissionsByCategory);
+  
+  // Get cream percentage offline data from Redux
+  const creamPercentagePendingSync = useSelector((state: any) => state.creamPercentage.pendingSync);
+  
   const user = useSelector((state: any) => state.user.user);
   const userState = useSelector((state: any) => state.user);
   const planTourState = useSelector((state: any) => state.planTour);
@@ -179,9 +185,9 @@ export default function HomePage() {
           fetchCycleDetails(tokenResult.token, plantTourId)
         ]);
         
-        // Handle the API responses properly
-        const summaryArray = summaryData && Array.isArray(summaryData) ? summaryData : [];
-        const cycleArray = cycleData && Array.isArray(cycleData) ? cycleData : [];
+                  // Handle the API responses properly
+          const summaryArray = summaryData && Array.isArray(summaryData) ? summaryData : [];
+          const cycleArray = cycleData && Array.isArray(cycleData) ? cycleData : [];
         
         console.log("Fetched Summary Data:", summaryArray);
         console.log("Fetched Cycle Records:", cycleArray);
@@ -236,82 +242,116 @@ export default function HomePage() {
       return;
     }
     
-    // Sync offline submissions if any exist
-    // Sync offline submissions if any
+    // Get access token for syncing
+    const tokenResult = await getAccessToken();
+    const accessToken = tokenResult?.token;
+    
+    if (!accessToken) {
+      console.error('No access token available for syncing');
+      alert('❌ Authentication error. Please log in again.');
+      return;
+    }
+    
+    let totalSynced = 0;
+    let totalErrors = 0;
+    
+    // Sync general offline submissions
     const allOfflineSubmissions = Object.values(offlineSubmissionsByCategory).flat();
     console.log('HomePage: All offline submissions by category:', offlineSubmissionsByCategory);
     console.log('HomePage: Flattened offline submissions:', allOfflineSubmissions);
     
     if (allOfflineSubmissions.length > 0) {
-      console.log('Syncing offline submissions before canceling...');
+      console.log('Syncing general offline submissions...');
       try {
-        const tokenResult = await getAccessToken();
-        const accessToken = tokenResult?.token;
-        console.log('Token result:', { hasToken: !!accessToken, tokenLength: accessToken?.length });
+        // Remove duplicates before syncing
+        const uniqueSubmissions = removeDuplicateSubmissions(allOfflineSubmissions);
+        console.log(`Original submissions: ${allOfflineSubmissions.length}, Unique submissions: ${uniqueSubmissions.length}`);
+        console.log('HomePage: Unique submissions to sync:', uniqueSubmissions);
         
-        if (accessToken) {
-          // Remove duplicates before syncing
-          const uniqueSubmissions = removeDuplicateSubmissions(allOfflineSubmissions);
-          console.log(`Original submissions: ${allOfflineSubmissions.length}, Unique submissions: ${uniqueSubmissions.length}`);
-          console.log('HomePage: Unique submissions to sync:', uniqueSubmissions);
+        for (const submission of uniqueSubmissions) {
+          console.log(`Processing submission for cycle ${submission.cycleNo}:`, {
+            recordsCount: submission.records.length,
+            records: submission.records.map((r: any) => ({
+              evaluationType: r.cr3ea_evaluationtype,
+              cycle: r.cr3ea_cycle,
+              criteria: r.cr3ea_criteria
+            }))
+          });
           
-          for (const submission of uniqueSubmissions) {
-            console.log(`Processing submission for cycle ${submission.cycleNo}:`, {
-              recordsCount: submission.records.length,
-              records: submission.records.map((r: any) => ({
-                evaluationType: r.cr3ea_evaluationtype,
-                cycle: r.cr3ea_cycle,
-                criteria: r.cr3ea_criteria
-              }))
-            });
-            
-            // Validate records before syncing
-            if (!submission.records || submission.records.length === 0) {
-              console.warn(`Skipping empty submission for cycle ${submission.cycleNo}`);
-              continue;
-            }
-            
-            const result = await saveSectionData(accessToken, submission.records);
-            console.log(`Synced submission for cycle ${submission.cycleNo}, result:`, result);
+          // Validate records before syncing
+          if (!submission.records || submission.records.length === 0) {
+            console.warn(`Skipping empty submission for cycle ${submission.cycleNo}`);
+            continue;
           }
-          console.log('All offline submissions synced successfully');
-          alert('✅ Offline data synced successfully!');
-        } else {
-          throw new Error('No access token available');
+          
+          const result = await saveSectionData(accessToken, submission.records);
+          console.log(`Synced submission for cycle ${submission.cycleNo}, result:`, result);
+          totalSynced++;
         }
+        console.log('All general offline submissions synced successfully');
       } catch (error) {
-        console.error('Error syncing offline submissions:', error);
-        
-        // Provide more specific error messages
-        let errorMessage = '❌ Error syncing offline data. Please check your connection and try again.';
-        
-        if (error instanceof Error) {
-          if (error.message.includes('Failed to save record')) {
-            errorMessage = '❌ Server error while saving data. Please try again.';
-          } else if (error.message.includes('No access token')) {
-            errorMessage = '❌ Authentication error. Please log in again.';
-          } else if (error.message.includes('fetch')) {
-            errorMessage = '❌ Network error. Please check your internet connection.';
-          }
-        }
-        
-        console.log('Detailed error info:', {
-          error: error,
-          errorMessage: error instanceof Error ? error.message : 'Unknown error',
-          errorStack: error instanceof Error ? error.stack : 'No stack trace',
-          offlineSubmissionsCount: allOfflineSubmissions.length
-        });
-        
-        alert(errorMessage);
-        return;
+        console.error('Error syncing general offline submissions:', error);
+        totalErrors++;
       }
     } else {
-      console.log('No offline submissions to sync');
+      console.log('No general offline submissions to sync');
+    }
+    
+    // Sync cream percentage offline data
+    if (creamPercentagePendingSync.length > 0) {
+      console.log('Syncing cream percentage offline data...');
+      console.log('Cream percentage pending sync data:', creamPercentagePendingSync);
+      
+      try {
+        for (const data of creamPercentagePendingSync) {
+          console.log(`Syncing cream percentage cycle ${data.cycleNum}:`, data);
+          
+          try {
+            await saveCreamPercentageData({
+              cycleNum: data.cycleNum,
+              formData: data.formData,
+              weightData: data.weightData,
+              qualityTourId: data.qualityTourId,
+              userName: data.userName,
+              shiftValue: data.shiftValue
+            });
+            
+            console.log(`Successfully synced cream percentage cycle ${data.cycleNum}`);
+            totalSynced++;
+          } catch (cycleError) {
+            console.error(`Failed to sync cream percentage cycle ${data.cycleNum}:`, cycleError);
+            totalErrors++;
+          }
+        }
+        
+        console.log('Cream percentage offline data sync completed');
+      } catch (error) {
+        console.error('Error syncing cream percentage offline data:', error);
+        totalErrors++;
+      }
+    } else {
+      console.log('No cream percentage offline data to sync');
+    }
+    
+    // Show sync results
+    if (totalSynced > 0 && totalErrors === 0) {
+      alert(`✅ Successfully synced ${totalSynced} offline data item(s)!`);
+    } else if (totalSynced > 0 && totalErrors > 0) {
+      alert(`⚠️ Synced ${totalSynced} item(s) successfully, but ${totalErrors} item(s) failed. Please check console for details.`);
+    } else if (totalSynced === 0 && totalErrors > 0) {
+      alert('❌ Failed to sync offline data. Please check console for details.');
+      return;
+    } else {
+      console.log('No offline data to sync');
     }
     
     // Clear all Redux data except token, plantTourId, employeeDetails, and user details
     dispatch(clearAllDataExceptEssential());
     dispatch(resetOfflineState());
+    
+    // Clear cream percentage Redux state
+    dispatch(resetCreamPercentage());
+    
     setShowOfflineError(false);
     
     // Clear any offline data from localStorage
@@ -453,13 +493,35 @@ export default function HomePage() {
   });
   console.log(isOfflineCompleted);
 
+  // Test function to verify navigation logic
+  const testNavigation = (tourType: string) => {
+    console.log('Testing navigation for:', tourType);
+    if (tourType === "Cream Percentage Index") {
+      console.log('Should navigate to /creampercentage');
+      navigate("/creampercentage");
+    } else {
+      console.log('Should navigate to /qualityplantour');
+      navigate("/qualityplantour");
+    }
+  };
+
   // Add handler for starting plant tour
-  const handleStartPlantTour = async () => {
-    console.log('handleStartPlantTour called');
+  const handleStartPlantTour = async (selectedTour: string, selectedShift: string) => {
+    console.log('handleStartPlantTour called with:', { selectedTour, selectedShift });
     const employee = planTourState.employeeDetails;
-    const selectedTour = planTourState.selectedTour;
-    const selectedShift = planTourState.selectedCycle;
-    if (!employee || !user || !selectedTour || !selectedShift) return;
+    
+    console.log('Current Redux state:', {
+      employee: employee,
+      selectedTour: selectedTour,
+      selectedShift: selectedShift,
+      user: user
+    });
+    
+    if (!employee || !user || !selectedTour || !selectedShift) {
+      console.log('Missing required data:', { employee: !!employee, user: !!user, selectedTour: !!selectedTour, selectedShift: !!selectedShift });
+      return;
+    }
+    
     setIsPlantTourLoading(true);
     try {
       // Check if we're in offline mode
@@ -470,7 +532,15 @@ export default function HomePage() {
         if (existingPlantTourId) {
           console.log('Using existing plant tour ID for offline mode:', existingPlantTourId);
           setIsModalOpen(false);
-          navigate("/qualityplantour");
+          // Navigate based on selected tour type
+          console.log('Selected tour:', selectedTour);
+          if (selectedTour === "Cream Percentage Index") {
+            console.log('Navigating to Cream Percentage Index');
+            navigate("/creampercentage");
+          } else {
+            console.log('Navigating to Product Quality Index');
+            navigate("/qualityplantour");
+          }
         } else {
           throw new Error('No plant tour ID available for offline mode');
         }
@@ -491,7 +561,15 @@ export default function HomePage() {
         if (plantTourId) {
           dispatch(setPlantTourId(plantTourId));
           setIsModalOpen(false);
-          navigate("/qualityplantour");
+          // Navigate based on selected tour type
+          console.log('Selected tour:', selectedTour);
+          if (selectedTour === "Cream Percentage Index") {
+            console.log('Navigating to Cream Percentage Index');
+            navigate("/creampercentage");
+          } else {
+            console.log('Navigating to Product Quality Index');
+            navigate("/qualityplantour");
+          }
         }
       }
     } catch (err) {
@@ -526,6 +604,7 @@ export default function HomePage() {
                   >
                     Plant Tour
                   </button>
+                  
                   <button
                     className={`w-full sm:w-auto px-4 py-2 rounded-md ${
                       isOnline 
@@ -536,7 +615,7 @@ export default function HomePage() {
                     disabled={!isOnline}
                     title={!isOnline ? 'Internet connection required to start offline mode' : 'Start offline mode'}
                   >
-                    + Start Offline Mode
+                    + Start Offline Mode {(offlineSubmissions.length + creamPercentagePendingSync.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length})`}
                   </button>
                   {showOfflineError && (
                     <div className="w-full sm:w-auto text-xs text-red-600 mt-1">
@@ -547,13 +626,14 @@ export default function HomePage() {
               )}
                              {isOfflineStarted && (
                  <>
-                  <button
+                                     <button
                      className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
                      onClick={() => setIsModalOpen(true)}
                      disabled={isPlantTourLoading}
                    >
                      + Offline Plant Tour
                    </button>
+
                   <button
                     className={`w-full sm:w-auto px-4 py-2 rounded-md ${
                       isOnline 
@@ -564,12 +644,12 @@ export default function HomePage() {
                     disabled={!isOnline}
                     title={!isOnline ? 'Internet connection required to sync offline data' : 'Sync and cancel offline mode'}
                   >
-                    + Sync & Cancel Offline {offlineSubmissions.length > 0 && `(${offlineSubmissions.length})`}
+                    + Sync & Cancel Offline {(offlineSubmissions.length + creamPercentagePendingSync.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length})`}
                     {!isOnline && <span className="ml-1 text-xs">(Internet Required)</span>}
                   </button>
-                  {offlineSubmissions.length > 0 && !isOnline && (
+                  {(offlineSubmissions.length + creamPercentagePendingSync.length) > 0 && !isOnline && (
                     <div className="w-full sm:w-auto text-xs text-orange-600 mt-1">
-                      ⚠️ {offlineSubmissions.length} offline submission(s) waiting for internet connection
+                      ⚠️ {offlineSubmissions.length + creamPercentagePendingSync.length} offline submission(s) waiting for internet connection
                     </div>
                   )}
                 </>
