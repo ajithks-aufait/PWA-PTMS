@@ -41,6 +41,16 @@ const creamPercentageSlice = createSlice({
   reducers: {
     saveCycleData: (state, action: PayloadAction<CreamPercentageData>) => {
       const { cycleNum, ...data } = action.payload;
+      
+      console.log(`=== REDUX: SAVING CYCLE ${cycleNum} ===`);
+      console.log('Action payload:', action.payload);
+      console.log('Current state before save:');
+      console.log('- cycleData keys:', Object.keys(state.cycleData));
+      console.log('- completedCycles:', state.completedCycles);
+      console.log('- currentCycle:', state.currentCycle);
+      console.log('- isOffline:', state.isOffline);
+      console.log('- pendingSync length:', state.pendingSync.length);
+      
       state.cycleData[cycleNum] = {
         ...data,
         cycleNum,
@@ -51,12 +61,30 @@ const creamPercentageSlice = createSlice({
         state.completedCycles.push(cycleNum);
       }
       
+      // Update current cycle to the next available cycle number
+      const oldCurrentCycle = state.currentCycle;
       state.currentCycle = Math.max(...state.completedCycles) + 1;
+      console.log(`Current cycle updated: ${oldCurrentCycle} -> ${state.currentCycle}`);
+      console.log(`Completed cycles array: [${state.completedCycles.join(', ')}]`);
+      console.log(`Max completed cycle: ${Math.max(...state.completedCycles)}`);
       
       // Add to pending sync if offline
       if (state.isOffline) {
+        console.log(`Adding cycle ${cycleNum} to pending sync (offline mode)`);
         state.pendingSync.push(action.payload);
+        console.log(`Pending sync now has ${state.pendingSync.length} items:`);
+        state.pendingSync.forEach((item, index) => {
+          console.log(`  ${index + 1}. Cycle ${item.cycleNum}`);
+        });
+      } else {
+        console.log(`Not adding cycle ${cycleNum} to pending sync (online mode)`);
       }
+      
+      console.log('State after save:');
+      console.log('- cycleData keys:', Object.keys(state.cycleData));
+      console.log('- completedCycles:', state.completedCycles);
+      console.log('- currentCycle:', state.currentCycle);
+      console.log('- pendingSync length:', state.pendingSync.length);
     },
     
     setOfflineMode: (state, action: PayloadAction<boolean>) => {
@@ -78,7 +106,13 @@ const creamPercentageSlice = createSlice({
     },
     
     removePendingSyncItem: (state, action: PayloadAction<number>) => {
-      state.pendingSync = state.pendingSync.filter(item => item.cycleNum !== action.payload);
+      const cycleNumToRemove = action.payload;
+      console.log(`=== REDUX: REMOVING CYCLE ${cycleNumToRemove} FROM PENDING SYNC ===`);
+      console.log('Pending sync before removal:', state.pendingSync.map(item => item.cycleNum));
+      
+      state.pendingSync = state.pendingSync.filter(item => item.cycleNum !== cycleNumToRemove);
+      
+      console.log('Pending sync after removal:', state.pendingSync.map(item => item.cycleNum));
     },
     
     resetCreamPercentage: (state) => {
@@ -86,6 +120,7 @@ const creamPercentageSlice = createSlice({
       state.completedCycles = [];
       state.currentCycle = 1;
       state.pendingSync = [];
+      state.isOffline = false;
     }
   }
 });

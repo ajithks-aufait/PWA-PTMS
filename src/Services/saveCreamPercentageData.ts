@@ -92,6 +92,9 @@ export const saveCreamPercentageData = async (params: SaveCreamPercentageParams)
       shiftValue = "shift 1"
     } = params;
 
+    console.log(`=== SAVING CREAM PERCENTAGE DATA FOR CYCLE ${cycleNum} ===`);
+    console.log('Input parameters:', params);
+
     // Calculate cream percentages for each row
     const creamPercent1 = calculateCreamPercentage(weightData.sandwichWeights[0], weightData.shellWeights[0]);
     const creamPercent2 = calculateCreamPercentage(weightData.sandwichWeights[1], weightData.shellWeights[1]);
@@ -128,6 +131,9 @@ export const saveCreamPercentageData = async (params: SaveCreamPercentageParams)
       cr3ea_lineno: formData.line
     };
 
+    console.log('Full payload:', payload);
+    console.log('Cycle number in payload:', payload.cr3ea_cycle);
+
     // Get access token
     const tokenResult = await getAccessToken();
     const accessToken = tokenResult?.token;
@@ -152,18 +158,27 @@ export const saveCreamPercentageData = async (params: SaveCreamPercentageParams)
     const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}`;
 
     // Make API call
+    console.log('API URL:', apiUrl);
+    console.log('Request method:', 'POST');
+    console.log('Request headers:', headers);
+    
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: headers,
       body: JSON.stringify(payload)
     });
 
+    console.log('Response status:', response.status);
+    console.log('Response status text:', response.statusText);
+
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('API Error Response:', errorText);
       throw new Error(`Failed to save cream percentage data: ${response.status} - ${errorText}`);
     }
 
     const result = await response.json();
+    console.log('API Response data:', result);
     console.log('Cream percentage data saved successfully:', result);
     
     return true;

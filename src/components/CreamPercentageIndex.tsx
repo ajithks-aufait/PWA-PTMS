@@ -77,6 +77,8 @@ const CreamPercentageIndex: React.FC = () => {
   };
 
   const handleSaveSession = async () => {
+    console.log('=== HANDLE SAVE SESSION STARTED ===');
+    console.log('Current cycle:', currentCycle);
     console.log('Saving session with data:', { formData, weightData });
     
     try {
@@ -91,8 +93,8 @@ const CreamPercentageIndex: React.FC = () => {
       console.log('Calculated cream percentages:', creamPercentages);
       console.log('Average cream percentage:', averageCreamPercentage);
       
-      // Save to Redux first (for offline support)
-      dispatch(saveCycleData({
+      // Prepare the data to save to Redux
+      const cycleDataToSave = {
         cycleNum: currentCycle,
         formData,
         weightData,
@@ -100,13 +102,29 @@ const CreamPercentageIndex: React.FC = () => {
         userName: user?.Name || null,
         shiftValue: selectedCycle || 'shift 1',
         timestamp: new Date().toISOString()
-      }));
+      };
+      
+      console.log(`=== SAVING CYCLE ${currentCycle} TO REDUX ===`);
+      console.log('Cycle data to save:', cycleDataToSave);
+      console.log('Current Redux state before save:');
+      console.log('- reduxCycleData:', reduxCycleData);
+      console.log('- reduxCompletedCycles:', reduxCompletedCycles);
+      console.log('- reduxPendingSync:', reduxPendingSync);
+      console.log('- reduxIsOffline:', reduxIsOffline);
+      
+      // Save to Redux first (for offline support)
+      dispatch(saveCycleData(cycleDataToSave));
       
       console.log(`Cycle ${currentCycle} data saved to Redux`);
+      console.log('Redux state after save:');
+      console.log('- reduxCycleData:', reduxCycleData);
+      console.log('- reduxCompletedCycles:', reduxCompletedCycles);
+      console.log('- reduxPendingSync:', reduxPendingSync);
       
       // Try to save to API if not offline
       if (!reduxIsOffline) {
         try {
+          console.log(`=== ATTEMPTING TO SAVE CYCLE ${currentCycle} TO API ===`);
           await saveCreamPercentageData({
             cycleNum: currentCycle,
             formData,
@@ -198,6 +216,11 @@ const CreamPercentageIndex: React.FC = () => {
     console.log('plantTourId:', plantTourId);
     console.log('reduxPendingSync length:', reduxPendingSync.length);
     console.log('reduxPendingSync data:', reduxPendingSync);
+    console.log('Pending sync cycle numbers:', reduxPendingSync.map(item => item.cycleNum));
+    console.log('Current Redux state at sync start:');
+    console.log('- cycleData keys:', Object.keys(reduxCycleData));
+    console.log('- completedCycles:', reduxCompletedCycles);
+    console.log('- currentCycle:', reduxCurrentCycle);
     
     if (!reduxIsOffline || !plantTourId) {
       console.log('Early return - not offline or no plantTourId');
@@ -219,6 +242,11 @@ const CreamPercentageIndex: React.FC = () => {
       let failureCount = 0;
       
       console.log(`Will attempt to sync ${pendingDataToSync.length} items`);
+      console.log('Items to sync:', pendingDataToSync.map(item => `Cycle ${item.cycleNum}`));
+      console.log('Detailed pending sync data:');
+      pendingDataToSync.forEach((item, index) => {
+        console.log(`  Item ${index + 1}: Cycle ${item.cycleNum}, QualityTourId: ${item.qualityTourId}, Timestamp: ${item.timestamp}`);
+      });
       
       // Sync each pending item
       for (const data of pendingDataToSync) {
@@ -245,6 +273,8 @@ const CreamPercentageIndex: React.FC = () => {
           successCount++;
           
           // Remove this item from pending sync after successful sync
+          console.log(`About to remove cycle ${data.cycleNum} from pending sync`);
+          console.log('Pending sync before removal:', reduxPendingSync.map(item => item.cycleNum));
           dispatch(removePendingSyncItem(data.cycleNum));
           console.log(`Removed cycle ${data.cycleNum} from pending sync`);
           
@@ -422,6 +452,16 @@ const CreamPercentageIndex: React.FC = () => {
     }
   }, [reduxCycleData, reduxCompletedCycles, isSessionStarted]);
 
+  // Debug logging for Redux state changes
+  useEffect(() => {
+    console.log('=== REDUX STATE CHANGED ===');
+    console.log('reduxIsOffline:', reduxIsOffline);
+    console.log('reduxCycleData keys:', Object.keys(reduxCycleData));
+    console.log('reduxCompletedCycles:', reduxCompletedCycles);
+    console.log('reduxPendingSync.length:', reduxPendingSync.length);
+    console.log('reduxCurrentCycle:', reduxCurrentCycle);
+  }, [reduxIsOffline, reduxCycleData, reduxCompletedCycles, reduxPendingSync, reduxCurrentCycle]);
+
   // Calculate cream percentage for each row
   const calculateCreamPercentage = (sandwichWeight: string, shellWeight: string) => {
     const sandwich = parseFloat(sandwichWeight) || 0;
@@ -487,6 +527,9 @@ const CreamPercentageIndex: React.FC = () => {
           onClick={() => {
             console.log('=== SYNC BUTTON CLICKED ===');
             console.log('Button clicked, calling syncOfflineData...');
+            console.log('Current Redux state before sync:');
+            console.log('- reduxPendingSync:', reduxPendingSync);
+            console.log('- reduxPendingSync cycle numbers:', reduxPendingSync.map(item => item.cycleNum));
             syncOfflineData();
           }}
           disabled={reduxPendingSync.length === 0}
