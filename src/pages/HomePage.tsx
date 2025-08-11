@@ -493,18 +493,6 @@ export default function HomePage() {
   });
   console.log(isOfflineCompleted);
 
-  // Test function to verify navigation logic
-  const testNavigation = (tourType: string) => {
-    console.log('Testing navigation for:', tourType);
-    if (tourType === "Cream Percentage Index") {
-      console.log('Should navigate to /creampercentage');
-      navigate("/creampercentage");
-    } else {
-      console.log('Should navigate to /qualityplantour');
-      navigate("/qualityplantour");
-    }
-  };
-
   // Add handler for starting plant tour
   const handleStartPlantTour = async (selectedTour: string, selectedShift: string) => {
     console.log('handleStartPlantTour called with:', { selectedTour, selectedShift });

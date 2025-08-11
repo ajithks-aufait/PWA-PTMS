@@ -10,7 +10,6 @@ import {
   setOfflineMode, 
   loadOfflineData, 
   resetCreamPercentage,
-  clearPendingSync,
   removePendingSyncItem
 } from '../store/creamPercentageSlice';
 
@@ -47,7 +46,6 @@ const CreamPercentageIndex: React.FC = () => {
   const [isCycleExpanded, setIsCycleExpanded] = useState(false);
   const [isWeightInputMode, setIsWeightInputMode] = useState(false);
   const [expandedCompletedCycles, setExpandedCompletedCycles] = useState<{[key: number]: boolean}>({});
-  const [fetchedCycleData, setFetchedCycleData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   
   // Use Redux state for cycle management
@@ -341,7 +339,6 @@ const CreamPercentageIndex: React.FC = () => {
             try {
               const data = await getCreamPercentageData({ qualityTourId: plantTourId });
               console.log('Fetched cream percentage data:', data);
-              setFetchedCycleData(data);
               
               // Process fetched data to populate Redux state
               if (data.length > 0) {
