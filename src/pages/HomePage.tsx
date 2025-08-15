@@ -13,9 +13,10 @@ import { fetchEmployeeList } from "../Services/getEmployeeDetails";
 import { useDispatch, useSelector } from "react-redux";
 import DashboardLayout from "../components/DashboardLayout";
 import { setPlantTourId, setEmployeeDetails, clearAllDataExceptEssential, setSummaryData, setCycleData, setLastFetchTimestamp, setCategorySummary, setCycleCount } from "../store/planTourSlice";
-import { setOfflineStarted, setOfflineCompleted, setProgress, resetOfflineState} from "../store/stateSlice.ts";
+import { setOfflineStarted, setOfflineCompleted, setProgress, resetOfflineState } from "../store/stateSlice.ts";
 import { clearUser } from "../store/userSlice";
 import { resetCreamPercentage } from "../store/creamPercentageSlice";
+import { clearAllData as clearSieveAndMagnetNewPlantData } from "../store/sieveAndMagnetNewPlantSlice";
 import { createOrFetchPlantTour } from "../Services/createOrFetchPlantTour";
 import { getAccessToken } from "../Services/getAccessToken";
 import { saveSectionData } from "../Services/saveSectionData";
@@ -69,7 +70,7 @@ function removeDuplicateSubmissions(submissions: any[]) {
     // Create a unique key based on cycle number and category
     const category = submission.records?.[0]?.cr3ea_category || 'Unknown';
     const submissionKey = `${category}-${submission.cycleNo}`;
-    
+
     if (!seenSubmissions.has(submissionKey)) {
       seenSubmissions.add(submissionKey);
       uniqueSubmissions.push(submission);
@@ -88,17 +89,20 @@ export default function HomePage() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showOfflineError, setShowOfflineError] = useState(false);
   const dispatch = useDispatch();
-  
+
   // Get offline state from Redux
   const isOfflineStarted = useSelector((state: any) => state.appState.isOfflineStarted);
   const isOfflineCompleted = useSelector((state: any) => state.appState.isOfflineCompleted);
   const progress = useSelector((state: any) => state.appState.progress);
   const offlineSubmissions = useSelector((state: any) => state.appState.offlineSubmissions);
   const offlineSubmissionsByCategory = useSelector((state: any) => state.appState.offlineSubmissionsByCategory);
-  
+
   // Get cream percentage offline data from Redux
   const creamPercentagePendingSync = useSelector((state: any) => state.creamPercentage.pendingSync);
   
+  // Get Sieve and Magnet New Plant offline data from Redux
+  const sieveAndMagnetNewPlantPendingSync = useSelector((state: any) => state.sieveAndMagnetNewPlant.pendingSync);
+
   const user = useSelector((state: any) => state.user.user);
   const userState = useSelector((state: any) => state.user);
   const planTourState = useSelector((state: any) => state.planTour);
@@ -130,7 +134,7 @@ export default function HomePage() {
 
     try {
       console.log('Starting offline mode setup...');
-      
+
       // Step 1: Get access token first
       const tokenResult = await getAccessToken();
       if (!tokenResult || !tokenResult.token) {
@@ -143,9 +147,9 @@ export default function HomePage() {
       // Step 2: Fetch employee list and store in Redux
       console.log('Fetching employee list...');
       const response = await instance.acquireTokenSilent({
-      ...loginRequest,
-      account: accounts[0],
-    });
+        ...loginRequest,
+        account: accounts[0],
+      });
       const employeeList = await fetchEmployeeList(response.accessToken, user?.Name || '');
       if (employeeList && employeeList.length > 0) {
         dispatch(setEmployeeDetails(employeeList[0]));
@@ -184,19 +188,19 @@ export default function HomePage() {
           fetchSummaryData(tokenResult.token, plantTourId),
           fetchCycleDetails(tokenResult.token, plantTourId)
         ]);
-        
-                  // Handle the API responses properly
-          const summaryArray = summaryData && Array.isArray(summaryData) ? summaryData : [];
-          const cycleArray = cycleData && Array.isArray(cycleData) ? cycleData : [];
-        
+
+        // Handle the API responses properly
+        const summaryArray = summaryData && Array.isArray(summaryData) ? summaryData : [];
+        const cycleArray = cycleData && Array.isArray(cycleData) ? cycleData : [];
+
         console.log("Fetched Summary Data:", summaryArray);
         console.log("Fetched Cycle Records:", cycleArray);
-        
+
         // Store summary and cycle data in Redux
         dispatch(setSummaryData(summaryArray));
         dispatch(setCycleData(cycleArray));
         dispatch(setLastFetchTimestamp(Date.now()));
-        
+
         // Process and store category summary and cycle count
         if (summaryArray.length > 0) {
           const processed = processData(summaryArray);
@@ -207,9 +211,9 @@ export default function HomePage() {
           dispatch(setCategorySummary({}));
           dispatch(setCycleCount(0));
         }
-        
+
         console.log("Summary and cycle data stored in Redux");
-        
+
       } catch (apiError) {
         console.error("Error fetching summary/cycle data:", apiError);
         // Continue with offline mode even if API calls fail
@@ -234,32 +238,32 @@ export default function HomePage() {
 
   const handleCancelOffline = async () => {
     console.log('Attempting to sync/cancel offline mode...');
-    
+
     // Check if internet is available
     if (!isOnline) {
       console.log('No internet connection available for syncing');
       alert('⚠️ Internet connection required to sync offline data. Please check your connection and try again.');
       return;
     }
-    
+
     // Get access token for syncing
     const tokenResult = await getAccessToken();
     const accessToken = tokenResult?.token;
-    
+
     if (!accessToken) {
       console.error('No access token available for syncing');
       alert('❌ Authentication error. Please log in again.');
       return;
     }
-    
+
     let totalSynced = 0;
     let totalErrors = 0;
-    
+
     // Sync general offline submissions
     const allOfflineSubmissions = Object.values(offlineSubmissionsByCategory).flat();
     console.log('HomePage: All offline submissions by category:', offlineSubmissionsByCategory);
     console.log('HomePage: Flattened offline submissions:', allOfflineSubmissions);
-    
+
     if (allOfflineSubmissions.length > 0) {
       console.log('Syncing general offline submissions...');
       try {
@@ -267,7 +271,7 @@ export default function HomePage() {
         const uniqueSubmissions = removeDuplicateSubmissions(allOfflineSubmissions);
         console.log(`Original submissions: ${allOfflineSubmissions.length}, Unique submissions: ${uniqueSubmissions.length}`);
         console.log('HomePage: Unique submissions to sync:', uniqueSubmissions);
-        
+
         for (const submission of uniqueSubmissions) {
           console.log(`Processing submission for cycle ${submission.cycleNo}:`, {
             recordsCount: submission.records.length,
@@ -277,13 +281,13 @@ export default function HomePage() {
               criteria: r.cr3ea_criteria
             }))
           });
-          
+
           // Validate records before syncing
           if (!submission.records || submission.records.length === 0) {
             console.warn(`Skipping empty submission for cycle ${submission.cycleNo}`);
             continue;
           }
-          
+
           const result = await saveSectionData(accessToken, submission.records);
           console.log(`Synced submission for cycle ${submission.cycleNo}, result:`, result);
           totalSynced++;
@@ -296,16 +300,16 @@ export default function HomePage() {
     } else {
       console.log('No general offline submissions to sync');
     }
-    
+
     // Sync cream percentage offline data
     if (creamPercentagePendingSync.length > 0) {
       console.log('Syncing cream percentage offline data...');
       console.log('Cream percentage pending sync data:', creamPercentagePendingSync);
-      
+
       try {
         for (const data of creamPercentagePendingSync) {
           console.log(`Syncing cream percentage cycle ${data.cycleNum}:`, data);
-          
+
           try {
             await saveCreamPercentageData({
               cycleNum: data.cycleNum,
@@ -315,7 +319,7 @@ export default function HomePage() {
               userName: data.userName,
               shiftValue: data.shiftValue
             });
-            
+
             console.log(`Successfully synced cream percentage cycle ${data.cycleNum}`);
             totalSynced++;
           } catch (cycleError) {
@@ -323,7 +327,7 @@ export default function HomePage() {
             totalErrors++;
           }
         }
-        
+
         console.log('Cream percentage offline data sync completed');
       } catch (error) {
         console.error('Error syncing cream percentage offline data:', error);
@@ -332,7 +336,66 @@ export default function HomePage() {
     } else {
       console.log('No cream percentage offline data to sync');
     }
-    
+
+    // Sync Sieve and Magnet New Plant offline data
+    if (sieveAndMagnetNewPlantPendingSync.length > 0) {
+      console.log('Syncing Sieve and Magnet New Plant offline data...');
+      console.log('Sieve and Magnet New Plant pending sync data:', sieveAndMagnetNewPlantPendingSync);
+
+      try {
+        for (const data of sieveAndMagnetNewPlantPendingSync) {
+          console.log(`Syncing Sieve and Magnet New Plant cycle ${data.cycleNumber}:`, data);
+
+          try {
+            // Import the required functions
+            const { saveSieveAndMagnetNewPlant, collectEstimationDataCycleSave } = await import('../Services/saveSieveAndMagnetNewPlant');
+            
+            // Get the required data from Redux state
+            const plantTourId = planTourState.plantTourId;
+            const selectedCycle = planTourState.selectedCycle || 'Shift 1';
+            const userName = user?.Name || 'Current User';
+            
+            console.log('Using data for sync:', {
+              cycleNumber: data.cycleNumber,
+              plantTourId,
+              selectedCycle,
+              userName,
+              checklistItemsCount: data.checklistItems.length
+            });
+            
+            const { savedData } = collectEstimationDataCycleSave(
+              data.cycleNumber,
+              data.checklistItems,
+              plantTourId || 'N/A',
+              selectedCycle,
+              userName
+            );
+
+            console.log('Generated savedData for API:', savedData);
+
+            const response = await saveSieveAndMagnetNewPlant(savedData);
+            
+            if (response.success) {
+              console.log(`Successfully synced Sieve and Magnet New Plant cycle ${data.cycleNumber}`);
+              totalSynced++;
+            } else {
+              throw new Error(`Failed to sync cycle ${data.cycleNumber}: ${response.message}`);
+            }
+          } catch (cycleError) {
+            console.error(`Failed to sync Sieve and Magnet New Plant cycle ${data.cycleNumber}:`, cycleError);
+            totalErrors++;
+          }
+        }
+
+        console.log('Sieve and Magnet New Plant offline data sync completed');
+      } catch (error) {
+        console.error('Error syncing Sieve and Magnet New Plant offline data:', error);
+        totalErrors++;
+      }
+    } else {
+      console.log('No Sieve and Magnet New Plant offline data to sync');
+    }
+
     // Show sync results
     if (totalSynced > 0 && totalErrors === 0) {
       alert(`✅ Successfully synced ${totalSynced} offline data item(s)!`);
@@ -344,16 +407,19 @@ export default function HomePage() {
     } else {
       console.log('No offline data to sync');
     }
-    
+
     // Clear all Redux data except token, plantTourId, employeeDetails, and user details
     dispatch(clearAllDataExceptEssential());
     dispatch(resetOfflineState());
-    
+
     // Clear cream percentage Redux state
     dispatch(resetCreamPercentage());
     
+    // Clear Sieve and Magnet New Plant Redux state
+    dispatch(clearSieveAndMagnetNewPlantData());
+
     setShowOfflineError(false);
-    
+
     // Clear any offline data from localStorage
     try {
       localStorage.removeItem('offlineData');
@@ -362,9 +428,9 @@ export default function HomePage() {
     } catch (error) {
       console.error('Error clearing offline data:', error);
     }
-    
+
     console.log('All data cleared except essential information (token, plantTourId, employeeDetails, user details)');
-    
+
     console.log('Offline mode canceled, normal plant tour is now available');
   };
 
@@ -391,31 +457,33 @@ export default function HomePage() {
 
   const handleLogout = () => {
     console.log("Logging out...");
-    
+
     // Clear all Redux state
     dispatch(clearAllDataExceptEssential());
     dispatch(resetOfflineState());
     dispatch(clearUser());
-    
+    dispatch(resetCreamPercentage());
+    dispatch(clearSieveAndMagnetNewPlantData());
+
     // Clear localStorage (but preserve Redux persistence for offline data)
     localStorage.removeItem('accessToken');
     localStorage.removeItem('tokenExpiry');
     localStorage.removeItem('offlineData');
     // Don't clear redux-persist:root as it contains offline data
     // localStorage.removeItem('redux-persist:root');
-    
+
     // Clear sessionStorage
     sessionStorage.clear();
-    
+
     // Perform MSAL logout with redirect to login page
     instance.logoutPopup({
       postLogoutRedirectUri: window.location.origin
     });
-    
+
     // Navigate to login page
     navigate("/", { replace: true });
   };
-  
+
 
   function pad(num: number): string {
     return num.toString().padStart(2, "0");
@@ -445,14 +513,14 @@ export default function HomePage() {
   useEffect(() => {
     startTimer();
   }, []);
-  
+
   // Debug: Check persisted offline data on component mount
   useEffect(() => {
     console.log('HomePage: Component mounted - checking persisted offline data');
     console.log('HomePage: isOfflineStarted:', isOfflineStarted);
     console.log('HomePage: offlineSubmissions length:', offlineSubmissions?.length);
     console.log('HomePage: offlineSubmissions:', offlineSubmissions);
-    
+
     // Check localStorage for Redux persistence
     try {
       const reduxPersistData = localStorage.getItem('redux-persist:root');
@@ -497,19 +565,19 @@ export default function HomePage() {
   const handleStartPlantTour = async (selectedTour: string, selectedShift: string) => {
     console.log('handleStartPlantTour called with:', { selectedTour, selectedShift });
     const employee = planTourState.employeeDetails;
-    
+
     console.log('Current Redux state:', {
       employee: employee,
       selectedTour: selectedTour,
       selectedShift: selectedShift,
       user: user
     });
-    
+
     if (!employee || !user || !selectedTour || !selectedShift) {
       console.log('Missing required data:', { employee: !!employee, user: !!user, selectedTour: !!selectedTour, selectedShift: !!selectedShift });
       return;
     }
-    
+
     setIsPlantTourLoading(true);
     try {
       // Check if we're in offline mode
@@ -525,6 +593,15 @@ export default function HomePage() {
           if (selectedTour === "Cream Percentage Index") {
             console.log('Navigating to Cream Percentage Index');
             navigate("/creampercentage");
+          } else if (selectedTour === "Sieves and magnets old plant") {
+            console.log('Navigating to Sieve and Magnet Old Plant');
+            navigate("/sieveandmagnetoldplant");
+          } else if (selectedTour === "Sieves and magnets new plant") {
+            console.log('Navigating to Sieve and Magnet New Plant');
+            navigate("/sieveandmagnetnewplant");
+          } else if (selectedTour === "Product Monitoring Record") {
+            console.log('Navigating to Product Monitoring Record');
+            navigate("/productmonitoringrecord");
           } else {
             console.log('Navigating to Product Quality Index');
             navigate("/qualityplantour");
@@ -554,6 +631,15 @@ export default function HomePage() {
           if (selectedTour === "Cream Percentage Index") {
             console.log('Navigating to Cream Percentage Index');
             navigate("/creampercentage");
+          } else if (selectedTour === "Sieves and magnets old plant") {
+            console.log('Navigating to Sieve and Magnet Old Plant');
+            navigate("/sieveandmagnetoldplant");  
+          } else if (selectedTour === "Sieves and magnets new plant") {
+            console.log('Navigating to Sieve and Magnet New Plant');
+            navigate("/sieveandmagnetnewplant");
+          } else if (selectedTour === "Product Monitoring Record") {
+            console.log('Navigating to Product Monitoring Record');
+            navigate("/productmonitoringrecord");
           } else {
             console.log('Navigating to Product Quality Index');
             navigate("/qualityplantour");
@@ -567,8 +653,8 @@ export default function HomePage() {
       setIsPlantTourLoading(false);
     }
   };
-  console.log(user.DVAccessToken,'user.DVAccessToken');
-  
+  console.log(user.DVAccessToken, 'user.DVAccessToken');
+
 
   return (
     <DashboardLayout rightContent={<p className="text-gray-500 dark:text-gray-400 text-sm font-semibold">{employees[0]?.departmentName}</p>} onLogout={handleLogout}>
@@ -581,68 +667,68 @@ export default function HomePage() {
               <span id="timer"></span> {formattedDate}
             </p>
           </div>
+          
+
           {/* Buttons Section */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
-              {!isOfflineStarted && (
-                <>
-                  <button
-                    className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-                    onClick={() => setIsModalOpen(true)}
-                    disabled={isPlantTourLoading}
-                  >
-                    Plant Tour
-                  </button>
-                  
-                  <button
-                    className={`w-full sm:w-auto px-4 py-2 rounded-md ${
-                      isOnline 
-                        ? 'bg-gray-600 hover:bg-gray-700 text-white dark:bg-gray-700 dark:hover:bg-gray-600' 
-                        : 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                    }`}
-                    onClick={handleOfflineTour}
-                    disabled={!isOnline}
-                    title={!isOnline ? 'Internet connection required to start offline mode' : 'Start offline mode'}
-                  >
-                    + Start Offline Mode {(offlineSubmissions.length + creamPercentagePendingSync.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length})`}
-                  </button>
-                  {showOfflineError && (
-                    <div className="w-full sm:w-auto text-xs text-red-600 mt-1">
-                      ⚠️ Internet connection required to start offline mode
-                    </div>
-                  )}
-                </>
-              )}
-                             {isOfflineStarted && (
-                 <>
-                                     <button
-                     className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-                     onClick={() => setIsModalOpen(true)}
-                     disabled={isPlantTourLoading}
-                   >
-                     + Offline Plant Tour
-                   </button>
+            {!isOfflineStarted && (
+              <>
+                <button
+                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+                  onClick={() => setIsModalOpen(true)}
+                  disabled={isPlantTourLoading}
+                >
+                  Plant Tour
+                </button>
 
-                  <button
-                    className={`w-full sm:w-auto px-4 py-2 rounded-md ${
-                      isOnline 
-                        ? 'bg-gray-600 hover:bg-gray-700 text-white dark:bg-gray-700 dark:hover:bg-gray-600' 
-                        : 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                <button
+                  className={`w-full sm:w-auto px-4 py-2 rounded-md ${isOnline
+                      ? 'bg-gray-600 hover:bg-gray-700 text-white dark:bg-gray-700 dark:hover:bg-gray-600'
+                      : 'bg-gray-400 text-gray-600 cursor-not-allowed'
                     }`}
-                    onClick={handleCancelOffline}
-                    disabled={!isOnline}
-                    title={!isOnline ? 'Internet connection required to sync offline data' : 'Sync and cancel offline mode'}
-                  >
-                    + Sync & Cancel Offline {(offlineSubmissions.length + creamPercentagePendingSync.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length})`}
-                    {!isOnline && <span className="ml-1 text-xs">(Internet Required)</span>}
-                  </button>
-                  {(offlineSubmissions.length + creamPercentagePendingSync.length) > 0 && !isOnline && (
-                    <div className="w-full sm:w-auto text-xs text-orange-600 mt-1">
-                      ⚠️ {offlineSubmissions.length + creamPercentagePendingSync.length} offline submission(s) waiting for internet connection
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+                  onClick={handleOfflineTour}
+                  disabled={!isOnline}
+                  title={!isOnline ? 'Internet connection required to start offline mode' : 'Start offline mode'}
+                >
+                  + Start Offline Mode {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length})`}
+                </button>
+                {showOfflineError && (
+                  <div className="w-full sm:w-auto text-xs text-red-600 mt-1">
+                    ⚠️ Internet connection required to start offline mode
+                  </div>
+                )}
+              </>
+            )}
+            {isOfflineStarted && (
+              <>
+                <button
+                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+                  onClick={() => setIsModalOpen(true)}
+                  disabled={isPlantTourLoading}
+                >
+                  + Offline Plant Tour
+                </button>
+
+                <button
+                  className={`w-full sm:w-auto px-4 py-2 rounded-md ${isOnline
+                      ? 'bg-gray-600 hover:bg-gray-700 text-white dark:bg-gray-700 dark:hover:bg-gray-600'
+                      : 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                    }`}
+                  onClick={handleCancelOffline}
+                  disabled={!isOnline}
+                  title={!isOnline ? 'Internet connection required to sync offline data' : 'Sync and cancel offline mode'}
+                >
+                  + Sync & Cancel Offline {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length})`}
+                  {!isOnline && <span className="ml-1 text-xs">(Internet Required)</span>}
+                </button>
+                {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length) > 0 && !isOnline && (
+                  <div className="w-full sm:w-auto text-xs text-orange-600 mt-1">
+                    ⚠️ {offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length} offline submission(s) waiting for internet connection
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
         {/* Metric Cards */}
         <div className="mb-6 overflow-x-auto">

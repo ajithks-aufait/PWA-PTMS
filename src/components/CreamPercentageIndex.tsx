@@ -302,7 +302,7 @@ const CreamPercentageIndex: React.FC = () => {
         dispatch(resetCreamPercentage());
         
         // Reset component state
-        setIsSessionStarted(false);
+    setIsSessionStarted(false);
         setIsCycleCompleted(false);
         setIsWeightInputMode(false);
         setExpandedCompletedCycles({});
@@ -551,69 +551,71 @@ const CreamPercentageIndex: React.FC = () => {
       <DashboardLayout>
         {reduxIsOffline && <OfflineIndicator />}
         {/* Header Section */}
-        <div className="bg-white px-4 sm:px-6 py-4 mb-6 border-b border-gray-200 w-full">
-          <div className="flex items-center justify-between">
+        <div className="bg-white px-3 sm:px-4 md:px-6 py-3 sm:py-4 mb-4 sm:mb-6 border-b border-gray-200 w-full">
+          <div className="flex items-center justify-between gap-2">
             {/* Back Button */}
             <button
               onClick={() => navigate(-1)}
-              className="flex items-center text-blue-600 hover:text-blue-800 transition-colors"
+              className="flex items-center text-blue-600 hover:text-blue-800 transition-colors flex-shrink-0"
             >
               <span className="text-lg mr-1">&lt;</span>
-              <span className="font-medium">Back</span>
+              <span className="font-medium text-sm sm:text-base">Back</span>
             </button>
             
             {/* Plant Tour ID */}
-            <div className="text-right">
-              <span className="text-gray-700">Plant Tour ID: </span>
-              <span className="text-blue-600 font-medium">{plantTourId || 'N/A'}</span>
+            <div className="text-right min-w-0 flex-1">
+              <span className="text-gray-700 text-sm sm:text-base">Plant Tour ID: </span>
+              <span className="text-blue-600 font-medium text-sm sm:text-base break-all truncate">{plantTourId || 'N/A'}</span>
             </div>
           </div>
         </div>
 
         {/* Cream Percentage Checklist Header */}
-        <div className="bg-gray-100 px-4 sm:px-6 py-4 mb-6 rounded-lg w-full">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <h1 className="text-lg sm:text-xl font-bold text-gray-800">Cream Percentage Checklist</h1>
-              <div className="bg-gray-200 rounded-full px-3 py-1 flex items-center gap-2">
+        <div className="bg-gray-100 px-3 sm:px-4 md:px-6 py-3 sm:py-4 mb-4 sm:mb-6 rounded-lg w-full">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+              <h1 className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Cream Percentage Checklist</h1>
+              <div className="flex items-center gap-2 sm:gap-4">
+                <div className="bg-gray-200 rounded-full px-2 sm:px-3 py-1 flex items-center gap-1 sm:gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-sm font-medium text-gray-700">{selectedCycle || 'Shift 1'}</span>
+                  <span className="text-xs sm:text-sm font-medium text-gray-700">{selectedCycle || 'Shift 1'}</span>
+                </div>
+                <span className="text-xs sm:text-sm text-gray-600">{formattedDate}</span>
               </div>
-              <span className="text-sm text-gray-600">{formattedDate}</span>
             </div>
-            <div className="text-gray-500 cursor-pointer">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <div className="text-gray-500 cursor-pointer self-end sm:self-auto">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
               </svg>
             </div>
           </div>
         </div>
 
-        {/* Main Content - Cycle Section */}
-        <div className="bg-white rounded-lg shadow-sm border p-4 sm:p-6 w-full">
-          <h2 className="text-lg font-bold text-gray-800 mb-6">Cycle {currentCycle}</h2>
-         
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                 {/* Main Content - Cycle Section */}
+         <div className="bg-white rounded-lg shadow-sm border p-3 sm:p-4 md:p-6 w-full">
+           <h2 className="text-base sm:text-lg font-bold text-gray-800 mb-4 sm:mb-6">Cycle {currentCycle}</h2>
+          
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6">
             {/* Product Field */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Product</label>
+               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Product</label>
               <select 
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                 className="w-full border border-gray-300 rounded-md px-2 sm:px-3 py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 value={formData.product}
                 onChange={(e) => handleInputChange('product', e.target.value)}
               >
                 <option value="Speciality Sauces">Speciality Sauces</option>
-                <option value="Zesty Wasabi">Zesty Wasabi</option>
+                 <option value="Zesty Wasabi">Zesty Wasabi</option>
                 <option value="Product 3">Product 3</option>
               </select>
             </div>
 
             {/* Machine No Field */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Machine No</label>
+               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Machine No</label>
               <input 
                 type="text"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                 className="w-full border border-gray-300 rounded-md px-2 sm:px-3 py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 value={formData.machineNo}
                 onChange={(e) => handleInputChange('machineNo', e.target.value)}
                 placeholder="Enter machine number"
@@ -622,10 +624,10 @@ const CreamPercentageIndex: React.FC = () => {
 
             {/* Line Field */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Line</label>
+               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Line</label>
               <input 
                 type="text"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                 className="w-full border border-gray-300 rounded-md px-2 sm:px-3 py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 value={formData.line}
                 onChange={(e) => handleInputChange('line', e.target.value)}
                 placeholder="Enter line number"
@@ -634,10 +636,10 @@ const CreamPercentageIndex: React.FC = () => {
 
             {/* Standard Cream Percentage Field */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Standard Cream Percentage</label>
+               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Standard Cream Percentage</label>
               <input 
                 type="text"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                 className="w-full border border-gray-300 rounded-md px-2 sm:px-3 py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 value={formData.standardCreamPercentage}
                 onChange={(e) => handleInputChange('standardCreamPercentage', e.target.value)}
                 placeholder="Enter percentage"
@@ -646,15 +648,22 @@ const CreamPercentageIndex: React.FC = () => {
           </div>
 
           {/* Start Session Button */}
-          <div className="flex justify-end mt-6 sm:mt-8">
+           <div className="flex justify-end mt-4 sm:mt-6 md:mt-8">
             <button
               onClick={handleStartSession}
-              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition-colors"
+               className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-md font-medium text-sm sm:text-base transition-colors"
             >
               Start Session
             </button>
           </div>
         </div>
+
+        {/* Disabled Next Cycle Preview */}
+        <div className="bg-white rounded-lg shadow-sm border p-3 sm:p-4 md:p-6 w-full mt-4 sm:mt-6 opacity-50">
+          <h2 className="text-base sm:text-lg font-bold text-gray-800">Cycle {currentCycle + 1}</h2>
+        </div>
+
+
       </DashboardLayout>
     );
   }
@@ -665,12 +674,12 @@ const CreamPercentageIndex: React.FC = () => {
     const lastCompletedCycle = Math.max(...completedCycles);
     const lastCycleData = cycleData[lastCompletedCycle];
     
-    return (
-      <DashboardLayout>
+  return (
+    <DashboardLayout>
         {/* Main Bordered Box Container */}
         <div className="border-2 border-gray-300 rounded-lg p-4 sm:p-6 w-full">
           {/* Cycle Header with Dropdown Icon */}
-          <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-gray-800">All Cycles Completed</h2>
             <svg 
               className={`w-5 h-5 text-gray-500 cursor-pointer transition-transform ${isCycleExpanded ? 'rotate-180' : ''}`} 
@@ -772,38 +781,40 @@ const CreamPercentageIndex: React.FC = () => {
     <DashboardLayout>
       {reduxIsOffline && <OfflineIndicator />}
       {/* Header Section */}
-      <div className="bg-white px-4 sm:px-6 py-4 mb-6 border-b border-gray-200 w-full">
-        <div className="flex items-center justify-between">
+      <div className="bg-white px-3 sm:px-4 md:px-6 py-3 sm:py-4 mb-4 sm:mb-6 border-b border-gray-200 w-full">
+        <div className="flex items-center justify-between gap-2">
           {/* Back Button */}
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center text-blue-600 hover:text-blue-800 transition-colors"
+            className="flex items-center text-blue-600 hover:text-blue-800 transition-colors flex-shrink-0"
           >
             <span className="text-lg mr-1">&lt;</span>
-            <span className="font-medium">Back</span>
+            <span className="font-medium text-sm sm:text-base">Back</span>
           </button>
           
           {/* Plant Tour ID */}
-          <div className="text-right">
-            <span className="text-gray-700">Plant Tour ID: </span>
-            <span className="text-blue-600 font-medium">{plantTourId || 'N/A'}</span>
+          <div className="text-right min-w-0 flex-1">
+            <span className="text-gray-700 text-sm sm:text-base">Plant Tour ID: </span>
+            <span className="text-blue-600 font-medium text-sm sm:text-base break-all truncate">{plantTourId || 'N/A'}</span>
           </div>
         </div>
       </div>
 
       {/* Cream Percentage Checklist Header */}
-      <div className="bg-gray-100 px-4 sm:px-6 py-4 mb-6 rounded-lg w-full">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-lg sm:text-xl font-bold text-gray-800">Cream Percentage Checklist</h1>
-            <div className="bg-gray-200 rounded-full px-3 py-1 flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-sm font-medium text-gray-700">{selectedCycle || 'Shift 1'}</span>
+      <div className="bg-gray-100 px-3 sm:px-4 md:px-6 py-3 sm:py-4 mb-4 sm:mb-6 rounded-lg w-full">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+            <h1 className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Cream Percentage Checklist</h1>
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="bg-gray-200 rounded-full px-2 sm:px-3 py-1 flex items-center gap-1 sm:gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span className="text-xs sm:text-sm font-medium text-gray-700">{selectedCycle || 'Shift 1'}</span>
+              </div>
+              <span className="text-xs sm:text-sm text-gray-600">{formattedDate}</span>
             </div>
-            <span className="text-sm text-gray-600">{formattedDate}</span>
           </div>
-          <div className="text-gray-500 cursor-pointer">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <div className="text-gray-500 cursor-pointer self-end sm:self-auto">
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
               <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
             </svg>
           </div>
@@ -811,14 +822,14 @@ const CreamPercentageIndex: React.FC = () => {
       </div>
       {/* Completed Cycles Section */}
       {completedCycles.length > 0 && (
-        <div className="mb-6">
-          <div className="space-y-4">
+        <div className="mb-4 sm:mb-6">
+          <div className="space-y-3 sm:space-y-4">
             {completedCycles.map((cycle) => (
-              <div key={cycle} className="border-2 border-gray-300 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-md font-bold text-gray-800">Cycle {cycle}</h4>
+              <div key={cycle} className="border-2 border-gray-300 rounded-lg p-3 sm:p-4">
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <h4 className="text-sm sm:text-md font-bold text-gray-800">Cycle {cycle}</h4>
                   <svg 
-                    className={`w-5 h-5 text-gray-500 cursor-pointer transition-transform ${expandedCompletedCycles[cycle] ? 'rotate-180' : ''}`} 
+                    className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-500 cursor-pointer transition-transform ${expandedCompletedCycles[cycle] ? 'rotate-180' : ''}`} 
                     fill="none" 
                     stroke="currentColor" 
                     viewBox="0 0 24 24"
@@ -834,39 +845,39 @@ const CreamPercentageIndex: React.FC = () => {
                 {expandedCompletedCycles[cycle] && cycleData[cycle] && (
                   <>
                     {/* Product Information Section - Blue Highlighted */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
                         <div className="text-center">
                           <label className="block text-xs font-medium text-gray-600 mb-1">Product</label>
-                          <span className="text-sm font-medium text-gray-800">{cycleData[cycle].formData.product}</span>
+                          <span className="text-xs sm:text-sm font-medium text-gray-800 break-words">{cycleData[cycle].formData.product}</span>
                         </div>
                         <div className="text-center">
                           <label className="block text-xs font-medium text-gray-600 mb-1">Machine No</label>
-                          <span className="text-sm font-medium text-gray-800">{cycleData[cycle].formData.machineNo || ''}</span>
+                          <span className="text-xs sm:text-sm font-medium text-gray-800">{cycleData[cycle].formData.machineNo || ''}</span>
                         </div>
                         <div className="text-center">
                           <label className="block text-xs font-medium text-gray-600 mb-1">Line</label>
-                          <span className="text-sm font-medium text-gray-800">{cycleData[cycle].formData.line || ''}</span>
+                          <span className="text-xs sm:text-sm font-medium text-gray-800">{cycleData[cycle].formData.line || ''}</span>
                         </div>
                         <div className="text-center">
                           <label className="block text-xs font-medium text-gray-600 mb-1">Standard Cream Percentage</label>
-                          <span className="text-sm font-medium text-gray-800">{cycleData[cycle].formData.standardCreamPercentage || ''}</span>
+                          <span className="text-xs sm:text-sm font-medium text-gray-800 break-words">{cycleData[cycle].formData.standardCreamPercentage || ''}</span>
                         </div>
                       </div>
                     </div>
 
                     {/* Summary Section */}
-                    <div className="mb-6">
-                      <h3 className="text-lg font-bold text-red-600 mb-4">Summary</h3>
+                    <div className="mb-4 sm:mb-6">
+                      <h3 className="text-base sm:text-lg font-bold text-red-600 mb-3 sm:mb-4">Summary</h3>
                       
                       {/* Summary Table */}
                       <div className="border border-gray-300 rounded-lg overflow-hidden">
                         {/* Table Header */}
                         <div className="grid grid-cols-4 bg-gray-50 border-b border-gray-300">
-                          <div className="px-4 py-3 text-sm font-medium text-gray-700 border-r border-gray-300">Wt. of Sandwich</div>
-                          <div className="px-4 py-3 text-sm font-medium text-gray-700 border-r border-gray-300">Wt. of Shell</div>
-                          <div className="px-4 py-3 text-sm font-medium text-gray-700 border-r border-gray-300">Actual Cream %</div>
-                          <div className="px-4 py-3 text-sm font-medium text-gray-700">AVG</div>
+                          <div className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-gray-700 border-r border-gray-300">Wt. of Sandwich</div>
+                          <div className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-gray-700 border-r border-gray-300">Wt. of Shell</div>
+                          <div className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-gray-700 border-r border-gray-300">Actual Cream %</div>
+                          <div className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-gray-700">AVG</div>
                         </div>
                         
                         {/* Table Body */}
@@ -878,17 +889,17 @@ const CreamPercentageIndex: React.FC = () => {
                             
                             return (
                               <div key={index} className={`grid grid-cols-4 ${!isLastRow ? 'border-b border-gray-300' : ''}`}>
-                                <div className="px-4 py-3 text-sm text-gray-700 border-r border-gray-300">
+                                <div className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 border-r border-gray-300">
                                   {parseFloat(sandwichWeight) ? parseFloat(sandwichWeight).toFixed(2) : '0.00'}
                                 </div>
-                                <div className="px-4 py-3 text-sm text-gray-700 border-r border-gray-300">
+                                <div className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 border-r border-gray-300">
                                   {parseFloat(shellWeight) ? parseFloat(shellWeight).toFixed(2) : '0.00'}
                                 </div>
-                                <div className="px-4 py-3 text-sm text-gray-700 border-r border-gray-300">
+                                <div className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 border-r border-gray-300">
                                   {creamPercentage}
                                 </div>
                                 {index === 0 && (
-                                  <div className="px-4 py-3 text-sm text-gray-700 flex items-center justify-center" style={{ gridRow: 'span 4' }}>
+                                  <div className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-700 flex items-center justify-center" style={{ gridRow: 'span 4' }}>
                                     {(() => {
                                       const percentages = cycleData[cycle].weightData.sandwichWeights.map((sandwich: string, idx: number) => {
                                         const shell = cycleData[cycle].weightData.shellWeights[idx];
@@ -914,166 +925,173 @@ const CreamPercentageIndex: React.FC = () => {
       )}
 
       {/* Current Cycle Section */}
-      <div className="border-2 border-gray-300 rounded-lg p-4 sm:p-6 w-full">
+      <div className="border-2 border-gray-300 rounded-lg p-3 sm:p-4 md:p-6 w-full">
         {/* Cycle Header with Dropdown Icon */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-gray-800">Cycle {currentCycle}</h2>
-          <svg className="w-5 h-5 text-gray-500 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <h2 className="text-base sm:text-lg font-bold text-gray-800">Cycle {currentCycle}</h2>
+          <svg className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
           </svg>
         </div>
         
-        {/* Show form fields if not in weight input mode */}
-        {!isWeightInputMode ? (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              {/* Product Field */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Product</label>
-                <select 
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  value={formData.product}
-                  onChange={(e) => handleInputChange('product', e.target.value)}
+                 {/* Show form fields if not in weight input mode */}
+         {!isWeightInputMode ? (
+           <>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6">
+               {/* Product Field */}
+               <div>
+                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Product</label>
+                 <select 
+                   className="w-full border border-gray-300 rounded-md px-2 sm:px-3 py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                   value={formData.product}
+                   onChange={(e) => handleInputChange('product', e.target.value)}
+                 >
+                   <option value="Speciality Sauces">Speciality Sauces</option>
+                   <option value="Zesty Wasabi">Zesty Wasabi</option>
+                   <option value="Product 3">Product 3</option>
+                 </select>
+               </div>
+
+               {/* Machine No Field */}
+               <div>
+                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Machine No</label>
+                 <input 
+                   type="text"
+                   className="w-full border border-gray-300 rounded-md px-2 sm:px-3 py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                   value={formData.machineNo}
+                   onChange={(e) => handleInputChange('machineNo', e.target.value)}
+                   placeholder="Enter machine number"
+                 />
+               </div>
+
+               {/* Line Field */}
+               <div>
+                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Line</label>
+                 <input 
+                   type="text"
+                   className="w-full border border-gray-300 rounded-md px-2 sm:px-3 py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                   value={formData.line}
+                   onChange={(e) => handleInputChange('line', e.target.value)}
+                   placeholder="Enter line number"
+                 />
+               </div>
+
+               {/* Standard Cream Percentage Field */}
+               <div>
+                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Standard Cream Percentage</label>
+                 <input 
+                   type="text"
+                   className="w-full border border-gray-300 rounded-md px-2 sm:px-3 py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                   value={formData.standardCreamPercentage}
+                   onChange={(e) => handleInputChange('standardCreamPercentage', e.target.value)}
+                   placeholder="Enter percentage"
+                 />
+               </div>
+             </div>
+
+                           {/* Start Session Button */}
+              <div className="flex justify-end mt-4 sm:mt-6 md:mt-8">
+                <button
+                  onClick={handleStartSession}
+                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-md font-medium text-sm sm:text-base transition-colors"
                 >
-                  <option value="Speciality Sauces">Speciality Sauces</option>
-                  <option value="Zesty Wasabi">Zesty Wasabi</option>
-                  <option value="Product 3">Product 3</option>
-                </select>
+                  Start Session
+                </button>
               </div>
-
-              {/* Machine No Field */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Machine No</label>
-                <input 
-                  type="text"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  value={formData.machineNo}
-                  onChange={(e) => handleInputChange('machineNo', e.target.value)}
-                  placeholder="Enter machine number"
-                />
-              </div>
-
-              {/* Line Field */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Line</label>
-                <input 
-                  type="text"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  value={formData.line}
-                  onChange={(e) => handleInputChange('line', e.target.value)}
-                  placeholder="Enter line number"
-                />
-              </div>
-
-              {/* Standard Cream Percentage Field */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Standard Cream Percentage</label>
-                <input 
-                  type="text"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  value={formData.standardCreamPercentage}
-                  onChange={(e) => handleInputChange('standardCreamPercentage', e.target.value)}
-                  placeholder="Enter percentage"
-                />
-              </div>
-            </div>
-
-            {/* Start Session Button */}
-            <div className="flex justify-end mt-6 sm:mt-8">
-              <button
-                onClick={handleStartSession}
-                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition-colors"
-              >
-                Start Session
-              </button>
-            </div>
-          </>
-        ) : (
+            </>
+          ) : (
           <>
             {/* Product Information Section - Blue Highlighted */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="text-center">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Product</label>
-                  <span className="text-sm font-medium text-gray-800">{formData.product}</span>
-                </div>
-                <div className="text-center">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Machine No</label>
-                  <span className="text-sm font-medium text-gray-800">{formData.machineNo || ''}</span>
-                </div>
-                <div className="text-center">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Line</label>
-                  <span className="text-sm font-medium text-gray-800">{formData.line || ''}</span>
-                </div>
-                <div className="text-center">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Standard Cream Percentage</label>
-                  <span className="text-sm font-medium text-gray-800">{formData.standardCreamPercentage || ''}</span>
-                </div>
-              </div>
-            </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="text-center">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Product</label>
+            <span className="text-sm font-medium text-gray-800">{formData.product}</span>
+          </div>
+          <div className="text-center">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Machine No</label>
+            <span className="text-sm font-medium text-gray-800">{formData.machineNo || ''}</span>
+          </div>
+          <div className="text-center">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Line</label>
+            <span className="text-sm font-medium text-gray-800">{formData.line || ''}</span>
+          </div>
+          <div className="text-center">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Standard Cream Percentage</label>
+            <span className="text-sm font-medium text-gray-800">{formData.standardCreamPercentage || ''}</span>
+          </div>
+        </div>
+      </div>
 
             {/* Weight of Sandwich Section */}
             <div className="mb-6">
-              <h3 className="text-lg font-bold text-gray-800 mb-4">Weight of Sandwich</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {weightData.sandwichWeights.map((weight, index) => (
-                  <div key={index}>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Wt. of Sandwich-{index + 1}</label>
-                    <input 
-                      type="number"
-                      step="0.01"
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                      value={weight}
-                      onChange={(e) => handleWeightChange('sandwich', index, e.target.value)}
-                      placeholder="Enter value"
-                    />
-                  </div>
-                ))}
-              </div>
+        <h3 className="text-lg font-bold text-gray-800 mb-4">Weight of Sandwich</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {weightData.sandwichWeights.map((weight, index) => (
+            <div key={index}>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Wt. of Sandwich-{index + 1}</label>
+              <input 
+                type="number"
+                step="0.01"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                value={weight}
+                onChange={(e) => handleWeightChange('sandwich', index, e.target.value)}
+                placeholder="Enter value"
+              />
             </div>
+          ))}
+        </div>
+      </div>
 
             {/* Weight of Shell Section */}
             <div className="mb-6">
-              <h3 className="text-lg font-bold text-gray-800 mb-4">Weight of Shell</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {weightData.shellWeights.map((weight, index) => (
-                  <div key={index}>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Wt. of Shell-{index + 1}</label>
-                    <input 
-                      type="number"
-                      step="0.01"
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={weight}
-                      onChange={(e) => handleWeightChange('shell', index, e.target.value)}
-                      placeholder="Enter value"
-                    />
-                  </div>
-                ))}
-              </div>
+        <h3 className="text-lg font-bold text-gray-800 mb-4">Weight of Shell</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {weightData.shellWeights.map((weight, index) => (
+            <div key={index}>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Wt. of Shell-{index + 1}</label>
+              <input 
+                type="number"
+                step="0.01"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={weight}
+                onChange={(e) => handleWeightChange('shell', index, e.target.value)}
+                placeholder="Enter value"
+              />
             </div>
-
-            {/* Action Buttons - Inside the bordered box */}
-            <div className="flex flex-col sm:flex-row justify-end gap-3">
-              <button
-                onClick={() => {
-                  console.log('=== CANCEL BUTTON CLICKED ===');
-                  console.log('Cancel button clicked, calling handleCancel...');
-                  handleCancel();
-                }}
-                className="w-full sm:w-auto border border-blue-600 text-blue-600 bg-white hover:bg-blue-50 px-6 py-2 rounded-md font-medium transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveSession}
-                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition-colors"
-              >
-                Save Session
-              </button>
-            </div>
-          </>
-        )}
+          ))}
+        </div>
       </div>
+
+                         {/* Action Buttons - Inside the bordered box */}
+      <div className="flex flex-col sm:flex-row justify-end gap-3">
+        <button
+                 onClick={() => {
+                   console.log('=== CANCEL BUTTON CLICKED ===');
+                   console.log('Cancel button clicked, calling handleCancel...');
+                   handleCancel();
+                 }}
+                 className="w-full sm:w-auto border border-blue-600 text-blue-600 bg-white hover:bg-blue-50 px-4 sm:px-6 py-2 sm:py-3 rounded-md font-medium text-sm sm:text-base transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSaveSession}
+                 className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-md font-medium text-sm sm:text-base transition-colors"
+        >
+          Save Session
+        </button>
+      </div>
+           </>
+         )}
+       </div>
+
+        {/* Disabled Next Cycle Preview */}
+        <div className="bg-white rounded-lg shadow-sm border p-3 sm:p-4 md:p-6 w-full mt-4 sm:mt-6 opacity-50">
+          <h2 className="text-base sm:text-lg font-bold text-gray-800">Cycle {currentCycle + 1}</h2>
+        </div>
+
+
     </DashboardLayout>
   );
 };

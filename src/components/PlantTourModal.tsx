@@ -45,6 +45,8 @@ const PlantTourModal: React.FC<PlantTourModalProps> = ({ isOpen, onClose, onDone
             <option>Product Quality Index</option>
             <option>Cream Percentage Index</option>
             <option>Sieves and magnets old plant</option>
+            <option>Sieves and magnets new plant</option>
+            <option>Product Monitoring Record</option>
           </select>
         </div>
 
