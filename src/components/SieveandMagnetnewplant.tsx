@@ -8,11 +8,9 @@ import {
   setCompletedCycles,
   addCompletedCycle,
   addPendingSync,
-  clearPendingSync,
   setLastFetchTimestamp,
   setIsOffline,
   setCurrentCycle,
-  clearAllData
 } from '../store/sieveAndMagnetNewPlantSlice';
 
 interface ChecklistItem {
@@ -78,7 +76,6 @@ const SieveandMagnetnewplant: React.FC = () => {
 
     // Session state
     const [isSessionStarted, setIsSessionStarted] = useState(false);
-    const [isCycleExpanded, setIsCycleExpanded] = useState(false);
     const [expandedCompletedCycles, setExpandedCompletedCycles] = useState<Set<number>>(new Set());
     const [generalRemarks, setGeneralRemarks] = useState('');
 
@@ -122,146 +119,6 @@ const SieveandMagnetnewplant: React.FC = () => {
         setIsSessionStarted(true);
     };
 
-    // Cancel all offline data and clear Redux store
-    const cancelOfflineData = () => {
-        console.log('=== CANCEL OFFLINE DATA STARTED ===');
-        console.log('Pending sync length:', pendingSync.length);
-        console.log('Completed cycles length:', completedCycles.length);
-        
-        if (pendingSync.length > 0 || completedCycles.length > 0) {
-            const confirmed = window.confirm(
-                `Are you sure you want to cancel ${pendingSync.length} pending offline cycle(s) and clear ${completedCycles.length} completed cycle(s)? This action cannot be undone.`
-            );
-            if (confirmed) {
-                console.log('User confirmed cancellation. Clearing all data...');
-                dispatch(clearAllData());
-                console.log('All offline data has been cleared from Redux.');
-                alert('All offline data has been cleared.');
-            } else {
-                console.log('User cancelled the operation.');
-            }
-        } else {
-            console.log('No offline data to cancel.');
-            alert('No pending offline data to cancel.');
-        }
-    };
-
-    // Sync pending data when online
-    const syncPendingData = async () => {
-        console.log('=== SYNC PENDING DATA STARTED ===');
-        console.log('Pending sync length:', pendingSync.length);
-        console.log('Is offline:', isOffline);
-        console.log('Pending sync data:', pendingSync);
-        
-        if (pendingSync.length === 0) {
-            alert('No pending data to sync!');
-            return;
-        }
-        
-        if (isOffline) {
-            alert('Cannot sync while offline. Please check your internet connection.');
-            return;
-        }
-        
-        try {
-            console.log('Starting sync for', pendingSync.length, 'pending cycles');
-            
-            let successCount = 0;
-            let failureCount = 0;
-            
-            // Create a copy of pending sync data to avoid mutation during iteration
-            const pendingDataToSync = [...pendingSync];
-            
-            // Sync each pending item
-            for (const pendingData of pendingDataToSync) {
-                try {
-                    console.log(`=== SYNCING CYCLE ${pendingData.cycleNumber} ===`);
-                    console.log('Cycle data to sync:', pendingData);
-                    console.log('Plant Tour ID:', plantTourId);
-                    console.log('Selected Cycle:', selectedCycle);
-                    console.log('User Name:', user?.Name);
-                    
-                    const { savedData } = collectEstimationDataCycleSave(
-                        pendingData.cycleNumber,
-                        pendingData.checklistItems,
-                        plantTourId || 'N/A',
-                        selectedCycle || 'Shift 1',
-                        user?.Name || 'Current User'
-                    );
-                    
-                    console.log('Generated savedData for API:', savedData);
-                    
-                    const response = await saveSieveAndMagnetNewPlant(savedData);
-                    if (response.success) {
-                        console.log(`Successfully synced cycle ${pendingData.cycleNumber}`);
-                        successCount++;
-                    } else {
-                        throw new Error(`Failed to sync cycle ${pendingData.cycleNumber}: ${response.message}`);
-                    }
-                } catch (cycleError) {
-                    console.error(`Failed to sync cycle ${pendingData.cycleNumber}:`, cycleError);
-                    failureCount++;
-                }
-            }
-            
-            console.log(`=== SYNC PROCESS COMPLETED ===`);
-            console.log(`Total items processed: ${pendingDataToSync.length}`);
-            console.log(`Success count: ${successCount}`);
-            console.log(`Failure count: ${failureCount}`);
-            
-            // If all items were synced successfully, clear the Redux state and fetch fresh data
-            if (successCount === pendingDataToSync.length && failureCount === 0) {
-                console.log('All offline data synced successfully. Clearing Redux state...');
-                
-                // Clear pending sync
-                dispatch(clearPendingSync());
-                dispatch(setIsOffline(false));
-                
-                // Fetch fresh data from server
-                if (plantTourId) {
-                    try {
-                        const freshData = await fetchCycleData(plantTourId);
-                        if (freshData.length > 0) {
-                            // Convert fetched data to ReduxCompletedCycleData format
-                            const completedCyclesData: ReduxCompletedCycleData[] = freshData.map((cycle: any) => ({
-                                cycleNumber: cycle.cycleNum,
-                                defects: cycle.defects,
-                                okays: cycle.okays,
-                                formData: { product: '', machineNo: '', line: '', standardPercentage: '' },
-                                remarks: ''
-                            }));
-                            
-                            // Replace Redux data with fresh server data
-                            dispatch(setCompletedCycles(completedCyclesData));
-                            dispatch(setLastFetchTimestamp(Date.now()));
-                            
-                            // Set current cycle to the next cycle number
-                            const maxCycle = Math.max(...freshData.map((cycle: any) => cycle.cycleNum));
-                            dispatch(setCurrentCycle(maxCycle + 1));
-                            
-                            console.log('Successfully synced and refreshed data from server');
-                            alert(`Successfully synced ${successCount} cycle(s) and refreshed data from server!`);
-                        } else {
-                            alert(`Successfully synced ${successCount} cycle(s) and cleared offline data.`);
-                        }
-                    } catch (fetchError) {
-                        console.error('Error fetching fresh data after sync:', fetchError);
-                        alert(`Successfully synced ${successCount} cycle(s) and cleared offline data.`);
-                    }
-                } else {
-                    alert(`Successfully synced ${successCount} cycle(s) and cleared offline data.`);
-                }
-            } else {
-                // Some items failed to sync
-                console.log(`${failureCount} items failed to sync. Keeping them in pending sync.`);
-                alert(`Sync completed with ${successCount} success(es) and ${failureCount} failure(s). Failed items will remain in offline queue.`);
-            }
-        } catch (error) {
-            console.error('=== ERROR DURING OFFLINE DATA SYNC ===');
-            console.error('Error syncing pending data:', error);
-            alert(`Failed to sync pending data: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    };
 
     const handleStatusChange = (itemId: string, status: 'okay' | 'not-okay') => {
          setChecklistItems(prev =>
@@ -337,7 +194,7 @@ const SieveandMagnetnewplant: React.FC = () => {
                 console.log('Processing in online mode...');
                 
                 // Online mode - collect data for API
-                const { savedData, defects: apiDefects, okays: apiOkays } = collectEstimationDataCycleSave(
+                const { savedData } = collectEstimationDataCycleSave(
                     reduxCurrentCycle,
                     checklistItems,
                     plantTourId || 'N/A',
@@ -386,7 +243,7 @@ const SieveandMagnetnewplant: React.FC = () => {
             const defects: { title: string; remarks: string }[] = [];
             const okays: string[] = [];
             
-            checklistItems.forEach((item, index) => {
+            checklistItems.forEach((item) => {
                 if (item.status === 'okay') {
                     okays.push(item.label);
                 } else if (item.status === 'not-okay') {

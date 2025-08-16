@@ -61,10 +61,7 @@ function App() {
             element={
               <ProtectedRoute>
                 <ErrorBoundary>
-                  <div>
-                    <h1>Test Route - SieveandMagnetnewplant</h1>
-                    <SieveandMagnetnewplant />
-                  </div>
+                  <SieveandMagnetnewplant />
                 </ErrorBoundary>
               </ProtectedRoute>
             }

@@ -120,6 +120,10 @@ export default function HomePage() {
 
 
   const handleOfflineTour = async () => {
+    // Clear only pending/offline SieveandMagnetnewplant data, not completed cycles
+    console.log('Clearing pending SieveandMagnetnewplant data before starting offline tour...');
+    dispatch(clearSieveAndMagnetNewPlantData());
+    
     // Check if internet is available
     if (!isOnline) {
       setShowOfflineError(true);
@@ -180,6 +184,42 @@ export default function HomePage() {
       }
 
       dispatch(setProgress(60));
+
+      // Step 3.5: Fetch existing SieveandMagnetnewplant completed cycles
+      console.log('Fetching existing SieveandMagnetnewplant completed cycles...');
+      try {
+        const { fetchCycleData } = await import('../Services/saveSieveAndMagnetNewPlant');
+        const existingSieveAndMagnetCycles = await fetchCycleData(plantTourId);
+        console.log('Fetched existing SieveandMagnetnewplant cycles:', existingSieveAndMagnetCycles);
+        
+        if (existingSieveAndMagnetCycles && existingSieveAndMagnetCycles.length > 0) {
+          // Convert fetched data to ReduxCompletedCycleData format
+          const completedCyclesData = existingSieveAndMagnetCycles.map((cycle: any) => ({
+            cycleNumber: cycle.cycleNum,
+            defects: cycle.defects || [],
+            okays: cycle.okays || [],
+            formData: { product: '', machineNo: '', line: '', standardPercentage: '' }, // Default form data
+            remarks: ''
+          }));
+          
+          // Import and dispatch the action to set completed cycles
+          const { setCompletedCycles, setCurrentCycle, setLastFetchTimestamp } = await import('../store/sieveAndMagnetNewPlantSlice');
+          
+          dispatch(setCompletedCycles(completedCyclesData));
+          dispatch(setLastFetchTimestamp(Date.now()));
+          
+          // Set current cycle to the next cycle number
+          const maxCycle = Math.max(...existingSieveAndMagnetCycles.map((cycle: any) => cycle.cycleNum));
+          dispatch(setCurrentCycle(maxCycle + 1));
+          
+          console.log('Successfully loaded existing SieveandMagnetnewplant cycles. Max cycle:', maxCycle, 'Next cycle:', maxCycle + 1);
+        } else {
+          console.log('No existing SieveandMagnetnewplant cycles found on server.');
+        }
+      } catch (sieveError) {
+        console.error('Error loading existing SieveandMagnetnewplant cycle data:', sieveError);
+        // Continue with offline mode even if SieveandMagnetnewplant fetch fails
+      }
 
       // Step 4: Fetch summary and cycle data APIs
       console.log('Fetching summary and cycle data...');
@@ -396,42 +436,73 @@ export default function HomePage() {
       console.log('No Sieve and Magnet New Plant offline data to sync');
     }
 
-    // Show sync results
+    // Show sync results and clear data only if ALL sync operations were successful
     if (totalSynced > 0 && totalErrors === 0) {
       alert(`✅ Successfully synced ${totalSynced} offline data item(s)!`);
+      
+      // Clear all Redux data only after successful sync
+      console.log('All sync operations successful. Clearing Redux data...');
+      
+      // Clear all Redux data except token, plantTourId, employeeDetails, and user details
+      dispatch(clearAllDataExceptEssential());
+      dispatch(resetOfflineState());
+
+      // Clear cream percentage Redux state
+      dispatch(resetCreamPercentage());
+      
+      // Clear Sieve and Magnet New Plant Redux state
+      dispatch(clearSieveAndMagnetNewPlantData());
+
+      setShowOfflineError(false);
+
+      // Clear any offline data from localStorage
+      try {
+        localStorage.removeItem('offlineData');
+        localStorage.removeItem('offlineSubmissions');
+        console.log('Offline data cleared from localStorage');
+      } catch (error) {
+        console.error('Error clearing offline data:', error);
+      }
+
+      console.log('All data cleared except essential information (token, plantTourId, employeeDetails, user details)');
+      console.log('Offline mode canceled, normal plant tour is now available');
+      
     } else if (totalSynced > 0 && totalErrors > 0) {
       alert(`⚠️ Synced ${totalSynced} item(s) successfully, but ${totalErrors} item(s) failed. Please check console for details.`);
+      console.log('Some sync operations failed. Keeping Redux data intact.');
     } else if (totalSynced === 0 && totalErrors > 0) {
       alert('❌ Failed to sync offline data. Please check console for details.');
+      console.log('All sync operations failed. Keeping Redux data intact.');
       return;
     } else {
       console.log('No offline data to sync');
+      // Even if no data to sync, we can clear the Redux state to reset everything
+      console.log('No offline data found. Clearing Redux data to reset state...');
+      
+      // Clear all Redux data except token, plantTourId, employeeDetails, and user details
+      dispatch(clearAllDataExceptEssential());
+      dispatch(resetOfflineState());
+
+      // Clear cream percentage Redux state
+      dispatch(resetCreamPercentage());
+      
+      // Clear Sieve and Magnet New Plant Redux state
+      dispatch(clearSieveAndMagnetNewPlantData());
+
+      setShowOfflineError(false);
+
+      // Clear any offline data from localStorage
+      try {
+        localStorage.removeItem('offlineData');
+        localStorage.removeItem('offlineSubmissions');
+        console.log('Offline data cleared from localStorage');
+      } catch (error) {
+        console.error('Error clearing offline data:', error);
+      }
+
+      console.log('All data cleared except essential information (token, plantTourId, employeeDetails, user details)');
+      console.log('Offline mode canceled, normal plant tour is now available');
     }
-
-    // Clear all Redux data except token, plantTourId, employeeDetails, and user details
-    dispatch(clearAllDataExceptEssential());
-    dispatch(resetOfflineState());
-
-    // Clear cream percentage Redux state
-    dispatch(resetCreamPercentage());
-    
-    // Clear Sieve and Magnet New Plant Redux state
-    dispatch(clearSieveAndMagnetNewPlantData());
-
-    setShowOfflineError(false);
-
-    // Clear any offline data from localStorage
-    try {
-      localStorage.removeItem('offlineData');
-      localStorage.removeItem('offlineSubmissions');
-      console.log('Offline data cleared from localStorage');
-    } catch (error) {
-      console.error('Error clearing offline data:', error);
-    }
-
-    console.log('All data cleared except essential information (token, plantTourId, employeeDetails, user details)');
-
-    console.log('Offline mode canceled, normal plant tour is now available');
   };
 
   useEffect(() => {
