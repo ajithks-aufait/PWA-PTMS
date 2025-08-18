@@ -5,10 +5,8 @@ import type { RootState } from '../store/store';
 import DashboardLayout from './DashboardLayout';
 import { fetchAndStoreCycleData, collectEstimationDataCycleSave, saveProductMonitoringData } from '../Services/productMonitoringRecord';
 import {
-  setCycles,
   addCycle,
   addPendingSync,
-  setLastFetchTimestamp,
   setIsOffline,
   setCurrentCycle,
 } from '../store/productMonitoringSlice';
