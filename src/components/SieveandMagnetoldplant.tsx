@@ -3,6 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '../store/store';
 import DashboardLayout from './DashboardLayout';
+import { saveSieveAndMagnetOldPlant, collectEstimationDataCycleSave, fetchCycleData } from '../Services/saveSieveAndMagnetOldPlant';
+import {
+  setCompletedCycles,
+  addCompletedCycle,
+  addPendingSync,
+  setLastFetchTimestamp,
+  setIsOffline,
+  setCurrentCycle,
+} from '../store/sieveAndMagnetOldPlantSlice';
 
 interface ChecklistItem {
     id: string;
@@ -18,16 +27,44 @@ interface FormData {
     standardPercentage: string;
 }
 
-interface CompletedCycleData {
+// Redux state interface for completed cycles
+interface ReduxCompletedCycleData {
     cycleNumber: number;
-    checklistItems: ChecklistItem[];
-    formData: FormData;
+    defects: { title: string; remarks: string }[];
+    okays: string[];
+    formData: {
+        product: string;
+        machineNo: string;
+        line: string;
+        standardPercentage: string;
+    };
     remarks: string;
 }
 
 const SieveandMagnetoldplant: React.FC = () => {
+    console.log('SieveandMagnetoldplant component is rendering...');
+    
     const navigate = useNavigate();
+    const dispatch = useDispatch();
     const { plantTourId, selectedCycle } = useSelector((state: RootState) => state.planTour);
+    const { user } = useSelector((state: RootState) => state.user);
+    const { 
+        completedCycles, 
+        pendingSync, 
+        lastFetchTimestamp, 
+        isOffline, 
+        currentCycle: reduxCurrentCycle 
+    } = useSelector((state: RootState) => state.sieveAndMagnetOldPlant);
+    
+    console.log('Redux state loaded successfully:', {
+        plantTourId,
+        selectedCycle,
+        user: user?.Name,
+        completedCycles: completedCycles.length,
+        pendingSync: pendingSync.length,
+        isOffline,
+        reduxCurrentCycle
+    });
 
     // Form state for start section
     const [formData, setFormData] = useState<FormData>({
@@ -39,53 +76,49 @@ const SieveandMagnetoldplant: React.FC = () => {
 
     // Session state
     const [isSessionStarted, setIsSessionStarted] = useState(false);
-    const [isCycleCompleted, setIsCycleCompleted] = useState(false);
-    const [isCycleExpanded, setIsCycleExpanded] = useState(false);
-    const [currentCycle, setCurrentCycle] = useState(1);
-    const [completedCycles, setCompletedCycles] = useState<CompletedCycleData[]>([]);
     const [expandedCompletedCycles, setExpandedCompletedCycles] = useState<Set<number>>(new Set());
     const [generalRemarks, setGeneralRemarks] = useState('');
 
-    // Checklist items state
+    // Checklist items state - Old Plant structure (37 items)
     const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([
-            { id: 'sugar-sifter-1', label: 'Sugar Sifter 1', status: null, remarks: '' },
-            { id: 'sugar-sifter-2', label: 'Sugar Sifter 2', status: null, remarks: '' },
-            { id: 'sugar-grinder-mesh-line-1', label: 'Sugar Grinder Mesh - Line 1', status: null, remarks: '' },
-            { id: 'sugar-grinder-mesh-line-2', label: 'Sugar Grinder Mesh - Line 2', status: null, remarks: '' },
-            { id: 'sugar-grinder-mesh-line-3', label: 'Sugar Grinder Mesh - Line 3', status: null, remarks: '' },
-            { id: 'sugar-grinder-mesh-line-4', label: 'Sugar Grinder Mesh - Line 4', status: null, remarks: '' },
-            { id: 'maida-sifter-sieve-line-1', label: 'Maida Sifter Sieve - Line 1', status: null, remarks: '' },
-            { id: 'maida-sifter-sieve-line-2', label: 'Maida Sifter Sieve - Line 2', status: null, remarks: '' },
-            { id: 'maida-sifter-sieve-line-3', label: 'Maida Sifter Sieve - Line 3', status: null, remarks: '' },
-            { id: 'maida-sifter-sieve-line-4', label: 'Maida Sifter Sieve - Line 4', status: null, remarks: '' },
-            { id: 'sugar-mesh-rotary-line-1', label: 'Sugar Mesh at Rotary Line-1', status: null, remarks: '' },
-            { id: 'biscuits-dust-1', label: 'Biscuits Dust 1', status: null, remarks: '' },
-            { id: 'biscuits-dust-2', label: 'Biscuits Dust 2', status: null, remarks: '' },
-            { id: 'chemical-sifter-1', label: 'Chemical Sifter 1', status: null, remarks: '' },
-            { id: 'chemical-sifter-3', label: 'Chemical Sifter 3', status: null, remarks: '' },
-            { id: 'chemical-sifter-5', label: 'Chemical Sifter 5', status: null, remarks: '' },
-            { id: 'atta-shifter', label: 'Atta Shifter', status: null, remarks: '' },
-            { id: 'maida-seive-sampling', label: 'Maida Seive for Sampling', status: null, remarks: '' },
-            { id: 'invert-syrup-bucket-filter', label: 'Invert Syrup - Bucket Filter (Every Batch Change)', status: null, remarks: '' },
-            { id: 'palm-oil-olein', label: 'Palm Oil/ Olein (Checked when Oil filled in Silo tank)', status: null, remarks: '' },
-            { id: 'dh-room-humidity', label: 'DH Room Humidity Cookies/Cracker', status: null, remarks: '' },
-            { id: 'packing-humidity-temp-line-1', label: 'Packing Humidity & Temp Line-1', status: null, remarks: '' },
-            { id: 'packing-humidity-temp-line-2', label: 'Packing Humidity & Temp Line-2', status: null, remarks: '' },
-            { id: 'packing-humidity-temp-line-3', label: 'Packing Humidity & Temp Line-3', status: null, remarks: '' },
-            { id: 'packing-humidity-temp-line-4', label: 'Packing Humidity & Temp Line-4', status: null, remarks: '' },
-            { id: 'packing-humidity-temp-line-5', label: 'Packing Humidity & Temp Line-5', status: null, remarks: '' },
-            { id: 'cold-room-1-temp', label: 'Cold Room 1 Temperature', status: null, remarks: '' },
-            { id: 'cold-room-2-temp', label: 'Cold Room 2 Temperature', status: null, remarks: '' },
-            { id: 'cold-room-3-temp', label: 'Cold Room 3 Temperature', status: null, remarks: '' },
-            { id: 'deep-freezer-yeast', label: 'Deep Freezer for Yeast', status: null, remarks: '' },
-            { id: 'maida-hopper-magnet-line-1', label: 'Maida Hopper Magnet Line-1', status: null, remarks: '' },
-            { id: 'maida-hopper-magnet-line-2', label: 'Maida Hopper Magnet Line-2', status: null, remarks: '' },
-            { id: 'maida-hopper-magnet-line-3', label: 'Maida Hopper Magnet Line-3', status: null, remarks: '' },
-            { id: 'maida-hopper-magnet-line-4', label: 'Maida Hopper Magnet Line-4', status: null, remarks: '' },
-            { id: 'sugar-grinder-magnet', label: 'Sugar Grinder Magnet', status: null, remarks: '' },
-            { id: 'biscuit-dust-magnet-1', label: 'Biscuit Dust Magnet 1', status: null, remarks: '' },
-            { id: 'biscuit-dust-magnet-2', label: 'Biscuit Dust Magnet 2', status: null, remarks: '' }
-          ]);
+        { id: 'sugar-sifter-1', label: 'Sugar Sifter 1', status: null, remarks: '' },
+        { id: 'sugar-sifter-2', label: 'Sugar Sifter 2', status: null, remarks: '' },
+        { id: 'sugar-grinder-mesh-line-1', label: 'Sugar Grinder Mesh - Line 1', status: null, remarks: '' },
+        { id: 'sugar-grinder-mesh-line-2', label: 'Sugar Grinder Mesh - Line 2', status: null, remarks: '' },
+        { id: 'sugar-grinder-mesh-line-3', label: 'Sugar Grinder Mesh - Line 3', status: null, remarks: '' },
+        { id: 'sugar-grinder-mesh-line-4', label: 'Sugar Grinder Mesh - Line 4', status: null, remarks: '' },
+        { id: 'maida-sifter-sieve-line-1', label: 'Maida Sifter Sieve - Line 1', status: null, remarks: '' },
+        { id: 'maida-sifter-sieve-line-2', label: 'Maida Sifter Sieve - Line 2', status: null, remarks: '' },
+        { id: 'maida-sifter-sieve-line-3', label: 'Maida Sifter Sieve - Line 3', status: null, remarks: '' },
+        { id: 'maida-sifter-sieve-line-4', label: 'Maida Sifter Sieve - Line 4', status: null, remarks: '' },
+        { id: 'sugar-mesh-rotary-line-1', label: 'Sugar Mesh at Rotary Line-1', status: null, remarks: '' },
+        { id: 'biscuits-dust-1', label: 'Biscuits Dust 1', status: null, remarks: '' },
+        { id: 'biscuits-dust-2', label: 'Biscuits Dust 2', status: null, remarks: '' },
+        { id: 'chemical-sifter-1', label: 'Chemical Sifter 1', status: null, remarks: '' },
+        { id: 'chemical-sifter-3', label: 'Chemical Sifter 3', status: null, remarks: '' },
+        { id: 'chemical-sifter-5', label: 'Chemical Sifter 5', status: null, remarks: '' },
+        { id: 'atta-shifter', label: 'Atta Shifter', status: null, remarks: '' },
+        { id: 'maida-seive-sampling', label: 'Maida Seive for Sampling', status: null, remarks: '' },
+        { id: 'invert-syrup-bucket-filter', label: 'Invert Syrup - Bucket Filter (Every Batch Change)', status: null, remarks: '' },
+        { id: 'palm-oil-olein', label: 'Palm Oil/ Olein (Checked when Oil filled in Silo tank)', status: null, remarks: '' },
+        { id: 'dh-room-humidity', label: 'DH Room Humidity Cookies/Cracker', status: null, remarks: '' },
+        { id: 'packing-humidity-temp-line-1', label: 'Packing Humidity & Temp Line-1', status: null, remarks: '' },
+        { id: 'packing-humidity-temp-line-2', label: 'Packing Humidity & Temp Line-2', status: null, remarks: '' },
+        { id: 'packing-humidity-temp-line-3', label: 'Packing Humidity & Temp Line-3', status: null, remarks: '' },
+        { id: 'packing-humidity-temp-line-4', label: 'Packing Humidity & Temp Line-4', status: null, remarks: '' },
+        { id: 'packing-humidity-temp-line-5', label: 'Packing Humidity & Temp Line-5', status: null, remarks: '' },
+        { id: 'cold-room-1-temp', label: 'Cold Room 1 Temperature', status: null, remarks: '' },
+        { id: 'cold-room-2-temp', label: 'Cold Room 2 Temperature', status: null, remarks: '' },
+        { id: 'cold-room-3-temp', label: 'Cold Room 3 Temperature', status: null, remarks: '' },
+        { id: 'deep-freezer-yeast', label: 'Deep Freezer for Yeast', status: null, remarks: '' },
+        { id: 'maida-hopper-magnet-line-1', label: 'Maida Hopper Magnet Line-1', status: null, remarks: '' },
+        { id: 'maida-hopper-magnet-line-2', label: 'Maida Hopper Magnet Line-2', status: null, remarks: '' },
+        { id: 'maida-hopper-magnet-line-3', label: 'Maida Hopper Magnet Line-3', status: null, remarks: '' },
+        { id: 'maida-hopper-magnet-line-4', label: 'Maida Hopper Magnet Line-4', status: null, remarks: '' },
+        { id: 'sugar-grinder-magnet', label: 'Sugar Grinder Magnet', status: null, remarks: '' },
+        { id: 'biscuit-dust-magnet-1', label: 'Biscuit Dust Magnet 1', status: null, remarks: '' },
+        { id: 'biscuit-dust-magnet-2', label: 'Biscuit Dust Magnet 2', status: null, remarks: '' }
+    ]);
           
 
         const [isExpanded, setIsExpanded] = useState(true);
@@ -101,6 +134,7 @@ const SieveandMagnetoldplant: React.FC = () => {
         console.log('Starting sieve and magnet session with data:', formData);
         setIsSessionStarted(true);
     };
+
 
     const handleStatusChange = (itemId: string, status: 'okay' | 'not-okay') => {
          setChecklistItems(prev =>
@@ -118,27 +152,159 @@ const SieveandMagnetoldplant: React.FC = () => {
          );
      };
 
-    const handleSave = () => {
-        console.log('Saving checklist data for cycle:', currentCycle, checklistItems);
-        // TODO: Implement save functionality
+    const handleSave = async () => {
+        console.log('=== HANDLE SAVE STARTED ===');
+        console.log('Saving checklist data for cycle:', reduxCurrentCycle, checklistItems);
+        console.log('Current offline status:', isOffline);
         
-        // Add current cycle data to completed cycles
-        const completedCycleData: CompletedCycleData = {
-            cycleNumber: currentCycle,
-            checklistItems: [...checklistItems],
-            formData: { ...formData },
-            remarks: generalRemarks
-        };
-        setCompletedCycles(prev => [...prev, completedCycleData]);
-        
-        // Move to next cycle
-        setCurrentCycle(prev => prev + 1);
-        
-        // Reset checklist items for next cycle
-        setChecklistItems(prev => prev.map(item => ({ ...item, status: null, remarks: '' })));
-        
-        // Reset session started state to show start form for next cycle
-        setIsSessionStarted(false);
+        // Check if we have any data to save
+        const hasDataToSave = checklistItems.some(item => item.status !== null);
+        if (!hasDataToSave) {
+            alert('No data to save. Please select at least one checklist item.');
+            return;
+        }
+
+        try {
+            // Process data locally first (for both online and offline modes)
+            const defects: { title: string; remarks: string }[] = [];
+            const okays: string[] = [];
+            
+            checklistItems.forEach((item) => {
+                if (item.status === 'okay') {
+                    okays.push(item.label);
+                } else if (item.status === 'not-okay') {
+                    defects.push({
+                        title: item.label,
+                        remarks: item.remarks || 'No remarks'
+                    });
+                }
+            });
+
+            // Add to completed cycles for display (both online and offline)
+            const completedCycleData: ReduxCompletedCycleData = {
+                cycleNumber: reduxCurrentCycle,
+                defects: defects,
+                okays: okays,
+                formData: { ...formData },
+                remarks: generalRemarks
+            };
+            dispatch(addCompletedCycle(completedCycleData));
+
+            // Check if we're offline
+            if (isOffline) {
+                console.log('Processing in offline mode...');
+                
+                // Store data for offline sync - only store the essential data needed for sync
+                const pendingData = {
+                    cycleNumber: reduxCurrentCycle,
+                    checklistItems: [...checklistItems],
+                    formData: { ...formData },
+                    remarks: generalRemarks,
+                    timestamp: Date.now()
+                };
+                dispatch(addPendingSync(pendingData));
+                
+                console.log('Data saved offline. Will sync when connection is restored.');
+                alert('Data saved offline. Will sync when connection is restored.');
+            } else {
+                console.log('Processing in online mode...');
+                
+                // Online mode - collect data for API
+                const { savedData } = collectEstimationDataCycleSave(
+                    reduxCurrentCycle,
+                    checklistItems,
+                    plantTourId || 'N/A',
+                    selectedCycle || 'Shift 1',
+                    user?.Name || 'Current User'
+                );
+
+                // Call the API to save data
+                const response = await saveSieveAndMagnetOldPlant(savedData);
+
+                if (response.success) {
+                    console.log('Data saved successfully to API:', response);
+                    alert(response.message);
+                } else {
+                    console.error('Failed to save data to API:', response.message);
+                    // If API fails, switch to offline mode
+                    const pendingData = {
+                        cycleNumber: reduxCurrentCycle,
+                        checklistItems: [...checklistItems],
+                        formData: { ...formData },
+                        remarks: generalRemarks,
+                        timestamp: Date.now()
+                    };
+                    dispatch(addPendingSync(pendingData));
+                    dispatch(setIsOffline(true));
+                    alert('Network error. Data saved offline. Will sync when connection is restored.');
+                }
+            }
+            
+            // Move to next cycle (both online and offline)
+            dispatch(setCurrentCycle(reduxCurrentCycle + 1));
+            
+            // Reset checklist items for next cycle
+            setChecklistItems(prev => prev.map(item => ({ ...item, status: null, remarks: '' })));
+            
+            // Reset session started state to show start form for next cycle
+            setIsSessionStarted(false);
+            
+            // Reset general remarks
+            setGeneralRemarks('');
+            
+        } catch (error) {
+            console.error('Error saving data:', error);
+            
+            // If any error occurs, save offline
+            const defects: { title: string; remarks: string }[] = [];
+            const okays: string[] = [];
+            
+            checklistItems.forEach((item) => {
+                if (item.status === 'okay') {
+                    okays.push(item.label);
+                } else if (item.status === 'not-okay') {
+                    defects.push({
+                        title: item.label,
+                        remarks: item.remarks || 'No remarks'
+                    });
+                }
+            });
+
+            // Store data for offline sync with proper structure
+            const pendingData = {
+                cycleNumber: reduxCurrentCycle,
+                checklistItems: [...checklistItems],
+                formData: { ...formData },
+                remarks: generalRemarks,
+                timestamp: Date.now()
+            };
+            dispatch(addPendingSync(pendingData));
+            dispatch(setIsOffline(true));
+            
+            // Add to completed cycles for display
+            const completedCycleData: ReduxCompletedCycleData = {
+                cycleNumber: reduxCurrentCycle,
+                defects: defects,
+                okays: okays,
+                formData: { ...formData },
+                remarks: generalRemarks
+            };
+            dispatch(addCompletedCycle(completedCycleData));
+            
+            // Move to next cycle
+            dispatch(setCurrentCycle(reduxCurrentCycle + 1));
+            
+            // Reset checklist items for next cycle
+            setChecklistItems(prev => prev.map(item => ({ ...item, status: null, remarks: '' })));
+            
+            // Reset session started state to show start form for next cycle
+            setIsSessionStarted(false);
+            
+            // Reset general remarks
+            setGeneralRemarks('');
+            
+            alert('Network error. Data saved offline. Will sync when connection is restored.');
+        }
     };
 
     const toggleCompletedCycleExpansion = (cycleNum: number) => {
@@ -153,14 +319,7 @@ const SieveandMagnetoldplant: React.FC = () => {
         });
     };
 
-    // Get defects and okays for summary
-    const getDefects = () => {
-        return checklistItems.filter(item => item.status === 'not-okay');
-    };
 
-    const getOkays = () => {
-        return checklistItems.filter(item => item.status === 'okay');
-    };
 
     const formattedDate = new Date().toLocaleDateString("en-US", {
         day: "2-digit",
@@ -168,12 +327,75 @@ const SieveandMagnetoldplant: React.FC = () => {
         year: "numeric",
     });
 
-    // Ensure completion screen starts in collapsed state
+    // Fetch existing cycle data when component mounts
     useEffect(() => {
-        if (isCycleCompleted) {
-            setIsCycleExpanded(false);
+        const loadExistingData = async () => {
+            console.log('=== LOADING EXISTING DATA ===');
+            console.log('Plant Tour ID:', plantTourId);
+            console.log('Last fetch timestamp:', lastFetchTimestamp);
+            
+            if (plantTourId) {
+                try {
+                    console.log('Fetching existing cycle data from server...');
+                    const existingCycles = await fetchCycleData(plantTourId);
+                    console.log('Fetched existing cycles:', existingCycles);
+                    
+                    if (existingCycles.length > 0) {
+                        // Convert fetched data to ReduxCompletedCycleData format
+                        const completedCyclesData: ReduxCompletedCycleData[] = existingCycles.map((cycle: any) => ({
+                            cycleNumber: cycle.cycleNum,
+                            defects: cycle.defects,
+                            okays: cycle.okays,
+                            formData: { product: '', machineNo: '', line: '', standardPercentage: '' }, // Default form data
+                            remarks: ''
+                        }));
+                        
+                        console.log('Converted completed cycles data:', completedCyclesData);
+                        
+                        dispatch(setCompletedCycles(completedCyclesData));
+                        dispatch(setLastFetchTimestamp(Date.now()));
+                        
+                        // Set current cycle to the next cycle number
+                        const maxCycle = Math.max(...existingCycles.map((cycle: any) => cycle.cycleNum));
+                        dispatch(setCurrentCycle(maxCycle + 1));
+                        
+                        console.log('Successfully loaded existing cycles. Max cycle:', maxCycle, 'Next cycle:', maxCycle + 1);
+                    } else {
+                        console.log('No existing cycles found on server.');
+                    }
+                } catch (error) {
+                    console.error('Error loading existing cycle data:', error);
+                    console.log('Setting offline mode due to fetch failure.');
+                    // If fetch fails, we're offline
+                    dispatch(setIsOffline(true));
+                }
+            } else {
+                console.log('No plant tour ID available for fetching existing data.');
+            }
+        };
+
+        // Only fetch if we don't have data or if it's been more than 5 minutes
+        const shouldFetch = !lastFetchTimestamp || (Date.now() - lastFetchTimestamp > 5 * 60 * 1000);
+        console.log('Should fetch existing data:', shouldFetch);
+        
+        if (shouldFetch) {
+            loadExistingData();
+        } else {
+            console.log('Skipping fetch - data is recent enough.');
         }
-    }, [isCycleCompleted]);
+    }, [plantTourId, dispatch, lastFetchTimestamp]);
+
+    // Debug effect to log Redux state changes
+    useEffect(() => {
+        console.log('=== REDUX STATE UPDATE ===');
+        console.log('Current cycle:', reduxCurrentCycle);
+        console.log('Completed cycles:', completedCycles.length);
+        console.log('Pending sync:', pendingSync.length);
+        console.log('Is offline:', isOffline);
+        console.log('Last fetch timestamp:', lastFetchTimestamp);
+    }, [reduxCurrentCycle, completedCycles.length, pendingSync.length, isOffline, lastFetchTimestamp]);
+
+
 
     // If session is not started, show the initial form
     if (!isSessionStarted) {
@@ -201,9 +423,10 @@ const SieveandMagnetoldplant: React.FC = () => {
 
                 {/* Sieve and Magnet Old Plant Header */}
                 <div className="bg-gray-100 px-3 sm:px-4 md:px-6 py-3 sm:py-4 mb-4 sm:mb-6 rounded-lg w-full">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                            <h1 className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Sieve and Magnet Old Plant</h1>
+                                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+                                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                                                         <h1 className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Critical Points(CP) Verification & Monitoring Record (Sieve, Magnet, Rh and Temperature) Old Plant
+                            </h1>
                             <div className="flex items-center gap-2 sm:gap-4">
                                 <div className="bg-gray-200 rounded-full px-2 sm:px-3 py-1 flex items-center gap-1 sm:gap-2">
                                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -212,7 +435,7 @@ const SieveandMagnetoldplant: React.FC = () => {
                                 <span className="text-xs sm:text-sm text-gray-600">{formattedDate}</span>
                             </div>
                         </div>
-                        <div className="text-gray-500 cursor-pointer self-end sm:self-auto">
+                        <div className="text-gray-500 cursor-pointer">
                             <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
                                 <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
                             </svg>
@@ -258,18 +481,18 @@ const SieveandMagnetoldplant: React.FC = () => {
                                                 <div className="px-4 py-3">
                                                     <h3 className="text-lg font-bold text-red-600">Defects</h3>
                                                 </div>
-                                                {cycleData.checklistItems.filter(item => item.status === 'not-okay').length > 0 ? (
+                                                {cycleData.defects && cycleData.defects.length > 0 ? (
                                                     <div className="bg-white">
                                                         {/* Table Header */}
                                                         <div className="grid grid-cols-2 bg-gray-50 border-b border-gray-300">
                                                             <div className="px-4 py-3 text-sm font-medium text-gray-700 border-r border-gray-300">Title</div>
                                                             <div className="px-4 py-3 text-sm font-medium text-gray-700">Remarks</div>
                                                         </div>
-                                                        {/* Table Rows */}
-                                                        {cycleData.checklistItems.filter(item => item.status === 'not-okay').map((item) => (
-                                                            <div key={item.id} className="grid grid-cols-2 border-b border-gray-300 last:border-b-0">
-                                                                <div className="px-4 py-3 text-sm text-gray-700 border-r border-gray-300">{item.label}</div>
-                                                                <div className="px-4 py-3 text-sm text-gray-700">{item.remarks || '-'}</div>
+                                                        {/* Table Rows - Show fetched defects */}
+                                                        {cycleData.defects.map((defect, index) => (
+                                                            <div key={`defect-${index}`} className="grid grid-cols-2 border-b border-gray-300 last:border-b-0">
+                                                                <div className="px-4 py-3 text-sm text-gray-700 border-r border-gray-300">{defect.title}</div>
+                                                                <div className="px-4 py-3 text-sm text-gray-700">{defect.remarks || '-'}</div>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -284,11 +507,11 @@ const SieveandMagnetoldplant: React.FC = () => {
                                                     {/* Left Sub-section - Okays */}
                                                     <div className="p-4">
                                                         <h3 className="text-lg font-bold text-green-800 mb-3">Okays</h3>
-                                                        {cycleData.checklistItems.filter(item => item.status === 'okay').length > 0 ? (
+                                                        {cycleData.okays && cycleData.okays.length > 0 ? (
                                                             <div className="space-y-2">
-                                                                {cycleData.checklistItems.filter(item => item.status === 'okay').map((item) => (
-                                                                    <div key={item.id} className="text-sm text-gray-700">
-                                                                        • {item.label}
+                                                                {cycleData.okays.map((okay, index) => (
+                                                                    <div key={`okay-${index}`} className="text-sm text-gray-700">
+                                                                        • {okay}
                                                                     </div>
                                                                 ))}
                                                             </div>
@@ -300,11 +523,11 @@ const SieveandMagnetoldplant: React.FC = () => {
                                                     {/* Right Sub-section - Defects */}
                                                     <div className="p-4">
                                                         <h3 className="text-lg font-bold text-gray-800 mb-3">Defects</h3>
-                                                        {cycleData.checklistItems.filter(item => item.status === 'not-okay').length > 0 ? (
+                                                        {cycleData.defects && cycleData.defects.length > 0 ? (
                                                             <div className="space-y-2">
-                                                                {cycleData.checklistItems.filter(item => item.status === 'not-okay').map((item) => (
-                                                                    <div key={item.id} className="text-sm text-gray-700">
-                                                                        {item.label}
+                                                                {cycleData.defects.map((defect, index) => (
+                                                                    <div key={`defect-summary-${index}`} className="text-sm text-gray-700">
+                                                                        {defect.title}
                                                                     </div>
                                                                 ))}
                                                             </div>
@@ -324,7 +547,7 @@ const SieveandMagnetoldplant: React.FC = () => {
 
                                  {/* Main Content - Cycle Section */}
                  <div className="bg-white rounded-lg shadow-sm border p-3 sm:p-4 md:p-6 w-full">
-                                          <h2 className="text-base sm:text-lg font-bold text-gray-800 mb-4 sm:mb-6">Cycle {currentCycle}</h2>
+                                          <h2 className="text-base sm:text-lg font-bold text-gray-800 mb-4 sm:mb-6">Cycle {reduxCurrentCycle}</h2>
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6">
                         {/* Product Field */}
@@ -356,175 +579,12 @@ const SieveandMagnetoldplant: React.FC = () => {
 
                                  {/* Disabled Next Cycle Preview */}
                  <div className="bg-white rounded-lg shadow-sm border p-3 sm:p-4 md:p-6 w-full mt-4 sm:mt-6 opacity-50">
-                     <h2 className="text-base sm:text-lg font-bold text-gray-800">Cycle {currentCycle + 1}</h2>
+                     <h2 className="text-base sm:text-lg font-bold text-gray-800">Cycle {reduxCurrentCycle + 1}</h2>
                  </div>
             </DashboardLayout>
         );
     }
 
-    // If cycle is completed, show the completion screen with summary
-    if (isCycleCompleted) {
-        const defects = getDefects();
-        const okays = getOkays();
-        
-        return (
-            <DashboardLayout>
-                {/* Header Section */}
-                <div className="bg-white px-3 sm:px-4 md:px-6 py-3 sm:py-4 mb-4 sm:mb-6 border-b border-gray-200 w-full">
-                    <div className="flex items-center justify-between gap-2">
-                        {/* Back Button */}
-                        <button
-                            onClick={() => navigate(-1)}
-                            className="flex items-center text-blue-600 hover:text-blue-800 transition-colors flex-shrink-0"
-                        >
-                            <span className="text-lg mr-1">&lt;</span>
-                            <span className="font-medium text-sm sm:text-base">Back</span>
-                        </button>
-
-                        {/* Plant Tour ID */}
-                        <div className="text-right min-w-0 flex-1">
-                            <span className="text-gray-700 text-sm sm:text-base">Plant Tour ID: </span>
-                            <span className="text-blue-600 font-medium text-sm sm:text-base break-all truncate">{plantTourId || 'N/A'}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Sieve and Magnet Old Plant Header */}
-                <div className="bg-gray-100 px-3 sm:px-4 md:px-6 py-3 sm:py-4 mb-4 sm:mb-6 rounded-lg w-full">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                            <h1 className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Critical Points(CP) Verification & Monitoring Record (Sieve, Magnet, Rh and Temperature) Old Plant
-                            </h1>
-                            <div className="flex items-center gap-2 sm:gap-4">
-                                <div className="bg-gray-200 rounded-full px-2 sm:px-3 py-1 flex items-center gap-1 sm:gap-2">
-                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                    <span className="text-xs sm:text-sm font-medium text-gray-700">{selectedCycle || 'Shift 1'}</span>
-                                </div>
-                                <span className="text-xs sm:text-sm text-gray-600">{formattedDate}</span>
-                            </div>
-                        </div>
-                        <div className="text-gray-500 cursor-pointer self-end sm:self-auto">
-                            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-
-                                 {/* Completed Cycle Summary */}
-                 <div className="bg-white rounded-lg shadow-sm border p-3 sm:p-4 md:p-6 w-full">
-                     {/* Cycle Header with Dropdown Icon */}
-                     <div className="flex items-center justify-between mb-4 sm:mb-6">
-                         <h2 className="text-base sm:text-lg font-bold text-gray-800">Cycle {currentCycle - 1}</h2>
-                         <svg
-                             className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-500 cursor-pointer transition-transform ${isCycleExpanded ? 'rotate-180' : ''}`}
-                             fill="none"
-                             stroke="currentColor"
-                             viewBox="0 0 24 24"
-                             onClick={() => setIsCycleExpanded(!isCycleExpanded)}
-                         >
-                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                         </svg>
-                     </div>
-
-                                         {/* Expandable Content */}
-                     {isCycleExpanded && (
-                         <div className="space-y-4">
-                             {/* Product Info */}
-                             <div className="mb-4 sm:mb-6">
-                                 <div className="text-sm text-gray-600 mb-2">Selected Product:</div>
-                                 <div className="text-base font-medium text-gray-800">{formData.product}</div>
-                             </div>
-                             
-                             {/* Defects Section with Table */}
-                             <div className="flex gap-4">
-                                 <div className="flex-1 border border-gray-300 rounded-lg overflow-hidden">
-                                     <div className="px-4 py-3">
-                                         <h3 className="text-lg font-bold text-red-600">Defects</h3>
-                                     </div>
-                                     {defects.length > 0 ? (
-                                         <div className="bg-white">
-                                             {/* Table Header */}
-                                             <div className="grid grid-cols-2 bg-gray-50 border-b border-gray-300">
-                                                 <div className="px-4 py-3 text-sm font-medium text-gray-700 border-r border-gray-300">Title</div>
-                                                 <div className="px-4 py-3 text-sm font-medium text-gray-700">Remarks</div>
-                                             </div>
-                                             {/* Table Rows */}
-                                             {defects.map((item) => (
-                                                 <div key={item.id} className="grid grid-cols-2 border-b border-gray-300 last:border-b-0">
-                                                     <div className="px-4 py-3 text-sm text-gray-700 border-r border-gray-300">{item.label}</div>
-                                                     <div className="px-4 py-3 text-sm text-gray-700">{item.remarks || '-'}</div>
-                                                 </div>
-                                             ))}
-                                         </div>
-                                     ) : (
-                                         <div className="px-4 py-3 text-sm text-gray-500">No defects found</div>
-                                     )}
-                                 </div>
-                                 
-                                 {/* Remarks Section */}
-                                 <div className="w-1/3 border border-gray-300 rounded-lg">
-                                     <div className="px-4 py-3 bg-gray-50 border-b border-gray-300">
-                                         <h3 className="text-lg font-bold text-gray-700">Remarks</h3>
-                                     </div>
-                                     <div className="p-4">
-                                         <textarea 
-                                             className="w-full h-32 p-3 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                             placeholder="Add general remarks about defects..."
-                                             value={generalRemarks}
-                                             onChange={(e) => setGeneralRemarks(e.target.value)}
-                                         />
-                                     </div>
-                                 </div>
-                             </div>
-
-                             {/* Bottom Section - Okays and Defects Summary */}
-                             <div className="border border-gray-300 rounded-lg overflow-hidden">
-                                 <div className="grid grid-cols-2 divide-x divide-gray-300">
-                                     {/* Left Sub-section - Okays */}
-                                     <div className="p-4">
-                                         <h3 className="text-lg font-bold text-green-800 mb-3">Okays</h3>
-                                         {okays.length > 0 ? (
-                                             <div className="space-y-2">
-                                                 {okays.map((item) => (
-                                                     <div key={item.id} className="text-sm text-gray-700">
-                                                         • {item.label}
-                                                     </div>
-                                                 ))}
-                                             </div>
-                                         ) : (
-                                             <div className="text-sm text-gray-700">None</div>
-                                         )}
-                                     </div>
-
-                                     {/* Right Sub-section - Defects */}
-                                     <div className="p-4">
-                                         <h3 className="text-lg font-bold text-gray-800 mb-3">Defects</h3>
-                                         {defects.length > 0 ? (
-                                             <div className="space-y-2">
-                                                 {defects.map((item) => (
-                                                     <div key={item.id} className="text-sm text-gray-700">
-                                                         {item.label}
-                                                     </div>
-                                                 ))}
-                                             </div>
-                                         ) : (
-                                             <div className="text-sm text-gray-700">None</div>
-                                         )}
-                                     </div>
-                                 </div>
-                             </div>
-                                                  </div>
-                     )}
-                 </div>
-
-                 {/* Disabled Next Cycle Preview */}
-                 <div className="bg-white rounded-lg shadow-sm border p-3 sm:p-4 md:p-6 w-full mt-4 sm:mt-6 opacity-50">
-                     <h2 className="text-base sm:text-lg font-bold text-gray-800">Cycle {currentCycle + 1}</h2>
-                 </div>
-             </DashboardLayout>
-         );
-     }
 
     // Session started - show the checklist
     return (
@@ -553,7 +613,7 @@ const SieveandMagnetoldplant: React.FC = () => {
             <div className="bg-gray-100 px-3 sm:px-4 md:px-6 py-3 sm:py-4 mb-4 sm:mb-6 rounded-lg w-full">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                        <h1 className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Sieve and Magnet Old Plant</h1>
+                                                 <h1 className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Critical Points(CP) Verification & Monitoring Record (Sieve, Magnet, Rh and Temperature) Old Plant</h1>
                         <div className="flex items-center gap-2 sm:gap-4">
                             <div className="bg-gray-200 rounded-full px-2 sm:px-3 py-1 flex items-center gap-1 sm:gap-2">
                                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -608,21 +668,21 @@ const SieveandMagnetoldplant: React.FC = () => {
                                             <div className="px-4 py-3">
                                                 <h3 className="text-lg font-bold text-red-600">Defects</h3>
                                             </div>
-                                            {cycleData.checklistItems.filter(item => item.status === 'not-okay').length > 0 ? (
-                                                <div className="bg-white">
-                                                    {/* Table Header */}
-                                                    <div className="grid grid-cols-2 bg-gray-50 border-b border-gray-300">
-                                                        <div className="px-4 py-3 text-sm font-medium text-gray-700 border-r border-gray-300">Title</div>
-                                                        <div className="px-4 py-3 text-sm font-medium text-gray-700">Remarks</div>
-                                                    </div>
-                                                    {/* Table Rows */}
-                                                    {cycleData.checklistItems.filter(item => item.status === 'not-okay').map((item) => (
-                                                        <div key={item.id} className="grid grid-cols-2 border-b border-gray-300 last:border-b-0">
-                                                            <div className="px-4 py-3 text-sm text-gray-700 border-r border-gray-300">{item.label}</div>
-                                                            <div className="px-4 py-3 text-sm text-gray-700">{item.remarks || '-'}</div>
-                                                        </div>
-                                                    ))}
-                                                </div>
+                                                                                         {cycleData.defects && cycleData.defects.length > 0 ? (
+                                                 <div className="bg-white">
+                                                     {/* Table Header */}
+                                                     <div className="grid grid-cols-2 bg-gray-50 border-b border-gray-300">
+                                                         <div className="px-4 py-3 text-sm font-medium text-gray-700 border-r border-gray-300">Title</div>
+                                                         <div className="px-4 py-3 text-sm font-medium text-gray-700">Remarks</div>
+                                                     </div>
+                                                     {/* Table Rows */}
+                                                     {cycleData.defects.map((defect, index) => (
+                                                         <div key={`defect-${index}`} className="grid grid-cols-2 border-b border-gray-300 last:border-b-0">
+                                                             <div className="px-4 py-3 text-sm text-gray-700 border-r border-gray-300">{defect.title}</div>
+                                                             <div className="px-4 py-3 text-sm text-gray-700">{defect.remarks || '-'}</div>
+                                                         </div>
+                                                     ))}
+                                                 </div>
                                             ) : (
                                                 <div className="px-4 py-3 text-sm text-gray-500">No defects found</div>
                                             )}
@@ -634,14 +694,14 @@ const SieveandMagnetoldplant: React.FC = () => {
                                                 {/* Left Sub-section - Okays */}
                                                 <div className="p-4">
                                                     <h3 className="text-lg font-bold text-green-800 mb-3">Okays</h3>
-                                                    {cycleData.checklistItems.filter(item => item.status === 'okay').length > 0 ? (
-                                                        <div className="space-y-2">
-                                                            {cycleData.checklistItems.filter(item => item.status === 'okay').map((item) => (
-                                                                <div key={item.id} className="text-sm text-gray-700">
-                                                                    • {item.label}
-                                                                </div>
-                                                            ))}
-                                                        </div>
+                                                                                                         {cycleData.okays && cycleData.okays.length > 0 ? (
+                                                         <div className="space-y-2">
+                                                             {cycleData.okays.map((okay, index) => (
+                                                                 <div key={`okay-${index}`} className="text-sm text-gray-700">
+                                                                     • {okay}
+                                                                 </div>
+                                                             ))}
+                                                         </div>
                                                     ) : (
                                                         <div className="text-sm text-gray-700">None</div>
                                                     )}
@@ -650,14 +710,14 @@ const SieveandMagnetoldplant: React.FC = () => {
                                                 {/* Right Sub-section - Defects */}
                                                 <div className="p-4">
                                                     <h3 className="text-lg font-bold text-gray-800 mb-3">Defects</h3>
-                                                    {cycleData.checklistItems.filter(item => item.status === 'not-okay').length > 0 ? (
-                                                        <div className="space-y-2">
-                                                            {cycleData.checklistItems.filter(item => item.status === 'not-okay').map((item) => (
-                                                                <div key={item.id} className="text-sm text-gray-700">
-                                                                    {item.label}
-                                                                </div>
-                                                            ))}
-                                                        </div>
+                                                                                                         {cycleData.defects && cycleData.defects.length > 0 ? (
+                                                         <div className="space-y-2">
+                                                             {cycleData.defects.map((defect, index) => (
+                                                                 <div key={`defect-summary-${index}`} className="text-sm text-gray-700">
+                                                                     {defect.title}
+                                                                 </div>
+                                                             ))}
+                                                         </div>
                                                     ) : (
                                                         <div className="text-sm text-gray-700">None</div>
                                                     )}
@@ -676,7 +736,7 @@ const SieveandMagnetoldplant: React.FC = () => {
             <div className="bg-white rounded-lg shadow-sm border p-3 sm:p-4 md:p-6 w-full">
                 {/* Cycle Header with Dropdown Icon */}
                 <div className="flex items-center justify-between mb-4 sm:mb-6">
-                    <h2 className="text-base sm:text-lg font-bold text-gray-800">Cycle {currentCycle}</h2>
+                                         <h2 className="text-base sm:text-lg font-bold text-gray-800">Cycle {reduxCurrentCycle}</h2>
                     <svg
                         className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-500 cursor-pointer transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                         fill="none"

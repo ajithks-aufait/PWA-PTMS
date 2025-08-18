@@ -5,6 +5,7 @@ import planTourReducer from './planTourSlice';
 import stateReducer from './stateSlice.ts';
 import creamPercentageReducer from './creamPercentageSlice';
 import sieveAndMagnetNewPlantReducer from './sieveAndMagnetNewPlantSlice';
+import sieveAndMagnetOldPlantReducer from './sieveAndMagnetOldPlantSlice';
 import { persistStore, persistReducer } from "redux-persist";
 import storage from "redux-persist/lib/storage";
 
@@ -43,12 +44,20 @@ const sieveAndMagnetNewPlantPersistConfig = {
   whitelist: ["completedCycles", "pendingSync", "lastFetchTimestamp", "isOffline", "currentCycle"]
 };
 
+// Persist config for sieveAndMagnetOldPlant
+const sieveAndMagnetOldPlantPersistConfig = {
+  key: "sieveAndMagnetOldPlant",
+  storage,
+  whitelist: ["completedCycles", "pendingSync", "lastFetchTimestamp", "isOffline", "currentCycle"]
+};
+
 const rootReducer = combineReducers({
   user: persistReducer(userPersistConfig, userReducer),
   planTour: persistReducer(planTourPersistConfig, planTourReducer),
   appState: persistReducer(appStatePersistConfig, stateReducer),
   creamPercentage: persistReducer(creamPercentagePersistConfig, creamPercentageReducer),
   sieveAndMagnetNewPlant: persistReducer(sieveAndMagnetNewPlantPersistConfig, sieveAndMagnetNewPlantReducer),
+  sieveAndMagnetOldPlant: persistReducer(sieveAndMagnetOldPlantPersistConfig, sieveAndMagnetOldPlantReducer),
 });
 
 const store = configureStore({

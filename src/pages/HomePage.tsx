@@ -17,6 +17,7 @@ import { setOfflineStarted, setOfflineCompleted, setProgress, resetOfflineState 
 import { clearUser } from "../store/userSlice";
 import { resetCreamPercentage } from "../store/creamPercentageSlice";
 import { clearAllData as clearSieveAndMagnetNewPlantData } from "../store/sieveAndMagnetNewPlantSlice";
+import { clearAllData as clearSieveAndMagnetOldPlantData } from "../store/sieveAndMagnetOldPlantSlice";
 import { createOrFetchPlantTour } from "../Services/createOrFetchPlantTour";
 import { getAccessToken } from "../Services/getAccessToken";
 import { saveSectionData } from "../Services/saveSectionData";
@@ -102,6 +103,9 @@ export default function HomePage() {
   
   // Get Sieve and Magnet New Plant offline data from Redux
   const sieveAndMagnetNewPlantPendingSync = useSelector((state: any) => state.sieveAndMagnetNewPlant.pendingSync);
+  
+  // Get Sieve and Magnet Old Plant offline data from Redux
+  const sieveAndMagnetOldPlantPendingSync = useSelector((state: any) => state.sieveAndMagnetOldPlant.pendingSync);
 
   const user = useSelector((state: any) => state.user.user);
   const userState = useSelector((state: any) => state.user);
@@ -120,9 +124,10 @@ export default function HomePage() {
 
 
   const handleOfflineTour = async () => {
-    // Clear only pending/offline SieveandMagnetnewplant data, not completed cycles
-    console.log('Clearing pending SieveandMagnetnewplant data before starting offline tour...');
+    // Clear only pending/offline SieveandMagnet data, not completed cycles
+    console.log('Clearing pending SieveandMagnet data before starting offline tour...');
     dispatch(clearSieveAndMagnetNewPlantData());
+    dispatch(clearSieveAndMagnetOldPlantData());
     
     // Check if internet is available
     if (!isOnline) {
@@ -436,6 +441,67 @@ export default function HomePage() {
       console.log('No Sieve and Magnet New Plant offline data to sync');
     }
 
+    // Sync Sieve and Magnet Old Plant offline data
+    if (sieveAndMagnetOldPlantPendingSync.length > 0) {
+      console.log('Syncing Sieve and Magnet Old Plant offline data...');
+      console.log('Sieve and Magnet Old Plant pending sync data:', sieveAndMagnetOldPlantPendingSync);
+
+      try {
+        for (const data of sieveAndMagnetOldPlantPendingSync) {
+          console.log(`Syncing Sieve and Magnet Old Plant cycle ${data.cycleNumber}:`, data);
+
+          try {
+            // Import the required functions
+            const { saveSieveAndMagnetOldPlant, collectEstimationDataCycleSave } = await import('../Services/saveSieveAndMagnetOldPlant');
+            
+            // Get the required data from Redux state
+            const plantTourId = planTourState.plantTourId;
+            const selectedCycle = planTourState.selectedCycle || 'Shift 1';
+            const userName = user?.Name || 'Current User';
+            
+            console.log('Using data for sync:', {
+              cycleNumber: data.cycleNumber,
+              plantTourId,
+              selectedCycle,
+              userName,
+              checklistItemsCount: data.checklistItems.length
+            });
+            
+
+            
+            const { savedData } = collectEstimationDataCycleSave(
+              data.cycleNumber,
+              data.checklistItems,
+              plantTourId || 'N/A',
+              selectedCycle,
+              userName
+            );
+
+
+
+            const response = await saveSieveAndMagnetOldPlant(savedData);
+            
+            if (response.success) {
+              console.log(`Successfully synced Sieve and Magnet Old Plant cycle ${data.cycleNumber}`);
+              totalSynced++;
+            } else {
+              throw new Error(`Failed to sync cycle ${data.cycleNumber}: ${response.message}`);
+            }
+          } catch (cycleError) {
+            console.error(`Failed to sync Sieve and Magnet Old Plant cycle ${data.cycleNumber}:`, cycleError);
+            totalErrors++;
+          }
+        }
+
+        console.log('Sieve and Magnet Old Plant offline data sync completed');
+      } catch (error) {
+        console.error('Error syncing Sieve and Magnet Old Plant offline data:', error);
+        totalErrors++;
+      }
+    } else {
+      console.log('No Sieve and Magnet Old Plant offline data to sync');
+    }
+
     // Show sync results and clear data only if ALL sync operations were successful
     if (totalSynced > 0 && totalErrors === 0) {
       alert(`✅ Successfully synced ${totalSynced} offline data item(s)!`);
@@ -452,6 +518,9 @@ export default function HomePage() {
       
       // Clear Sieve and Magnet New Plant Redux state
       dispatch(clearSieveAndMagnetNewPlantData());
+      
+      // Clear Sieve and Magnet Old Plant Redux state
+      dispatch(clearSieveAndMagnetOldPlantData());
 
       setShowOfflineError(false);
 
@@ -488,6 +557,9 @@ export default function HomePage() {
       
       // Clear Sieve and Magnet New Plant Redux state
       dispatch(clearSieveAndMagnetNewPlantData());
+      
+      // Clear Sieve and Magnet Old Plant Redux state
+      dispatch(clearSieveAndMagnetOldPlantData());
 
       setShowOfflineError(false);
 
@@ -535,6 +607,7 @@ export default function HomePage() {
     dispatch(clearUser());
     dispatch(resetCreamPercentage());
     dispatch(clearSieveAndMagnetNewPlantData());
+    dispatch(clearSieveAndMagnetOldPlantData());
 
     // Clear localStorage (but preserve Redux persistence for offline data)
     localStorage.removeItem('accessToken');
@@ -588,17 +661,14 @@ export default function HomePage() {
   // Debug: Check persisted offline data on component mount
   useEffect(() => {
     console.log('HomePage: Component mounted - checking persisted offline data');
-    console.log('HomePage: isOfflineStarted:', isOfflineStarted);
-    console.log('HomePage: offlineSubmissions length:', offlineSubmissions?.length);
-    console.log('HomePage: offlineSubmissions:', offlineSubmissions);
+    console.log('HomePage: sieveAndMagnetOldPlantPendingSync length:', sieveAndMagnetOldPlantPendingSync?.length);
 
     // Check localStorage for Redux persistence
     try {
       const reduxPersistData = localStorage.getItem('redux-persist:root');
       if (reduxPersistData) {
         const parsedData = JSON.parse(reduxPersistData);
-        console.log('HomePage: Redux persistence data:', parsedData);
-        console.log('HomePage: appState in persistence:', parsedData.appState);
+        console.log('HomePage: Redux persistence data found');
       } else {
         console.log('HomePage: No Redux persistence data found');
       }
@@ -761,7 +831,7 @@ export default function HomePage() {
                   disabled={!isOnline}
                   title={!isOnline ? 'Internet connection required to start offline mode' : 'Start offline mode'}
                 >
-                  + Start Offline Mode {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length})`}
+                  + Start Offline Mode {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length})`}
                 </button>
                 {showOfflineError && (
                   <div className="w-full sm:w-auto text-xs text-red-600 mt-1">
@@ -789,12 +859,12 @@ export default function HomePage() {
                   disabled={!isOnline}
                   title={!isOnline ? 'Internet connection required to sync offline data' : 'Sync and cancel offline mode'}
                 >
-                  + Sync & Cancel Offline {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length})`}
+                  + Sync & Cancel Offline {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length})`}
                   {!isOnline && <span className="ml-1 text-xs">(Internet Required)</span>}
                 </button>
-                {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length) > 0 && !isOnline && (
+                {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length) > 0 && !isOnline && (
                   <div className="w-full sm:w-auto text-xs text-orange-600 mt-1">
-                    ⚠️ {offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length} offline submission(s) waiting for internet connection
+                    ⚠️ {offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length} offline submission(s) waiting for internet connection
                   </div>
                 )}
               </>
