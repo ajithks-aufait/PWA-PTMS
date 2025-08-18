@@ -668,7 +668,7 @@ export default function HomePage() {
       const reduxPersistData = localStorage.getItem('redux-persist:root');
       if (reduxPersistData) {
         const parsedData = JSON.parse(reduxPersistData);
-        console.log('HomePage: Redux persistence data found');
+        console.log('HomePage: Redux persistence data found',parsedData);
       } else {
         console.log('HomePage: No Redux persistence data found');
       }

@@ -31,7 +31,7 @@ const LoginPage = () => {
       console.log("Login completed, navigating to home immediately...");
       
       // Navigate immediately after successful login
-      navigate("/home", { replace: true });
+      navigate('/home');
     } catch (err) {
       console.error("Login error:", err);
     }
