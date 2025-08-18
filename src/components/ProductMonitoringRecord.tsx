@@ -33,7 +33,6 @@ const ProductMonitoringRecord: React.FC = () => {
 
     // Session state
     const [isSessionStarted, setIsSessionStarted] = useState(false);
-    const [isCycleCompleted, setIsCycleCompleted] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState('Speciality Sauces');
     const [currentCycle, setCurrentCycle] = useState(1);

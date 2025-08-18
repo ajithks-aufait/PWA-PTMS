@@ -153,7 +153,7 @@ const SieveandMagnetnewplant: React.FC = () => {
             const defects: { title: string; remarks: string }[] = [];
             const okays: string[] = [];
             
-            checklistItems.forEach((item, index) => {
+            checklistItems.forEach((item) => {
                 if (item.status === 'okay') {
                     okays.push(item.label);
                 } else if (item.status === 'not-okay') {
