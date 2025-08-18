@@ -18,6 +18,7 @@ import { clearUser } from "../store/userSlice";
 import { resetCreamPercentage } from "../store/creamPercentageSlice";
 import { clearAllData as clearSieveAndMagnetNewPlantData } from "../store/sieveAndMagnetNewPlantSlice";
 import { clearAllData as clearSieveAndMagnetOldPlantData } from "../store/sieveAndMagnetOldPlantSlice";
+import { clearAllData as clearProductMonitoringData } from "../store/productMonitoringSlice";
 import { createOrFetchPlantTour } from "../Services/createOrFetchPlantTour";
 import { getAccessToken } from "../Services/getAccessToken";
 import { saveSectionData } from "../Services/saveSectionData";
@@ -106,6 +107,9 @@ export default function HomePage() {
   
   // Get Sieve and Magnet Old Plant offline data from Redux
   const sieveAndMagnetOldPlantPendingSync = useSelector((state: any) => state.sieveAndMagnetOldPlant.pendingSync);
+  
+  // Get Product Monitoring offline data from Redux
+  const productMonitoringPendingSync = useSelector((state: any) => state.productMonitoring.pendingSync);
 
   const user = useSelector((state: any) => state.user.user);
   const userState = useSelector((state: any) => state.user);
@@ -224,6 +228,17 @@ export default function HomePage() {
       } catch (sieveError) {
         console.error('Error loading existing SieveandMagnetnewplant cycle data:', sieveError);
         // Continue with offline mode even if SieveandMagnetnewplant fetch fails
+      }
+
+      // Step 3.6: Fetch existing Product Monitoring completed cycles
+      console.log('Fetching existing Product Monitoring completed cycles...');
+      try {
+        const { fetchAndStoreCycleData } = await import('../Services/productMonitoringRecord');
+        await dispatch(fetchAndStoreCycleData(plantTourId) as any);
+        console.log('Successfully loaded existing Product Monitoring cycles.');
+      } catch (productMonitoringError) {
+        console.error('Error loading existing Product Monitoring cycle data:', productMonitoringError);
+        // Continue with offline mode even if Product Monitoring fetch fails
       }
 
       // Step 4: Fetch summary and cycle data APIs
@@ -502,6 +517,75 @@ export default function HomePage() {
       console.log('No Sieve and Magnet Old Plant offline data to sync');
     }
 
+    // Sync Product Monitoring offline data
+    if (productMonitoringPendingSync.length > 0) {
+      console.log('Syncing Product Monitoring offline data...');
+      console.log('Product Monitoring pending sync data:', productMonitoringPendingSync);
+
+      try {
+        for (const data of productMonitoringPendingSync) {
+          console.log(`Syncing Product Monitoring cycle ${data.cycleNumber}:`, data);
+
+          try {
+            // Import the required functions
+            const { saveProductMonitoringData, collectEstimationDataCycleSave } = await import('../Services/productMonitoringRecord');
+            
+            // Get the required data from Redux state
+            const plantTourId = planTourState.plantTourId;
+            const selectedCycle = planTourState.selectedCycle || 'Shift 1';
+            const userName = user?.Name || 'Current User';
+            
+            console.log('Using data for Product Monitoring sync:', {
+              cycleNumber: data.cycleNumber,
+              plantTourId,
+              selectedCycle,
+              userName,
+              cycleData: data.cycleData
+            });
+            
+            const { savedData } = collectEstimationDataCycleSave(
+              data.cycleNumber,
+              {
+                product: data.cycleData.product,
+                moisture: data.cycleData.cr3ea_moisture,
+                gaugeOperating: data.cycleData.cr3ea_gaugeoperating,
+                gaugeNonOperating: data.cycleData.cr3ea_gaugenonoperating,
+                gaugeCentre: data.cycleData.cr3ea_gaugecentre,
+                dryWeightOvenEndOperating: data.cycleData.cr3ea_dryweightovenendoperating,
+                dryWeightOvenEndNonOperating: data.cycleData.cr3ea_dryweightovenendnonoperating,
+                dryWeightOvenEndCentre: data.cycleData.cr3ea_dryweightovenendcentre,
+                dimensionOperating: data.cycleData.cr3ea_dimensionoperating,
+                dimensionNonOperating: data.cycleData.cr3ea_dimensionnonoperating,
+                dimensionCentre: data.cycleData.cr3ea_dimensioncentre,
+              },
+              plantTourId || 'N/A',
+              selectedCycle,
+              userName
+            );
+
+            const response = await saveProductMonitoringData(savedData);
+            
+            if (response.success) {
+              console.log(`Successfully synced Product Monitoring cycle ${data.cycleNumber}`);
+              totalSynced++;
+            } else {
+              throw new Error(`Failed to sync cycle ${data.cycleNumber}: ${response.message}`);
+            }
+          } catch (cycleError) {
+            console.error(`Failed to sync Product Monitoring cycle ${data.cycleNumber}:`, cycleError);
+            totalErrors++;
+          }
+        }
+
+        console.log('Product Monitoring offline data sync completed');
+      } catch (error) {
+        console.error('Error syncing Product Monitoring offline data:', error);
+        totalErrors++;
+      }
+    } else {
+      console.log('No Product Monitoring offline data to sync');
+    }
+
     // Show sync results and clear data only if ALL sync operations were successful
     if (totalSynced > 0 && totalErrors === 0) {
       alert(`✅ Successfully synced ${totalSynced} offline data item(s)!`);
@@ -521,6 +605,9 @@ export default function HomePage() {
       
       // Clear Sieve and Magnet Old Plant Redux state
       dispatch(clearSieveAndMagnetOldPlantData());
+      
+      // Clear Product Monitoring Redux state
+      dispatch(clearProductMonitoringData());
 
       setShowOfflineError(false);
 
@@ -560,6 +647,9 @@ export default function HomePage() {
       
       // Clear Sieve and Magnet Old Plant Redux state
       dispatch(clearSieveAndMagnetOldPlantData());
+      
+      // Clear Product Monitoring Redux state
+      dispatch(clearProductMonitoringData());
 
       setShowOfflineError(false);
 
@@ -608,6 +698,7 @@ export default function HomePage() {
     dispatch(resetCreamPercentage());
     dispatch(clearSieveAndMagnetNewPlantData());
     dispatch(clearSieveAndMagnetOldPlantData());
+    dispatch(clearProductMonitoringData());
 
     // Clear localStorage (but preserve Redux persistence for offline data)
     localStorage.removeItem('accessToken');
@@ -831,7 +922,7 @@ export default function HomePage() {
                   disabled={!isOnline}
                   title={!isOnline ? 'Internet connection required to start offline mode' : 'Start offline mode'}
                 >
-                  + Start Offline Mode {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length})`}
+                  + Start Offline Mode {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length})`}
                 </button>
                 {showOfflineError && (
                   <div className="w-full sm:w-auto text-xs text-red-600 mt-1">
@@ -859,12 +950,12 @@ export default function HomePage() {
                   disabled={!isOnline}
                   title={!isOnline ? 'Internet connection required to sync offline data' : 'Sync and cancel offline mode'}
                 >
-                  + Sync & Cancel Offline {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length})`}
+                  + Sync & Cancel Offline {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length})`}
                   {!isOnline && <span className="ml-1 text-xs">(Internet Required)</span>}
                 </button>
-                {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length) > 0 && !isOnline && (
+                {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length) > 0 && !isOnline && (
                   <div className="w-full sm:w-auto text-xs text-orange-600 mt-1">
-                    ⚠️ {offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length} offline submission(s) waiting for internet connection
+                    ⚠️ {offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length} offline submission(s) waiting for internet connection
                   </div>
                 )}
               </>
