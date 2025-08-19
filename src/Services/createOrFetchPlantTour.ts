@@ -39,13 +39,13 @@ export async function createOrFetchPlantTour({
   };
 
   const dataToSave = {
-    cr3ea_departmentid: departmentId,
+    cr3ea_departmentid: departmentId?.toString(),
     cr3ea_tourstartdate: TourStartDateDTour,
     cr3ea_tourby: employeeName,
     cr3ea_status: "In Progress",
-    cr3ea_plantid: plantId,
+    cr3ea_plantid: plantId?.toString(),
     cr3ea_observedby: employeeName,
-    cr3ea_roleid: userRoleID,
+    cr3ea_roleid: userRoleID?.toString(),
     cr3ea_title: TitleDTour,
   };
 
