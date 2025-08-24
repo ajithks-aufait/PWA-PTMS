@@ -57,6 +57,19 @@ function App() {
             element={<TestComponent />}
           />
           <Route
+            path="/debug"
+            element={
+              <div className="p-4">
+                <h1>Debug Page</h1>
+                <p>Current URL: {window.location.href}</p>
+                <p>Pathname: {window.location.pathname}</p>
+                <a href="/" className="text-blue-600 underline">Go to Login Page</a>
+                <br />
+                <a href="/home" className="text-blue-600 underline">Go to Home Page</a>
+              </div>
+            }
+          />
+          <Route
             path="/sieveandmagnetnewplant"
             element={
               <ProtectedRoute>

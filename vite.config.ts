@@ -1,67 +1,65 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
-import tailwindcss from '@tailwindcss/vite'
+import { resolve } from 'path'
 
+// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
-    tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/org487f0635\.crm8\.dynamics\.com\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24, // 24 hours
-              },
-            },
-          },
-        ],
+        cleanupOutdatedCaches: true,
+        sourcemap: true,
+      },
+      injectRegister: 'auto',
+      injectManifest: {
+        injectionPoint: undefined,
       },
       manifest: {
-        name: 'My PWA App',
-        short_name: 'PWAApp',
-        description: 'A Progressive Web App built with Vite + React + TypeScript',
-        theme_color: '#ffffff',
-        background_color: '#ffffff',
+        name: 'Task Manager PWA',
+        short_name: 'Tasks',
+        description: 'A Progressive Web App for managing tasks with offline functionality',
+        theme_color: '#3B82F6',
+        background_color: '#FFFFFF',
         display: 'standalone',
+        orientation: 'portrait',
+        scope: '/',
         start_url: '/',
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: '/icons/icon-192x192.png',
             sizes: '192x192',
             type: 'image/png',
+            purpose: 'any maskable'
           },
           {
-            src: 'pwa-512x512.png',
+            src: '/icons/icon-512x512.png',
             sizes: '512x512',
             type: 'image/png',
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable',
-          },
-        ],
+            purpose: 'any maskable'
+          }
+        ]
       },
-    }),
+      devOptions: {
+        enabled: true,
+        type: 'module'
+      }
+    })
   ],
-  server: {
-    hmr: {
-      port: 5173,
-      host: 'localhost'
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, './src'),
     },
-    watch: {
-      usePolling: true
-    }
   },
+  server: {
+    port: 3000,
+    host: true
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: true
+  }
 })
