@@ -19,6 +19,8 @@ import { resetCreamPercentage } from "../store/creamPercentageSlice";
 import { clearAllData as clearSieveAndMagnetNewPlantData } from "../store/sieveAndMagnetNewPlantSlice";
 import { clearAllData as clearSieveAndMagnetOldPlantData } from "../store/sieveAndMagnetOldPlantSlice";
 import { clearAllData as clearProductMonitoringData } from "../store/productMonitoringSlice";
+import { setFetchedCycles, clearOfflineData } from "../store/CodeVerificationSlice";
+import type { CodeVerificationCycleData } from "../Services/CodeVerificationRecord";
 import { createOrFetchPlantTour } from "../Services/createOrFetchPlantTour";
 import { getAccessToken } from "../Services/getAccessToken";
 import { saveSectionData } from "../Services/saveSectionData";
@@ -84,6 +86,7 @@ function removeDuplicateSubmissions(submissions: any[]) {
 
 
 export default function HomePage() {
+  console.log('HomePage component rendering...');
   const { accounts, instance } = useMsal();
   const [employees, setEmployees] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -110,6 +113,9 @@ export default function HomePage() {
   
   // Get Product Monitoring offline data from Redux
   const productMonitoringPendingSync = useSelector((state: any) => state.productMonitoring.pendingSync);
+  
+  // Get Code Verification offline data from Redux
+  const codeVerificationOfflineData = useSelector((state: any) => state.codeVerification.offlineSavedData);
 
   const user = useSelector((state: any) => state.user.user);
   const userState = useSelector((state: any) => state.user);
@@ -117,6 +123,20 @@ export default function HomePage() {
   const [isViewAllOpen, setIsViewAllOpen] = useState(false);
   const [isPlantTourLoading, setIsPlantTourLoading] = useState(false);
   const navigate = useNavigate();
+
+  // Debug: Log count changes
+  useEffect(() => {
+    const totalCount = offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length;
+    console.log('HomePage: Total offline count changed:', totalCount);
+    console.log('HomePage: Breakdown:', {
+      offlineSubmissions: offlineSubmissions.length,
+      creamPercentagePendingSync: creamPercentagePendingSync.length,
+      sieveAndMagnetNewPlantPendingSync: sieveAndMagnetNewPlantPendingSync.length,
+      sieveAndMagnetOldPlantPendingSync: sieveAndMagnetOldPlantPendingSync.length,
+      productMonitoringPendingSync: productMonitoringPendingSync.length,
+      codeVerificationOfflineData: codeVerificationOfflineData.length
+    });
+  }, [offlineSubmissions.length, creamPercentagePendingSync.length, sieveAndMagnetNewPlantPendingSync.length, sieveAndMagnetOldPlantPendingSync.length, productMonitoringPendingSync.length, codeVerificationOfflineData.length]);
 
   const metrics = [
     { label: "5S", icon: <Clock className="text-orange-500" />, count: 0 },
@@ -239,6 +259,28 @@ export default function HomePage() {
       } catch (productMonitoringError) {
         console.error('Error loading existing Product Monitoring cycle data:', productMonitoringError);
         // Continue with offline mode even if Product Monitoring fetch fails
+      }
+
+      // Step 3.7: Fetch existing Code Verification completed cycles
+      console.log('Fetching existing Code Verification completed cycles...');
+      try {
+        const { fetchCycleData } = await import('../Services/CodeVerificationRecord');
+        const existingCodeVerificationCycles = await fetchCycleData(plantTourId);
+        console.log('Fetched existing Code Verification cycles:', existingCodeVerificationCycles);
+        
+        if (existingCodeVerificationCycles && existingCodeVerificationCycles.length > 0) {
+          // Store the fetched cycles in Redux
+          console.log('Storing Code Verification cycles in Redux:', existingCodeVerificationCycles);
+          dispatch(setFetchedCycles(existingCodeVerificationCycles as CodeVerificationCycleData[]));
+          console.log('Successfully loaded existing Code Verification cycles:', existingCodeVerificationCycles.length);
+        } else {
+          console.log('No existing Code Verification cycles found on server.');
+          dispatch(setFetchedCycles([]));
+        }
+      } catch (codeVerificationError) {
+        console.error('Error loading existing Code Verification cycle data:', codeVerificationError);
+        // Continue with offline mode even if Code Verification fetch fails
+        dispatch(setFetchedCycles([]));
       }
 
       // Step 4: Fetch summary and cycle data APIs
@@ -586,6 +628,68 @@ export default function HomePage() {
       console.log('No Product Monitoring offline data to sync');
     }
 
+    // Sync Code Verification offline data
+    if (codeVerificationOfflineData.length > 0) {
+      console.log('Syncing Code Verification offline data...');
+      console.log('Code Verification pending sync data:', codeVerificationOfflineData);
+      console.log('Code Verification offline data count:', codeVerificationOfflineData.length);
+
+      try {
+        for (const data of codeVerificationOfflineData) {
+          console.log(`Syncing Code Verification cycle ${data.cycleNo}:`, data);
+
+          try {
+            // Import the required functions
+            const { saveSectionApiCall, collectEstimationDataCycleSave } = await import('../Services/CodeVerificationRecord');
+            
+            // Get the required data from Redux state
+            const plantTourId = planTourState.plantTourId;
+            const userName = user?.Name || 'Current User';
+            
+            console.log('Using data for Code Verification sync:', {
+              cycleNo: data.cycleNo,
+              plantTourId,
+              userName,
+              recordsCount: data.records.length
+            });
+            
+            // Convert the offline data to the format expected by the API
+            const apiRecords = data.records.map((record: any) => ({
+              sku: record.sku,
+              machineProof: record.proof,
+              majorDefectsRemarks: record.remarks
+            }));
+
+            const { savedData } = await collectEstimationDataCycleSave(
+              data.cycleNo,
+              apiRecords[0], // Use the first record as the main form data
+              plantTourId || 'N/A',
+              userName
+            );
+
+            const response = await saveSectionApiCall(savedData);
+            
+            if (response.success) {
+              console.log(`Successfully synced Code Verification cycle ${data.cycleNo}`);
+              totalSynced++;
+            } else {
+              throw new Error(`Failed to sync cycle ${data.cycleNo}: ${response.message}`);
+            }
+          } catch (cycleError) {
+            console.error(`Failed to sync Code Verification cycle ${data.cycleNo}:`, cycleError);
+            totalErrors++;
+          }
+        }
+
+        console.log('Code Verification offline data sync completed');
+      } catch (error) {
+        console.error('Error syncing Code Verification offline data:', error);
+        totalErrors++;
+      }
+    } else {
+      console.log('No Code Verification offline data to sync');
+    }
+
     // Show sync results and clear data only if ALL sync operations were successful
     if (totalSynced > 0 && totalErrors === 0) {
       alert(`✅ Successfully synced ${totalSynced} offline data item(s)!`);
@@ -608,6 +712,9 @@ export default function HomePage() {
       
       // Clear Product Monitoring Redux state
       dispatch(clearProductMonitoringData());
+      
+      // Clear Code Verification Redux state
+      dispatch(clearOfflineData());
 
       setShowOfflineError(false);
 
@@ -650,6 +757,9 @@ export default function HomePage() {
       
       // Clear Product Monitoring Redux state
       dispatch(clearProductMonitoringData());
+      
+      // Clear Code Verification Redux state
+      dispatch(clearOfflineData());
 
       setShowOfflineError(false);
 
@@ -699,6 +809,7 @@ export default function HomePage() {
     dispatch(clearSieveAndMagnetNewPlantData());
     dispatch(clearSieveAndMagnetOldPlantData());
     dispatch(clearProductMonitoringData());
+    dispatch(clearOfflineData());
 
     // Clear localStorage (but preserve Redux persistence for offline data)
     localStorage.removeItem('accessToken');
@@ -753,6 +864,16 @@ export default function HomePage() {
   useEffect(() => {
     console.log('HomePage: Component mounted - checking persisted offline data');
     console.log('HomePage: sieveAndMagnetOldPlantPendingSync length:', sieveAndMagnetOldPlantPendingSync?.length);
+    console.log('HomePage: codeVerificationOfflineData length:', codeVerificationOfflineData?.length);
+    console.log('HomePage: codeVerificationOfflineData details:', codeVerificationOfflineData);
+    console.log('HomePage: All offline data counts:', {
+      offlineSubmissions: offlineSubmissions.length,
+      creamPercentagePendingSync: creamPercentagePendingSync.length,
+      sieveAndMagnetNewPlantPendingSync: sieveAndMagnetNewPlantPendingSync.length,
+      sieveAndMagnetOldPlantPendingSync: sieveAndMagnetOldPlantPendingSync.length,
+      productMonitoringPendingSync: productMonitoringPendingSync.length,
+      codeVerificationOfflineData: codeVerificationOfflineData.length
+    });
 
     // Check localStorage for Redux persistence
     try {
@@ -766,7 +887,7 @@ export default function HomePage() {
     } catch (error) {
       console.error('HomePage: Error reading Redux persistence data:', error);
     }
-  }, []);
+  }, [codeVerificationOfflineData]);
 
   function startTimer(): void {
     const timerElement = document.getElementById("timer");
@@ -834,6 +955,9 @@ export default function HomePage() {
           } else if (selectedTour === "Product Monitoring Record") {
             console.log('Navigating to Product Monitoring Record');
             navigate("/productmonitoringrecord");
+          } else if (selectedTour === "Code Verification Record") {
+            console.log('Navigating to Code Verification Record');
+            navigate("/codeverificationrecord");
           } else {
             console.log('Navigating to Product Quality Index');
             navigate("/qualityplantour");
@@ -872,6 +996,9 @@ export default function HomePage() {
           } else if (selectedTour === "Product Monitoring Record") {
             console.log('Navigating to Product Monitoring Record');
             navigate("/productmonitoringrecord");
+          } else if (selectedTour === "Code Verification Record") {
+            console.log('Navigating to Code Verification Record');
+            navigate("/codeverificationrecord");
           } else {
             console.log('Navigating to Product Quality Index');
             navigate("/qualityplantour");
@@ -922,7 +1049,7 @@ export default function HomePage() {
                   disabled={!isOnline}
                   title={!isOnline ? 'Internet connection required to start offline mode' : 'Start offline mode'}
                 >
-                  + Start Offline Mode {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length})`}
+                  + Start Offline Mode {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length})`}
                 </button>
                 {showOfflineError && (
                   <div className="w-full sm:w-auto text-xs text-red-600 mt-1">
@@ -950,12 +1077,24 @@ export default function HomePage() {
                   disabled={!isOnline}
                   title={!isOnline ? 'Internet connection required to sync offline data' : 'Sync and cancel offline mode'}
                 >
-                  + Sync & Cancel Offline {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length})`}
+                  + Sync & Cancel Offline {(() => {
+                    const totalCount = offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length;
+                    console.log('Sync button count calculation:', {
+                      offlineSubmissions: offlineSubmissions.length,
+                      creamPercentagePendingSync: creamPercentagePendingSync.length,
+                      sieveAndMagnetNewPlantPendingSync: sieveAndMagnetNewPlantPendingSync.length,
+                      sieveAndMagnetOldPlantPendingSync: sieveAndMagnetOldPlantPendingSync.length,
+                      productMonitoringPendingSync: productMonitoringPendingSync.length,
+                      codeVerificationOfflineData: codeVerificationOfflineData.length,
+                      totalCount
+                    });
+                    return totalCount > 0 ? `(${totalCount})` : '';
+                  })()}
                   {!isOnline && <span className="ml-1 text-xs">(Internet Required)</span>}
                 </button>
-                {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length) > 0 && !isOnline && (
+                {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length) > 0 && !isOnline && (
                   <div className="w-full sm:w-auto text-xs text-orange-600 mt-1">
-                    ⚠️ {offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length} offline submission(s) waiting for internet connection
+                    ⚠️ {offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length} offline submission(s) waiting for internet connection
                   </div>
                 )}
               </>
@@ -983,6 +1122,24 @@ export default function HomePage() {
           <a href="#" className="text-orange-600 text-sm font-medium hover:underline" onClick={e => { e.preventDefault(); setIsViewAllOpen(true); }}>
             View All →
           </a>
+          <button 
+            onClick={() => {
+              const totalCount = offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length;
+              console.log('Manual count check:', {
+                offlineSubmissions: offlineSubmissions.length,
+                creamPercentagePendingSync: creamPercentagePendingSync.length,
+                sieveAndMagnetNewPlantPendingSync: sieveAndMagnetNewPlantPendingSync.length,
+                sieveAndMagnetOldPlantPendingSync: sieveAndMagnetOldPlantPendingSync.length,
+                productMonitoringPendingSync: productMonitoringPendingSync.length,
+                codeVerificationOfflineData: codeVerificationOfflineData.length,
+                totalCount
+              });
+              alert(`Total offline count: ${totalCount}`);
+            }}
+            className="ml-4 text-blue-600 text-sm font-medium hover:underline"
+          >
+            Debug Count
+          </button>
           {planTourState.plantTourId && (
             <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-blue-800 text-xs font-mono">
               <strong>Plan Tour ID:</strong> {planTourState.plantTourId}

@@ -7,6 +7,7 @@ import ProductQualityIndex from './components/ProductQualityIndex';
 import CreamPercentageIndex from './components/CreamPercentageIndex';
 import SieveandMagnetoldplant from './components/SieveandMagnetoldplant';
 import ProductMonitoringRecord from './components/ProductMonitoringRecord';
+import CodeVerificationRecord from './components/CodeVerification';
 import DashboardLayout from './pages/HomePage';
 import SieveandMagnetnewplant from './components/SieveandMagnetnewplant';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -95,6 +96,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ProductMonitoringRecord />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/codeverificationrecord"
+            element={
+              <ProtectedRoute>
+                <CodeVerificationRecord />
               </ProtectedRoute>
             }
           />

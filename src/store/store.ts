@@ -7,6 +7,7 @@ import creamPercentageReducer from './creamPercentageSlice';
 import sieveAndMagnetNewPlantReducer from './sieveAndMagnetNewPlantSlice';
 import sieveAndMagnetOldPlantReducer from './sieveAndMagnetOldPlantSlice';
 import productMonitoringReducer from './productMonitoringSlice';
+import codeVerificationReducer from './CodeVerificationSlice';
 import { persistStore, persistReducer } from "redux-persist";
 import storage from "redux-persist/lib/storage";
 
@@ -58,6 +59,12 @@ const productMonitoringPersistConfig = {
   storage,
   whitelist: ["cycles", "pendingSync", "lastFetchTimestamp", "isOffline", "currentCycle"]
 };
+// Persist config for codeVerification
+const codeVerificationPersistConfig = {
+  key: "codeVerification",
+  storage,
+  whitelist: ["fetchedCycles", "offlineSavedData", "lastFetchTimestamp"]
+};
 
 const rootReducer = combineReducers({
   user: persistReducer(userPersistConfig, userReducer),
@@ -67,6 +74,7 @@ const rootReducer = combineReducers({
   sieveAndMagnetNewPlant: persistReducer(sieveAndMagnetNewPlantPersistConfig, sieveAndMagnetNewPlantReducer),
   sieveAndMagnetOldPlant: persistReducer(sieveAndMagnetOldPlantPersistConfig, sieveAndMagnetOldPlantReducer),
   productMonitoring: persistReducer(productMonitoringPersistConfig, productMonitoringReducer),
+  codeVerification: persistReducer(codeVerificationPersistConfig, codeVerificationReducer),
 });
 
 const store = configureStore({
