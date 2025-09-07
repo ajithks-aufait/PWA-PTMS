@@ -20,6 +20,8 @@ import { clearAllData as clearSieveAndMagnetNewPlantData } from "../store/sieveA
 import { clearAllData as clearSieveAndMagnetOldPlantData } from "../store/sieveAndMagnetOldPlantSlice";
 import { clearAllData as clearProductMonitoringData } from "../store/productMonitoringSlice";
 import { setFetchedCycles, clearOfflineData } from "../store/CodeVerificationSlice";
+import { clearOfflineData as clearBakingOfflineData } from "../store/BakingProcessSlice";
+import { savesectionApicall as saveBakingSection, collectEstimationDataCycleSave as collectBakingForSync } from "../Services/BakingProcesRecord";
 import type { CodeVerificationCycleData } from "../Services/CodeVerificationRecord";
 import { createOrFetchPlantTour } from "../Services/createOrFetchPlantTour";
 import { getAccessToken } from "../Services/getAccessToken";
@@ -116,6 +118,8 @@ export default function HomePage() {
   
   // Get Code Verification offline data from Redux
   const codeVerificationOfflineData = useSelector((state: any) => state.codeVerification.offlineSavedData);
+  // Get Baking Process offline data from Redux
+  const bakingOfflineData = useSelector((state: any) => state.bakingProcess?.offlineSavedData || []);
 
   const user = useSelector((state: any) => state.user.user);
   const userState = useSelector((state: any) => state.user);
@@ -126,7 +130,7 @@ export default function HomePage() {
 
   // Debug: Log count changes
   useEffect(() => {
-    const totalCount = offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length;
+    const totalCount = offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length;
     console.log('HomePage: Total offline count changed:', totalCount);
     console.log('HomePage: Breakdown:', {
       offlineSubmissions: offlineSubmissions.length,
@@ -134,9 +138,10 @@ export default function HomePage() {
       sieveAndMagnetNewPlantPendingSync: sieveAndMagnetNewPlantPendingSync.length,
       sieveAndMagnetOldPlantPendingSync: sieveAndMagnetOldPlantPendingSync.length,
       productMonitoringPendingSync: productMonitoringPendingSync.length,
-      codeVerificationOfflineData: codeVerificationOfflineData.length
+      codeVerificationOfflineData: codeVerificationOfflineData.length,
+      bakingOfflineData: bakingOfflineData.length
     });
-  }, [offlineSubmissions.length, creamPercentagePendingSync.length, sieveAndMagnetNewPlantPendingSync.length, sieveAndMagnetOldPlantPendingSync.length, productMonitoringPendingSync.length, codeVerificationOfflineData.length]);
+  }, [offlineSubmissions.length, creamPercentagePendingSync.length, sieveAndMagnetNewPlantPendingSync.length, sieveAndMagnetOldPlantPendingSync.length, productMonitoringPendingSync.length, codeVerificationOfflineData.length, bakingOfflineData.length]);
 
   const metrics = [
     { label: "5S", icon: <Clock className="text-orange-500" />, count: 0 },
@@ -173,7 +178,7 @@ export default function HomePage() {
       if (!tokenResult || !tokenResult.token) {
         throw new Error('No access token available');
       }
-      console.log('Token generated successfully');
+      console.log('Token generated successfully',tokenResult);
 
       dispatch(setProgress(20));
 
@@ -690,6 +695,121 @@ export default function HomePage() {
       console.log('No Code Verification offline data to sync');
     }
 
+    // Sync Baking Process offline data
+    if (bakingOfflineData.length > 0) {
+      console.log('Syncing Baking Process offline data...');
+      console.log('Baking Process pending sync data:', bakingOfflineData);
+      try {
+        for (const data of bakingOfflineData) {
+          try {
+            const cycleNo = data.cycleNo;
+            const plantTourId = planTourState.plantTourId;
+            const userName = user?.Name || 'Current User';
+
+            // Try to collect from DOM (likely empty on Home) and then merge with stored values from localStorage
+            const storedStr = localStorage.getItem(`baking-cycle-${cycleNo}-values`);
+            const stored = storedStr ? JSON.parse(storedStr) : null;
+
+            const prefer = (a?: any, b?: any) => {
+              if (a !== undefined && a !== null && a !== '') return a;
+              if (b !== undefined && b !== null && b !== '') return b;
+              return '';
+            };
+
+            let mergedPayload: any[] | null = null;
+            try {
+              const { savedData } = await collectBakingForSync(cycleNo, plantTourId || 'N/A', userName);
+              const collected = Array.isArray(savedData) && savedData.length > 0 ? savedData[0] : null;
+              if (collected || stored) {
+                const merged = {
+                  cr3ea_qualitytourid: plantTourId || 'N/A',
+                  cr3ea_title: collected?.cr3ea_title || 'Baking_ManualSync',
+                  cr3ea_cycle: `Cycle-${cycleNo}`,
+                  cr3ea_shift: collected?.cr3ea_shift || sessionStorage.getItem('shiftValue') || 'shift 1',
+                  cr3ea_tourstartdate: collected?.cr3ea_tourstartdate || new Date().toLocaleDateString('en-US'),
+                  cr3ea_observedby: collected?.cr3ea_observedby || userName,
+                  cr3ea_productname: prefer(collected?.cr3ea_productname, stored?.product) || 'N/A',
+                  cr3ea_bakingtime: prefer(collected?.cr3ea_bakingtime, stored?.bakingTime) || 'N/A',
+                  cr3ea_topbakingtempzone1: prefer(collected?.cr3ea_topbakingtempzone1, stored?.topZones?.zone1),
+                  cr3ea_topbakingtempzone2: prefer(collected?.cr3ea_topbakingtempzone2, stored?.topZones?.zone2),
+                  cr3ea_topbakingtempzone3: prefer(collected?.cr3ea_topbakingtempzone3, stored?.topZones?.zone3),
+                  cr3ea_topbakingtempzone4: prefer(collected?.cr3ea_topbakingtempzone4, stored?.topZones?.zone4),
+                  cr3ea_topbakingtempzone5: prefer(collected?.cr3ea_topbakingtempzone5, stored?.topZones?.zone5),
+                  cr3ea_topbakingtempzone6: prefer(collected?.cr3ea_topbakingtempzone6, stored?.topZones?.zone6),
+                  cr3ea_topbakingtempzone7: prefer(collected?.cr3ea_topbakingtempzone7, stored?.topZones?.zone7),
+                  cr3ea_topproducttempafterbaking: prefer(collected?.cr3ea_topproducttempafterbaking, stored?.topZones?.productTempAfter),
+                  cr3ea_bottombakingtempzone1: prefer(collected?.cr3ea_bottombakingtempzone1, stored?.bottomZones?.zone1),
+                  cr3ea_bottombakingtempzone2: prefer(collected?.cr3ea_bottombakingtempzone2, stored?.bottomZones?.zone2),
+                  cr3ea_bottombakingtempzone3: prefer(collected?.cr3ea_bottombakingtempzone3, stored?.bottomZones?.zone3),
+                  cr3ea_bottombakingtempzone4: prefer(collected?.cr3ea_bottombakingtempzone4, stored?.bottomZones?.zone4),
+                  cr3ea_bottombakingtempzone5: prefer(collected?.cr3ea_bottombakingtempzone5, stored?.bottomZones?.zone5),
+                  cr3ea_bottombakingtempzone6: prefer(collected?.cr3ea_bottombakingtempzone6, stored?.bottomZones?.zone6),
+                  cr3ea_bottombakingtempzone7: prefer(collected?.cr3ea_bottombakingtempzone7, stored?.bottomZones?.zone7),
+                  cr3ea_bottomproducttempafterbaking: prefer(collected?.cr3ea_bottomproducttempafterbaking, stored?.bottomZones?.productTempAfter),
+                  cr3ea_executivename: prefer(collected?.cr3ea_executivename, stored?.executiveName) || 'N/A'
+                };
+                mergedPayload = [merged];
+              }
+            } catch (collectErr) {
+              console.warn('collectBakingForSync errored on HomePage. Falling back to stored only.', collectErr);
+              if (stored) {
+                mergedPayload = [{
+                  cr3ea_qualitytourid: plantTourId || 'N/A',
+                  cr3ea_title: 'Baking_ManualSync',
+                  cr3ea_cycle: `Cycle-${cycleNo}`,
+                  cr3ea_shift: sessionStorage.getItem('shiftValue') || 'shift 1',
+                  cr3ea_tourstartdate: new Date().toLocaleDateString('en-US'),
+                  cr3ea_observedby: userName,
+                  cr3ea_productname: stored.product || 'N/A',
+                  cr3ea_bakingtime: stored.bakingTime || 'N/A',
+                  cr3ea_topbakingtempzone1: stored.topZones?.zone1 || '',
+                  cr3ea_topbakingtempzone2: stored.topZones?.zone2 || '',
+                  cr3ea_topbakingtempzone3: stored.topZones?.zone3 || '',
+                  cr3ea_topbakingtempzone4: stored.topZones?.zone4 || '',
+                  cr3ea_topbakingtempzone5: stored.topZones?.zone5 || '',
+                  cr3ea_topbakingtempzone6: stored.topZones?.zone6 || '',
+                  cr3ea_topbakingtempzone7: stored.topZones?.zone7 || '',
+                  cr3ea_topproducttempafterbaking: stored.topZones?.productTempAfter || '',
+                  cr3ea_bottombakingtempzone1: stored.bottomZones?.zone1 || '',
+                  cr3ea_bottombakingtempzone2: stored.bottomZones?.zone2 || '',
+                  cr3ea_bottombakingtempzone3: stored.bottomZones?.zone3 || '',
+                  cr3ea_bottombakingtempzone4: stored.bottomZones?.zone4 || '',
+                  cr3ea_bottombakingtempzone5: stored.bottomZones?.zone5 || '',
+                  cr3ea_bottombakingtempzone6: stored.bottomZones?.zone6 || '',
+                  cr3ea_bottombakingtempzone7: stored.bottomZones?.zone7 || '',
+                  cr3ea_bottomproducttempafterbaking: stored.bottomZones?.productTempAfter || '',
+                  cr3ea_executivename: stored.executiveName || 'N/A'
+                }];
+              }
+            }
+
+            if (mergedPayload && mergedPayload.length > 0) {
+              const response = await saveBakingSection(mergedPayload as any);
+              if (response.success) {
+                console.log(`Successfully synced Baking Process cycle ${cycleNo}`);
+                totalSynced++;
+                // Clear the localStorage marker for this cycle
+                try { localStorage.removeItem(`baking-cycle-${cycleNo}-values`); } catch {}
+              } else {
+                throw new Error(`Failed to sync Baking Process cycle ${cycleNo}: ${response.message}`);
+              }
+            } else {
+              console.warn(`No savedData payload built for Baking Process cycle ${cycleNo}. Skipping.`);
+            }
+          } catch (bpError) {
+            console.error('Error syncing Baking Process item:', bpError);
+            totalErrors++;
+          }
+        }
+        console.log('Baking Process offline data sync completed');
+      } catch (error) {
+        console.error('Error syncing Baking Process offline data:', error);
+        totalErrors++;
+      }
+    } else {
+      console.log('No Baking Process offline data to sync');
+    }
+
     // Show sync results and clear data only if ALL sync operations were successful
     if (totalSynced > 0 && totalErrors === 0) {
       alert(`✅ Successfully synced ${totalSynced} offline data item(s)!`);
@@ -715,6 +835,8 @@ export default function HomePage() {
       
       // Clear Code Verification Redux state
       dispatch(clearOfflineData());
+      // Clear Baking Process Redux state
+      dispatch(clearBakingOfflineData());
 
       setShowOfflineError(false);
 
@@ -760,6 +882,8 @@ export default function HomePage() {
       
       // Clear Code Verification Redux state
       dispatch(clearOfflineData());
+      // Clear Baking Process Redux state
+      dispatch(clearBakingOfflineData());
 
       setShowOfflineError(false);
 
@@ -958,6 +1082,12 @@ export default function HomePage() {
           } else if (selectedTour === "Code Verification Record") {
             console.log('Navigating to Code Verification Record');
             navigate("/codeverificationrecord");
+          } else if (selectedTour === "OPRP and CCP Record") {
+            console.log('Navigating to OPRP and CCP Record');
+            navigate("/oprpandccprecord");
+          } else if (selectedTour === "Baking Process Record") {
+            console.log('Navigating to Baking Process Record');
+            navigate("/bakingprocessrecord");
           } else {
             console.log('Navigating to Product Quality Index');
             navigate("/qualityplantour");
@@ -970,6 +1100,7 @@ export default function HomePage() {
         // For online mode, create or fetch new plant tour ID
         const tokenResult = await getAccessToken();
         const accessToken = tokenResult?.token;
+       
         if (!accessToken) throw new Error('No access token available');
         const plantTourId = await createOrFetchPlantTour({
           accessToken,
@@ -999,6 +1130,12 @@ export default function HomePage() {
           } else if (selectedTour === "Code Verification Record") {
             console.log('Navigating to Code Verification Record');
             navigate("/codeverificationrecord");
+          } else if (selectedTour === "OPRP and CCP Record") {
+            console.log('Navigating to OPRP and CCP Record');
+            navigate("/oprpandccprecord");
+          } else if (selectedTour === "Baking Process Record") {
+            console.log('Navigating to Baking Process Record');
+            navigate("/bakingprocessrecord");
           } else {
             console.log('Navigating to Product Quality Index');
             navigate("/qualityplantour");
@@ -1049,7 +1186,7 @@ export default function HomePage() {
                   disabled={!isOnline}
                   title={!isOnline ? 'Internet connection required to start offline mode' : 'Start offline mode'}
                 >
-                  + Start Offline Mode {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length})`}
+                  + Start Offline Mode {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length})`}
                 </button>
                 {showOfflineError && (
                   <div className="w-full sm:w-auto text-xs text-red-600 mt-1">
@@ -1078,7 +1215,7 @@ export default function HomePage() {
                   title={!isOnline ? 'Internet connection required to sync offline data' : 'Sync and cancel offline mode'}
                 >
                   + Sync & Cancel Offline {(() => {
-                    const totalCount = offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length;
+                    const totalCount = offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length;
                     console.log('Sync button count calculation:', {
                       offlineSubmissions: offlineSubmissions.length,
                       creamPercentagePendingSync: creamPercentagePendingSync.length,
@@ -1086,15 +1223,16 @@ export default function HomePage() {
                       sieveAndMagnetOldPlantPendingSync: sieveAndMagnetOldPlantPendingSync.length,
                       productMonitoringPendingSync: productMonitoringPendingSync.length,
                       codeVerificationOfflineData: codeVerificationOfflineData.length,
+                      bakingOfflineData: bakingOfflineData.length,
                       totalCount
                     });
                     return totalCount > 0 ? `(${totalCount})` : '';
                   })()}
                   {!isOnline && <span className="ml-1 text-xs">(Internet Required)</span>}
                 </button>
-                {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length) > 0 && !isOnline && (
+                {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length) > 0 && !isOnline && (
                   <div className="w-full sm:w-auto text-xs text-orange-600 mt-1">
-                    ⚠️ {offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length} offline submission(s) waiting for internet connection
+                    ⚠️ {offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length} offline submission(s) waiting for internet connection
                   </div>
                 )}
               </>
@@ -1124,7 +1262,7 @@ export default function HomePage() {
           </a>
           <button 
             onClick={() => {
-              const totalCount = offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length;
+              const totalCount = offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length;
               console.log('Manual count check:', {
                 offlineSubmissions: offlineSubmissions.length,
                 creamPercentagePendingSync: creamPercentagePendingSync.length,
@@ -1132,6 +1270,7 @@ export default function HomePage() {
                 sieveAndMagnetOldPlantPendingSync: sieveAndMagnetOldPlantPendingSync.length,
                 productMonitoringPendingSync: productMonitoringPendingSync.length,
                 codeVerificationOfflineData: codeVerificationOfflineData.length,
+                bakingOfflineData: bakingOfflineData.length,
                 totalCount
               });
               alert(`Total offline count: ${totalCount}`);

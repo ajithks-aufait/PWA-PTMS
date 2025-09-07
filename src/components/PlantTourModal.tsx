@@ -48,6 +48,8 @@ const PlantTourModal: React.FC<PlantTourModalProps> = ({ isOpen, onClose, onDone
             <option>Sieves and magnets new plant</option>
             <option>Product Monitoring Record</option>
             <option>Code Verification Record</option>
+            <option>OPRP and CCP Record</option>
+            <option>Baking Process Record</option>
           </select>
         </div>
 

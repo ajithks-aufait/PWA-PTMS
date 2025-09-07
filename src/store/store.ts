@@ -8,6 +8,8 @@ import sieveAndMagnetNewPlantReducer from './sieveAndMagnetNewPlantSlice';
 import sieveAndMagnetOldPlantReducer from './sieveAndMagnetOldPlantSlice';
 import productMonitoringReducer from './productMonitoringSlice';
 import codeVerificationReducer from './CodeVerificationSlice';
+import bakingProcessReducer from './BakingProcessSlice';
+import oprpAndCcpReducer from './OPRPAndCCPSlice';
 import { persistStore, persistReducer } from "redux-persist";
 import storage from "redux-persist/lib/storage";
 
@@ -66,6 +68,20 @@ const codeVerificationPersistConfig = {
   whitelist: ["fetchedCycles", "offlineSavedData", "lastFetchTimestamp"]
 };
 
+// Persist config for OPRP/CCP
+const oprpAndCcpPersistConfig = {
+  key: "oprpAndCcp",
+  storage,
+  whitelist: ["fetchedCycles", "offlineSavedData", "lastFetchTimestamp"]
+};
+
+// Persist config for bakingProcess
+const bakingProcessPersistConfig = {
+  key: "bakingProcess",
+  storage,
+  whitelist: ["fetchedCycles", "offlineSavedData", "lastFetchTimestamp"]
+};
+
 const rootReducer = combineReducers({
   user: persistReducer(userPersistConfig, userReducer),
   planTour: persistReducer(planTourPersistConfig, planTourReducer),
@@ -75,6 +91,8 @@ const rootReducer = combineReducers({
   sieveAndMagnetOldPlant: persistReducer(sieveAndMagnetOldPlantPersistConfig, sieveAndMagnetOldPlantReducer),
   productMonitoring: persistReducer(productMonitoringPersistConfig, productMonitoringReducer),
   codeVerification: persistReducer(codeVerificationPersistConfig, codeVerificationReducer),
+  oprpAndCcp: persistReducer(oprpAndCcpPersistConfig, oprpAndCcpReducer),
+  bakingProcess: persistReducer(bakingProcessPersistConfig, bakingProcessReducer),
 });
 
 const store = configureStore({

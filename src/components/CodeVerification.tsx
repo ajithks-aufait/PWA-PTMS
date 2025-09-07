@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '../store/store';
 import DashboardLayout from './DashboardLayout';
-import { addOfflineSubmissionByCategory } from '../store/stateSlice.ts';
 import { showOfflineSaveAlertForCategory } from '../utils/offlineAlerts';
 import { setFetchedCycles, selectFetchedCycles, addOfflineData } from '../store/CodeVerificationSlice';
 import type { CodeVerificationCycleData } from '../Services/CodeVerificationRecord';
@@ -100,14 +99,6 @@ const CodeVerificationRecord: React.FC = () => {
         }
 
         try {
-            // Create cycle data object for Redux
-            const cycleData = {
-                cycleNum: currentCycle.toString(),
-                product: selectedProduct,
-                sku: formData.sku,
-                machineProof: formData.machineProof,
-                majorDefectsRemarks: formData.majorDefectsRemarks,
-            };
 
             // Check if we're offline
             if (isOfflineStarted) {
