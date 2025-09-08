@@ -87,13 +87,24 @@ const CBBEvaluation: React.FC<CBBEvaluationProps> = ({
   };
 
   const handleFormFieldChange = (cycleNo: number, field: string, value: string) => {
-    setFormFields((prev) => ({
-      ...prev,
-      [cycleNo]: {
-        ...prev[cycleNo],
-        [field]: value,
-      },
-    }));
+    setFormFields((prev) => {
+      const updatedForCycle = { ...(prev[cycleNo] || {}), [field]: value };
+      const next = { ...prev, [cycleNo]: updatedForCycle } as { [cycle: number]: any };
+      const details = {
+        product: updatedForCycle.product || '',
+        batchNo: updatedForCycle.batchNo || '',
+        lineNo: updatedForCycle.lineNo || '',
+        expiry: updatedForCycle.expiry || '',
+        packaged: updatedForCycle.packaged || '',
+        executiveName: updatedForCycle.executiveName || '',
+        shift: selectedShift || '',
+        evaluationType: '',
+        criteria: '',
+        cycleNum: cycleNo,
+      };
+      dispatch(setSectionDetails({ cycleNo, details }));
+      return next;
+    });
   };
 
   // Auto-fill start fields across all cycles/sections when any start section is completed

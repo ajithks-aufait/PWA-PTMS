@@ -107,6 +107,8 @@ export default function HomePage() {
   const progress = useSelector((state: any) => state.appState.progress);
   const offlineSubmissions = useSelector((state: any) => state.appState.offlineSubmissions);
   const offlineSubmissionsByCategory = useSelector((state: any) => state.appState.offlineSubmissionsByCategory);
+  // Flattened count for PQI (CBB/Secondary/Primary/Product) stored by category
+  const pqiOfflineCount = Object.values(offlineSubmissionsByCategory || {}).reduce((sum: number, arr: any) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
 
   // Get cream percentage offline data from Redux
   const creamPercentagePendingSync = useSelector((state: any) => state.creamPercentage.pendingSync);
@@ -140,10 +142,10 @@ export default function HomePage() {
 
   // Debug: Log count changes
   useEffect(() => {
-    const totalCount = offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length;
+    const totalCount = pqiOfflineCount + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length;
     console.log('HomePage: Total offline count changed:', totalCount);
     console.log('HomePage: Breakdown:', {
-      offlineSubmissions: offlineSubmissions.length,
+      pqiOfflineCount,
       creamPercentagePendingSync: creamPercentagePendingSync.length,
       sieveAndMagnetNewPlantPendingSync: sieveAndMagnetNewPlantPendingSync.length,
       sieveAndMagnetOldPlantPendingSync: sieveAndMagnetOldPlantPendingSync.length,
@@ -154,7 +156,7 @@ export default function HomePage() {
       alcOfflineData: alcOfflineData.length,
       netWeightOfflineData: netWeightOfflineData.length
     });
-  }, [offlineSubmissions.length, creamPercentagePendingSync.length, sieveAndMagnetNewPlantPendingSync.length, sieveAndMagnetOldPlantPendingSync.length, productMonitoringPendingSync.length, codeVerificationOfflineData.length, bakingOfflineData.length, sealIntegrityOfflineData.length, alcOfflineData.length, netWeightOfflineData.length]);
+  }, [pqiOfflineCount, creamPercentagePendingSync.length, sieveAndMagnetNewPlantPendingSync.length, sieveAndMagnetOldPlantPendingSync.length, productMonitoringPendingSync.length, codeVerificationOfflineData.length, bakingOfflineData.length, sealIntegrityOfflineData.length, alcOfflineData.length, netWeightOfflineData.length]);
 
   const metrics = [
     { label: "5S", icon: <Clock className="text-orange-500" />, count: 0 },
@@ -1391,7 +1393,7 @@ export default function HomePage() {
                   disabled={!isOnline}
                   title={!isOnline ? 'Internet connection required to start offline mode' : 'Start offline mode'}
                 >
-                  + Start Offline Mode {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length})`}
+                  + Start Offline Mode {(pqiOfflineCount + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length) > 0 && `(${pqiOfflineCount + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length})`}
                 </button>
                 {showOfflineError && (
                   <div className="w-full sm:w-auto text-xs text-red-600 mt-1">
@@ -1420,9 +1422,9 @@ export default function HomePage() {
                   title={!isOnline ? 'Internet connection required to sync offline data' : 'Sync and cancel offline mode'}
                 >
                   + Sync & Cancel Offline {(() => {
-                    const totalCount = offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length;
+                    const totalCount = pqiOfflineCount + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length;
                     console.log('Sync button count calculation:', {
-                      offlineSubmissions: offlineSubmissions.length,
+                      pqiOfflineCount,
                       creamPercentagePendingSync: creamPercentagePendingSync.length,
                       sieveAndMagnetNewPlantPendingSync: sieveAndMagnetNewPlantPendingSync.length,
                       sieveAndMagnetOldPlantPendingSync: sieveAndMagnetOldPlantPendingSync.length,
@@ -1438,9 +1440,9 @@ export default function HomePage() {
                   })()}
                   {!isOnline && <span className="ml-1 text-xs">(Internet Required)</span>}
                 </button>
-                {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length) > 0 && !isOnline && (
+                {(pqiOfflineCount + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length) > 0 && !isOnline && (
                   <div className="w-full sm:w-auto text-xs text-orange-600 mt-1">
-                    ⚠️ {offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length} offline submission(s) waiting for internet connection
+                    ⚠️ {pqiOfflineCount + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length} offline submission(s) waiting for internet connection
                   </div>
                 )}
               </>
@@ -1470,9 +1472,9 @@ export default function HomePage() {
           </a>
           <button 
             onClick={() => {
-              const totalCount = offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length;
+              const totalCount = pqiOfflineCount + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length;
               console.log('Manual count check:', {
-                offlineSubmissions: offlineSubmissions.length,
+                pqiOfflineCount,
                 creamPercentagePendingSync: creamPercentagePendingSync.length,
                 sieveAndMagnetNewPlantPendingSync: sieveAndMagnetNewPlantPendingSync.length,
                 sieveAndMagnetOldPlantPendingSync: sieveAndMagnetOldPlantPendingSync.length,

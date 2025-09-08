@@ -64,7 +64,7 @@ const SealIntegrityTest: React.FC = () => {
     const [isLoadingCycles, setIsLoadingCycles] = useState(false);
 
     // Local cycle management
-    const [currentCycle, setCurrentCycle] = useState(reduxCurrentCycle);
+    const [currentCycle, setCurrentCycle] = useState(1);
 
 
 
@@ -261,16 +261,16 @@ const SealIntegrityTest: React.FC = () => {
             // Set the current cycle to the next available cycle number
             setCurrentCycle(nextCycleNumber);
         } else {
-            // If no cycles found, start from the Redux cycle number
-            console.log('No completed cycles found. Starting from Redux cycle:', reduxCurrentCycle);
-            setCurrentCycle(reduxCurrentCycle);
+            // If no cycles found for this section, start from cycle 1
+            console.log('No completed cycles found for Seal Integrity Test. Starting from cycle 1');
+            setCurrentCycle(1);
         }
     }, [fetchedCycles, reduxCurrentCycle]);
 
     // Update local cycle when Redux cycle changes (only if no fetched cycles from Redux)
     useEffect(() => {
         if (fetchedCycles.length === 0) {
-            setCurrentCycle(reduxCurrentCycle);
+            setCurrentCycle(1);
         }
     }, [reduxCurrentCycle, fetchedCycles.length]);
 
