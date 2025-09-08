@@ -8,6 +8,9 @@ import sieveAndMagnetNewPlantReducer from './sieveAndMagnetNewPlantSlice';
 import sieveAndMagnetOldPlantReducer from './sieveAndMagnetOldPlantSlice';
 import productMonitoringReducer from './productMonitoringSlice';
 import codeVerificationReducer from './CodeVerificationSlice';
+import sealIntegrityTestReducer from './SealIntegrityTestSlice';
+import ALCReducer from './ALCSlice';
+import NetWeightMonitoringReducer from './NetWeightMonitoringRecordSlice';
 import bakingProcessReducer from './BakingProcessSlice';
 import oprpAndCcpReducer from './OPRPAndCCPSlice';
 import { persistStore, persistReducer } from "redux-persist";
@@ -48,6 +51,12 @@ const sieveAndMagnetNewPlantPersistConfig = {
   whitelist: ["completedCycles", "pendingSync", "lastFetchTimestamp", "isOffline", "currentCycle"]
 };
 
+// Persist config for NetWeightMonitoring
+const NetWeightMonitoringPersistConfig = {
+  key: "NetWeightMonitoring",
+  storage,
+  whitelist: ["fetchedCycles", "offlineSavedData", "lastFetchTimestamp"]
+};
 // Persist config for sieveAndMagnetOldPlant
 const sieveAndMagnetOldPlantPersistConfig = {
   key: "sieveAndMagnetOldPlant",
@@ -64,6 +73,20 @@ const productMonitoringPersistConfig = {
 // Persist config for codeVerification
 const codeVerificationPersistConfig = {
   key: "codeVerification",
+  storage,
+  whitelist: ["fetchedCycles", "offlineSavedData", "lastFetchTimestamp"]
+};
+
+// Persist config for sealIntegrityTest
+const sealIntegrityTestPersistConfig = {
+  key: "sealIntegrityTest",
+  storage,
+  whitelist: ["fetchedCycles", "offlineSavedData", "lastFetchTimestamp"]
+};
+
+// Persist config for ALC
+const ALCPersistConfig = {
+  key: "ALC",
   storage,
   whitelist: ["fetchedCycles", "offlineSavedData", "lastFetchTimestamp"]
 };
@@ -91,6 +114,9 @@ const rootReducer = combineReducers({
   sieveAndMagnetOldPlant: persistReducer(sieveAndMagnetOldPlantPersistConfig, sieveAndMagnetOldPlantReducer),
   productMonitoring: persistReducer(productMonitoringPersistConfig, productMonitoringReducer),
   codeVerification: persistReducer(codeVerificationPersistConfig, codeVerificationReducer),
+  sealIntegrityTest: persistReducer(sealIntegrityTestPersistConfig, sealIntegrityTestReducer),
+  ALC: persistReducer(ALCPersistConfig, ALCReducer),
+  NetWeightMonitoring: persistReducer(NetWeightMonitoringPersistConfig, NetWeightMonitoringReducer),
   oprpAndCcp: persistReducer(oprpAndCcpPersistConfig, oprpAndCcpReducer),
   bakingProcess: persistReducer(bakingProcessPersistConfig, bakingProcessReducer),
 });

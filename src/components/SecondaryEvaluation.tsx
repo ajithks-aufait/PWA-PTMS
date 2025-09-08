@@ -90,6 +90,28 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
     }));
   };
 
+  // Auto-fill start fields across cycles from first entered values
+  useEffect(() => {
+    const base = sectionDetails[1] || Object.values(sectionDetails)[0];
+    if (!base) return;
+    setFormFields((prev) => {
+      const next = { ...prev } as { [cycle: number]: any };
+      for (let i = 1; i <= totalCycles; i++) {
+        const current = next[i] || {};
+        next[i] = {
+          ...current,
+          product: current.product ?? base.product ?? '',
+          batchNo: current.batchNo ?? base.batchNo ?? '',
+          lineNo: current.lineNo ?? base.lineNo ?? '',
+          packaged: current.packaged ?? base.packaged ?? '',
+          expiry: current.expiry ?? base.expiry ?? '',
+          executiveName: current.executiveName ?? base.executiveName ?? '',
+        };
+      }
+      return next;
+    });
+  }, [sectionDetails]);
+
   const processSecondaryData = useCallback((cycleData: any[]) => {
     console.log('SecondaryEvaluation: Processing Secondary data', { cycleDataLength: cycleData?.length });
     if (!cycleData || cycleData.length === 0) return;
@@ -502,6 +524,7 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
       lineNo: formFields[cycleNo]?.lineNo || '',
       expiry: formFields[cycleNo]?.expiry || '',
       packaged: formFields[cycleNo]?.packaged || '',
+      executiveName: formFields[cycleNo]?.executiveName || '',
       shift: selectedShift || '',
       evaluationType: '',
       criteria: '',
@@ -757,6 +780,16 @@ const SecondaryEvaluation: React.FC<SecondaryEvaluationProps> = ({
                       placeholder="Enter Batch No"
                       value={formFields[cycleNo]?.batchNo || ''}
                       onChange={e => handleFormFieldChange(cycleNo, 'batchNo', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Executive Name</label>
+                    <input
+                      type="text"
+                      className="w-full border rounded px-3 py-2"
+                      placeholder="Enter Executive Name"
+                      value={formFields[cycleNo]?.executiveName || ''}
+                      onChange={e => handleFormFieldChange(cycleNo, 'executiveName', e.target.value)}
                     />
                   </div>
                   <div>

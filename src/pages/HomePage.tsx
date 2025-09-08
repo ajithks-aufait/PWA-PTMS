@@ -20,8 +20,12 @@ import { clearAllData as clearSieveAndMagnetNewPlantData } from "../store/sieveA
 import { clearAllData as clearSieveAndMagnetOldPlantData } from "../store/sieveAndMagnetOldPlantSlice";
 import { clearAllData as clearProductMonitoringData } from "../store/productMonitoringSlice";
 import { setFetchedCycles, clearOfflineData } from "../store/CodeVerificationSlice";
+import { setFetchedCycles as setSITFetchedCycles, clearOfflineData as clearSealIntegrityOfflineData } from "../store/SealIntegrityTestSlice";
+import { clearOfflineData as clearALCOfflineData, setFetchedCycles as setALCFetchedCycles } from "../store/ALCSlice";
+import { setFetchedCycles as setNWMFetchedCycles, clearOfflineData as clearNWMOfflineData } from "../store/NetWeightMonitoringRecordSlice";
 import { clearOfflineData as clearBakingOfflineData } from "../store/BakingProcessSlice";
 import { savesectionApicall as saveBakingSection, collectEstimationDataCycleSave as collectBakingForSync } from "../Services/BakingProcesRecord";
+import { saveSectionApiCall as saveSealSection } from "../Services/SealIntegrityTest.ts";
 import type { CodeVerificationCycleData } from "../Services/CodeVerificationRecord";
 import { createOrFetchPlantTour } from "../Services/createOrFetchPlantTour";
 import { getAccessToken } from "../Services/getAccessToken";
@@ -120,6 +124,12 @@ export default function HomePage() {
   const codeVerificationOfflineData = useSelector((state: any) => state.codeVerification.offlineSavedData);
   // Get Baking Process offline data from Redux
   const bakingOfflineData = useSelector((state: any) => state.bakingProcess?.offlineSavedData || []);
+  // Get Seal Integrity Test offline data from Redux
+  const sealIntegrityOfflineData = useSelector((state: any) => state.sealIntegrityTest?.offlineSavedData || []);
+  // Get ALC offline data from Redux
+  const alcOfflineData = useSelector((state: any) => state.ALC?.offlineSavedData || []);
+  // Get Net Weight Monitoring offline data from Redux
+  const netWeightOfflineData = useSelector((state: any) => state.NetWeightMonitoring?.offlineSavedData || []);
 
   const user = useSelector((state: any) => state.user.user);
   const userState = useSelector((state: any) => state.user);
@@ -130,7 +140,7 @@ export default function HomePage() {
 
   // Debug: Log count changes
   useEffect(() => {
-    const totalCount = offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length;
+    const totalCount = offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length;
     console.log('HomePage: Total offline count changed:', totalCount);
     console.log('HomePage: Breakdown:', {
       offlineSubmissions: offlineSubmissions.length,
@@ -139,9 +149,12 @@ export default function HomePage() {
       sieveAndMagnetOldPlantPendingSync: sieveAndMagnetOldPlantPendingSync.length,
       productMonitoringPendingSync: productMonitoringPendingSync.length,
       codeVerificationOfflineData: codeVerificationOfflineData.length,
-      bakingOfflineData: bakingOfflineData.length
+      bakingOfflineData: bakingOfflineData.length,
+      sealIntegrityOfflineData: sealIntegrityOfflineData.length,
+      alcOfflineData: alcOfflineData.length,
+      netWeightOfflineData: netWeightOfflineData.length
     });
-  }, [offlineSubmissions.length, creamPercentagePendingSync.length, sieveAndMagnetNewPlantPendingSync.length, sieveAndMagnetOldPlantPendingSync.length, productMonitoringPendingSync.length, codeVerificationOfflineData.length, bakingOfflineData.length]);
+  }, [offlineSubmissions.length, creamPercentagePendingSync.length, sieveAndMagnetNewPlantPendingSync.length, sieveAndMagnetOldPlantPendingSync.length, productMonitoringPendingSync.length, codeVerificationOfflineData.length, bakingOfflineData.length, sealIntegrityOfflineData.length, alcOfflineData.length, netWeightOfflineData.length]);
 
   const metrics = [
     { label: "5S", icon: <Clock className="text-orange-500" />, count: 0 },
@@ -286,6 +299,48 @@ export default function HomePage() {
         console.error('Error loading existing Code Verification cycle data:', codeVerificationError);
         // Continue with offline mode even if Code Verification fetch fails
         dispatch(setFetchedCycles([]));
+      }
+
+      // Step 3.8: Fetch existing Seal Integrity Test completed cycles
+      console.log('Fetching existing Seal Integrity Test completed cycles...');
+      try {
+        const { fetchCycleData } = await import('../Services/SealIntegrityTest.ts');
+        const existingSealIntegrityCycles = await fetchCycleData(plantTourId);
+        console.log('Fetched existing Seal Integrity Test cycles:', existingSealIntegrityCycles);
+        if (existingSealIntegrityCycles && existingSealIntegrityCycles.length > 0) {
+          dispatch(setSITFetchedCycles(existingSealIntegrityCycles as any));
+          console.log('Successfully loaded existing Seal Integrity Test cycles:', existingSealIntegrityCycles.length);
+        } else {
+          console.log('No existing Seal Integrity Test cycles found on server.');
+          dispatch(setSITFetchedCycles([] as any));
+        }
+      } catch (sitError) {
+        console.error('Error loading existing Seal Integrity Test cycle data:', sitError);
+        dispatch(setSITFetchedCycles([] as any));
+      }
+
+      // Step 3.9: Fetch existing ALC completed cycles
+      console.log('Fetching existing ALC completed cycles...');
+      try {
+        const { fetchCycleData } = await import('../Services/ALC');
+        const existingALCCycles = await fetchCycleData(plantTourId);
+        console.log('Fetched existing ALC cycles:', existingALCCycles);
+        dispatch(setALCFetchedCycles((existingALCCycles as any) || []));
+      } catch (alcError) {
+        console.error('Error loading existing ALC cycle data:', alcError);
+        dispatch(setALCFetchedCycles([] as any));
+      }
+
+      // Step 3.10: Fetch existing Net Weight Monitoring completed cycles
+      console.log('Fetching existing Net Weight Monitoring completed cycles...');
+      try {
+        const { fetchCycleData } = await import('../Services/NetWeightMonitoringRecord.ts');
+        const existingNWMCycles = await fetchCycleData(plantTourId);
+        console.log('Fetched existing Net Weight Monitoring cycles:', existingNWMCycles);
+        dispatch(setNWMFetchedCycles((existingNWMCycles as any) || []));
+      } catch (nwmError) {
+        console.error('Error loading existing Net Weight Monitoring cycle data:', nwmError);
+        dispatch(setNWMFetchedCycles([] as any));
       }
 
       // Step 4: Fetch summary and cycle data APIs
@@ -633,6 +688,94 @@ export default function HomePage() {
       console.log('No Product Monitoring offline data to sync');
     }
 
+    // Sync Seal Integrity Test offline data
+    if (sealIntegrityOfflineData.length > 0) {
+      console.log('Syncing Seal Integrity Test offline data...');
+      console.log('Seal Integrity Test pending sync data:', sealIntegrityOfflineData);
+      try {
+        for (const data of sealIntegrityOfflineData) {
+          try {
+            const cycleNo = data.cycleNo;
+            const plantTourId = planTourState.plantTourId;
+            const userName = user?.Name || 'Current User';
+
+            // Build payload from DOM if available, else from localStorage snapshot saved during offline save
+            const storedStr = localStorage.getItem(`sit-cycle-${cycleNo}-values`);
+            const stored = storedStr ? JSON.parse(storedStr) : null;
+
+            const payload = [{
+              cr3ea_qualitytourid: plantTourId || 'N/A',
+              cr3ea_title: `SealIntegrityTest_${new Date().toLocaleDateString('en-US')}`,
+              cr3ea_cycle: `Cycle-${cycleNo}`,
+              cr3ea_shift: sessionStorage.getItem('shiftValue') || 'shift 1',
+              cr3ea_tourstartdate: new Date().toLocaleDateString('en-US'),
+              cr3ea_observedtime: stored?.observedtime || '',
+              cr3ea_observedby: userName,
+              cr3ea_productname: stored?.product || 'N/A',
+              cr3ea_machineno: stored?.machineNo || '',
+              cr3ea_sampleqty: stored?.sampleqty || '',
+              cr3ea_leakageno: stored?.leakageno || '',
+              cr3ea_leakagetype: stored?.leakagetype || '',
+              cr3ea_executivename: stored?.executiveName || 'N/A'
+            }];
+
+            const response = await saveSealSection(payload as any);
+            if (response.success) {
+              console.log(`Successfully synced Seal Integrity Test cycle ${cycleNo}`);
+              totalSynced++;
+              try { localStorage.removeItem(`sit-cycle-${cycleNo}-values`); } catch {}
+            } else {
+              throw new Error(`Failed to sync Seal Integrity Test cycle ${cycleNo}: ${response.message}`);
+            }
+          } catch (sitError) {
+            console.error('Error syncing Seal Integrity Test item:', sitError);
+            totalErrors++;
+          }
+        }
+        console.log('Seal Integrity Test offline data sync completed');
+      } catch (error) {
+        console.error('Error syncing Seal Integrity Test offline data:', error);
+        totalErrors++;
+      }
+    } else {
+      console.log('No Seal Integrity Test offline data to sync');
+    }
+
+    // Sync ALC offline data
+    if (alcOfflineData.length > 0) {
+      console.log('Syncing ALC offline data...');
+      try {
+        for (const data of alcOfflineData) {
+          try {
+            const cycleNo = data.cycleNo;
+            const cached = localStorage.getItem(`alc-payload-cycle-${cycleNo}`);
+            if (cached) {
+              const payload = JSON.parse(cached);
+              const { saveSectionApiCall } = await import('../Services/ALC');
+              const response = await saveSectionApiCall(payload);
+              if (response.success) {
+                console.log(`Successfully synced ALC cycle ${cycleNo}`);
+                totalSynced++;
+                try { localStorage.removeItem(`alc-payload-cycle-${cycleNo}`); } catch {}
+              } else {
+                throw new Error(`Failed to sync ALC cycle ${cycleNo}: ${response.message}`);
+              }
+            } else {
+              console.warn(`No cached ALC payload found for cycle ${cycleNo}`);
+            }
+          } catch (alcErr) {
+            console.error('Error syncing ALC item:', alcErr);
+            totalErrors++;
+          }
+        }
+      } catch (error) {
+        console.error('Error syncing ALC offline data:', error);
+        totalErrors++;
+      }
+    } else {
+      console.log('No ALC offline data to sync');
+    }
+
     // Sync Code Verification offline data
     if (codeVerificationOfflineData.length > 0) {
       console.log('Syncing Code Verification offline data...');
@@ -810,6 +953,40 @@ export default function HomePage() {
       console.log('No Baking Process offline data to sync');
     }
 
+    // Sync Net Weight Monitoring offline data
+    if (netWeightOfflineData.length > 0) {
+      console.log('Syncing Net Weight Monitoring offline data...');
+      try {
+        for (const data of netWeightOfflineData) {
+          try {
+            const cycleNo = data.cycleNo;
+            const plantTourId = planTourState.plantTourId;
+            const userName = user?.Name || 'Current User';
+
+            // Build payload directly using the service collector (reads DOM ids if present)
+            const { collectEstimationDataCycleSave, saveSectionApiCall } = await import('../Services/NetWeightMonitoringRecord');
+            const { savedData } = await collectEstimationDataCycleSave(cycleNo, plantTourId || 'N/A', userName);
+            const response = await saveSectionApiCall(savedData);
+
+            if (response.success) {
+              console.log(`Successfully synced Net Weight Monitoring cycle ${cycleNo}`);
+              totalSynced++;
+            } else {
+              throw new Error(`Failed to sync Net Weight cycle ${cycleNo}: ${response.message}`);
+            }
+          } catch (nwmErr) {
+            console.error('Error syncing Net Weight Monitoring item:', nwmErr);
+            totalErrors++;
+          }
+        }
+      } catch (error) {
+        console.error('Error syncing Net Weight Monitoring offline data:', error);
+        totalErrors++;
+      }
+    } else {
+      console.log('No Net Weight Monitoring offline data to sync');
+    }
+
     // Show sync results and clear data only if ALL sync operations were successful
     if (totalSynced > 0 && totalErrors === 0) {
       alert(`✅ Successfully synced ${totalSynced} offline data item(s)!`);
@@ -837,6 +1014,12 @@ export default function HomePage() {
       dispatch(clearOfflineData());
       // Clear Baking Process Redux state
       dispatch(clearBakingOfflineData());
+      // Clear Seal Integrity Test Redux state
+      dispatch(clearSealIntegrityOfflineData());
+      // Clear ALC Redux state
+      dispatch(clearALCOfflineData());
+      // Clear Net Weight Monitoring Redux state
+      dispatch(clearNWMOfflineData());
 
       setShowOfflineError(false);
 
@@ -884,6 +1067,10 @@ export default function HomePage() {
       dispatch(clearOfflineData());
       // Clear Baking Process Redux state
       dispatch(clearBakingOfflineData());
+      // Clear Seal Integrity Test Redux state
+      dispatch(clearSealIntegrityOfflineData());
+      // Clear ALC Redux state
+      dispatch(clearALCOfflineData());
 
       setShowOfflineError(false);
 
@@ -1079,6 +1266,9 @@ export default function HomePage() {
           } else if (selectedTour === "Product Monitoring Record") {
             console.log('Navigating to Product Monitoring Record');
             navigate("/productmonitoringrecord");
+          } else if (selectedTour === "Net Weight Monitoring Record") {
+            console.log('Navigating to Net Weight Monitoring Record');
+            navigate("/netweightmonitoringrecord");
           } else if (selectedTour === "Code Verification Record") {
             console.log('Navigating to Code Verification Record');
             navigate("/codeverificationrecord");
@@ -1088,6 +1278,12 @@ export default function HomePage() {
           } else if (selectedTour === "Baking Process Record") {
             console.log('Navigating to Baking Process Record');
             navigate("/bakingprocessrecord");
+          } else if (selectedTour === "Seal Integrity Test") {
+            console.log('Navigating to Seal Integrity Test');
+            navigate("/sealintegritytest");
+          } else if (selectedTour === "ALC") {
+            console.log('Navigating to ALC');
+            navigate("/alc");
           } else {
             console.log('Navigating to Product Quality Index');
             navigate("/qualityplantour");
@@ -1127,6 +1323,9 @@ export default function HomePage() {
           } else if (selectedTour === "Product Monitoring Record") {
             console.log('Navigating to Product Monitoring Record');
             navigate("/productmonitoringrecord");
+          } else if (selectedTour === "Net Weight Monitoring Record") {
+            console.log('Navigating to Net Weight Monitoring Record');
+            navigate("/netweightmonitoringrecord");
           } else if (selectedTour === "Code Verification Record") {
             console.log('Navigating to Code Verification Record');
             navigate("/codeverificationrecord");
@@ -1136,6 +1335,12 @@ export default function HomePage() {
           } else if (selectedTour === "Baking Process Record") {
             console.log('Navigating to Baking Process Record');
             navigate("/bakingprocessrecord");
+          } else if (selectedTour === "Seal Integrity Test") {
+            console.log('Navigating to Seal Integrity Test');
+            navigate("/sealintegritytest");
+          } else if (selectedTour === "ALC") {
+            console.log('Navigating to ALC');
+            navigate("/alc");
           } else {
             console.log('Navigating to Product Quality Index');
             navigate("/qualityplantour");
@@ -1186,7 +1391,7 @@ export default function HomePage() {
                   disabled={!isOnline}
                   title={!isOnline ? 'Internet connection required to start offline mode' : 'Start offline mode'}
                 >
-                  + Start Offline Mode {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length})`}
+                  + Start Offline Mode {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length) > 0 && `(${offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length})`}
                 </button>
                 {showOfflineError && (
                   <div className="w-full sm:w-auto text-xs text-red-600 mt-1">
@@ -1215,7 +1420,7 @@ export default function HomePage() {
                   title={!isOnline ? 'Internet connection required to sync offline data' : 'Sync and cancel offline mode'}
                 >
                   + Sync & Cancel Offline {(() => {
-                    const totalCount = offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length;
+                    const totalCount = offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length;
                     console.log('Sync button count calculation:', {
                       offlineSubmissions: offlineSubmissions.length,
                       creamPercentagePendingSync: creamPercentagePendingSync.length,
@@ -1224,15 +1429,18 @@ export default function HomePage() {
                       productMonitoringPendingSync: productMonitoringPendingSync.length,
                       codeVerificationOfflineData: codeVerificationOfflineData.length,
                       bakingOfflineData: bakingOfflineData.length,
+                      sealIntegrityOfflineData: sealIntegrityOfflineData.length,
+                      alcOfflineData: alcOfflineData.length,
+                      netWeightOfflineData: netWeightOfflineData.length,
                       totalCount
                     });
                     return totalCount > 0 ? `(${totalCount})` : '';
                   })()}
                   {!isOnline && <span className="ml-1 text-xs">(Internet Required)</span>}
                 </button>
-                {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length) > 0 && !isOnline && (
+                {(offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length) > 0 && !isOnline && (
                   <div className="w-full sm:w-auto text-xs text-orange-600 mt-1">
-                    ⚠️ {offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length} offline submission(s) waiting for internet connection
+                    ⚠️ {offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length} offline submission(s) waiting for internet connection
                   </div>
                 )}
               </>
@@ -1262,7 +1470,7 @@ export default function HomePage() {
           </a>
           <button 
             onClick={() => {
-              const totalCount = offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length;
+              const totalCount = offlineSubmissions.length + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length;
               console.log('Manual count check:', {
                 offlineSubmissions: offlineSubmissions.length,
                 creamPercentagePendingSync: creamPercentagePendingSync.length,
@@ -1271,6 +1479,8 @@ export default function HomePage() {
                 productMonitoringPendingSync: productMonitoringPendingSync.length,
                 codeVerificationOfflineData: codeVerificationOfflineData.length,
                 bakingOfflineData: bakingOfflineData.length,
+                sealIntegrityOfflineData: sealIntegrityOfflineData.length,
+                alcOfflineData: alcOfflineData.length,
                 totalCount
               });
               alert(`Total offline count: ${totalCount}`);

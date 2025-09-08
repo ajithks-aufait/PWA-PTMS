@@ -7,8 +7,11 @@ import ProductQualityIndex from './components/ProductQualityIndex';
 import CreamPercentageIndex from './components/CreamPercentageIndex';
 import SieveandMagnetoldplant from './components/SieveandMagnetoldplant';
 import ProductMonitoringRecord from './components/ProductMonitoringRecord';
+import NetWeightMonitoringRecord from './components/NetWeightMonitoringRecord';
 import CodeVerificationRecord from './components/CodeVerification';
 import OPRPAndCCPRecord from './components/OPRPAndCCPRecord';
+import SealIntegrityTest from './components/SealIntegrityTest';
+import ALC from './components/ALC';
 import BakingProcessRecord from './components/BakingProcessRecord';
 import DashboardLayout from './pages/HomePage';
 import SieveandMagnetnewplant from './components/SieveandMagnetnewplant';
@@ -102,6 +105,14 @@ function App() {
             }
           />
           <Route
+            path="/netweightmonitoringrecord"
+            element={
+              <ProtectedRoute>
+                <NetWeightMonitoringRecord />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/codeverificationrecord"
             element={
               <ProtectedRoute>
@@ -122,6 +133,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <BakingProcessRecord />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sealintegritytest"
+            element={
+              <ProtectedRoute>
+                <SealIntegrityTest />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/alc"
+            element={
+              <ProtectedRoute>
+                <ALC />
               </ProtectedRoute>
             }
           />

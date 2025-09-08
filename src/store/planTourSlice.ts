@@ -16,6 +16,7 @@ interface SectionDetails {
   lineNo?: string;
   expiry?: string;
   packaged?: string;
+  executiveName?: string;
   shift?: string;
   evaluationType?: string;
   criteria?: string;
