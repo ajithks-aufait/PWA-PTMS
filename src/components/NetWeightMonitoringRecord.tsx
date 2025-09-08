@@ -433,7 +433,6 @@ const NetWeightMonitoringRecord: React.FC = () => {
                                         const nums = (arr || []).map(toNum).filter(n => n !== null) as number[];
                                         return nums.length ? (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2) : '';
                                     };
-                                    const rows = Math.max(mc1.length, mc2.length, mc3.length, mc4.length, 1);
                                     return (
                                         <div className="border border-gray-300 rounded-md p-3 sm:p-4 bg-white">
                                             {header}
