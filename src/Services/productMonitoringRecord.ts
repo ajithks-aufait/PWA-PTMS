@@ -1,6 +1,7 @@
 import { getAccessToken } from './getAccessToken';
 
-const environmentUrl = "https://org487f0635.crm8.dynamics.com";
+// const environmentUrl = "https://org487f0635.crm8.dynamics.com";dev
+const environmentUrl = "https://orgea61b289.crm8.dynamics.com";
 
 // Interface for Product Monitoring data
 interface ProductMonitoringData {

@@ -1,6 +1,7 @@
 // src/Services/getCycleDetails.ts
 
-const environmentUrl = "https://org487f0635.crm8.dynamics.com";
+// const environmentUrl = "https://org487f0635.crm8.dynamics.com";dev
+const environmentUrl = "https://orgea61b289.crm8.dynamics.com";
 
 export async function fetchCycleDetails(accessToken: string, plantTourId: string) {
   if (!accessToken || !plantTourId) {
