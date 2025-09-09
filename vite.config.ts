@@ -9,15 +9,15 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         cleanupOutdatedCaches: true,
         sourcemap: true,
       },
       injectRegister: 'auto',
-      injectManifest: {
-        injectionPoint: undefined,
-      },
       manifest: {
         name: 'Task Manager PWA',
         short_name: 'Tasks',
