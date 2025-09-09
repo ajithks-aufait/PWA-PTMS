@@ -3,6 +3,7 @@
     { "source": "/sw.js", "destination": "/sw.js" },
     { "source": "/workbox-:hash.js", "destination": "/workbox-:hash.js" },
     { "source": "/registerSW.js", "destination": "/registerSW.js" },
+    { "source": "/manifest.json", "destination": "/manifest.json" },
     { "source": "/manifest.webmanifest", "destination": "/manifest.webmanifest" },
     { "source": "/assets/(.*)", "destination": "/assets/$1" },
     { "source": "/icons/(.*)", "destination": "/icons/$1" },
@@ -10,6 +11,13 @@
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
+    {
+      "source": "/manifest.json",
+      "headers": [
+        { "key": "Content-Type", "value": "application/manifest+json" },
+        { "key": "Cache-Control", "value": "public, max-age=3600" }
+      ]
+    },
     {
       "source": "/manifest.webmanifest",
       "headers": [
