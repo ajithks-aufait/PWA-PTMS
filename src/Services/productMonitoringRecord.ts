@@ -156,7 +156,8 @@ export async function saveProductMonitoringData(data: ProductMonitoringData[]): 
     };
 
     const apiVersion = "9.2";
-    const tableName = "cr3ea_prod_productmonitorings";
+    // const tableName = "cr3ea_prod_productmonitorings";
+    const tableName = "cr3ea_productmonitorings";
     const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}`;
 
     const results = [];

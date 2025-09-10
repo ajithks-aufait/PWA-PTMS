@@ -239,7 +239,8 @@ export async function saveSectionApiCall(data: NetWeightMonitoringData[]): Promi
     };
 
     const apiVersion = "9.2";
-    const tableName = "cr3ea_prod_netweights";
+    // const tableName = "cr3ea_prod_netweights";
+    const tableName = "cr3ea_netweights";
     const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}`;
 
     const results = [];

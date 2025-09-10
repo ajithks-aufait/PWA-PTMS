@@ -239,7 +239,8 @@ export async function saveSectionApiCall(data: OPRPAndCCPData[]): Promise<SaveRe
     };
 
     const apiVersion = "9.2";
-    const tableName = "cr3ea_prod_oprpandcpps";
+    // const tableName = "cr3ea_prod_oprpandcpps";
+    const tableName = "cr3ea_oprpandcpps";
     const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}`;
 
     const results = [];

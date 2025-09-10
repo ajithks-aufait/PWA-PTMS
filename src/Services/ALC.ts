@@ -299,7 +299,8 @@ export async function saveSectionApiCall(data: ALCData[]): Promise<SaveResponse>
     };
 
     const apiVersion = "9.2";
-    const tableName = "cr3ea_prod_alcs";
+    // const tableName = "cr3ea_prod_alcs";
+    const tableName = "cr3ea_alcs";
     const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}`;
 
     const results = [];
