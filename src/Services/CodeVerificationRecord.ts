@@ -61,7 +61,8 @@ export async function fetchCycleData(QualityTourId: string) {
     };
 
     const apiVersion = "9.2";
-    const tableName = "cr3ea_prod_codeverifications";
+    // const tableName = "cr3ea_prod_codeverifications";
+    const tableName = "cr3ea_codeverifications";
     const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}?$filter=cr3ea_qualitytourid eq '${QualityTourId}'&$select=cr3ea_productname,cr3ea_sku,cr3ea_remarks,cr3ea_machineproof,cr3ea_cycle`;
 
     const response = await fetch(apiUrl, { headers });

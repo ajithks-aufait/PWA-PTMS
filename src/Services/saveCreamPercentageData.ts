@@ -153,7 +153,8 @@ export const saveCreamPercentageData = async (params: SaveCreamPercentageParams)
 
     // API configuration
     const apiVersion = "9.2";
-    const tableName = "cr3ea_prod_creams";
+    // const tableName = "cr3ea_prod_creams";
+    const tableName = "cr3ea_creams";
    // const environmentUrl = "https://org487f0635.crm8.dynamics.com";dev
 const environmentUrl = "https://orgea61b289.crm8.dynamics.com";
     const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}`;

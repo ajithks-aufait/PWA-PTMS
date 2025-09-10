@@ -22,7 +22,8 @@ export async function createOrFetchPlantTour({
   if (!accessToken) return null;
 
   const apiVersion = "9.2";
-  const tableName = "cr3ea_prod_qualitytours";
+  // const tableName = "cr3ea_prod_qualitytours";
+  const tableName = "cr3ea_qualitytours";
   const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}`;
 
   const now = new Date();

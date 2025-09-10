@@ -38,7 +38,8 @@ export const saveSieveAndMagnetNewPlant = async (data: SieveAndMagnetData[]): Pr
     };
 
     const apiVersion = "9.2";
-    const tableName = "cr3ea_prod_sievesandmagnetsnewplants";
+    // const tableName = "cr3ea_prod_sievesandmagnetsnewplants";
+    const tableName = "cr3ea_sievesandmagnetsnewplants";
    // const environmentUrl = "https://org487f0635.crm8.dynamics.com";dev
 const environmentUrl = "https://orgea61b289.crm8.dynamics.com";
     const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}`;

@@ -4,7 +4,8 @@ const environmentUrl = "https://orgea61b289.crm8.dynamics.com";
 
 export async function saveSectionData(accessToken: string, records: any[]) {
   const apiVersion = "9.2";
-  const tableName = "cr3ea_prod_pqi_fronts";
+  // const tableName = "cr3ea_prod_pqi_fronts";
+  const tableName = "cr3ea_pqi_fronts";
   const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}`;
 
   const header = {

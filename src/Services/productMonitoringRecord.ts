@@ -47,7 +47,8 @@ export async function fetchCycleData(QualityTourId: string) {
     };
 
     const apiVersion = "9.2";
-    const tableName = "cr3ea_prod_productmonitorings";
+    // const tableName = "cr3ea_prod_productmonitorings";
+    const tableName = "cr3ea_productmonitorings";
     const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}?$filter=cr3ea_qualitytourid eq '${QualityTourId}'&$select=cr3ea_productname,cr3ea_cycle,cr3ea_moisture,cr3ea_gaugeoperating,cr3ea_gaugenonoperating,cr3ea_gaugecentre,cr3ea_dryweightovenendoperating,cr3ea_dryweightovenendnonoperating,cr3ea_dryweightovenendcentre,cr3ea_dimensionoperating,cr3ea_dimensionnonoperating,cr3ea_dimensioncentre`;
 
     const response = await fetch(apiUrl, { headers });

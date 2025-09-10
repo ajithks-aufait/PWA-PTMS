@@ -35,7 +35,8 @@ export const getCreamPercentageData = async (params: FetchCreamPercentageParams)
     };
 
     const apiVersion = "9.2";
-    const tableName = "cr3ea_prod_creams";
+    // const tableName = "cr3ea_prod_creams";
+    const tableName = "cr3ea_creams";
     // const environmentUrl = "https://org487f0635.crm8.dynamics.com";dev
 const environmentUrl = "https://orgea61b289.crm8.dynamics.com";
     const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}?$filter=cr3ea_qualitytourid eq '${qualityTourId}'&$select=cr3ea_cycle,cr3ea_creampercent1,cr3ea_creampercent2,cr3ea_creampercent3,cr3ea_creampercent4,cr3ea_wtofsandwich1,cr3ea_wtofsandwich2,cr3ea_wtofsandwich3,cr3ea_wtofsandwich4,cr3ea_wtofshell1,cr3ea_wtofshell2,cr3ea_wtofshell3,cr3ea_wtofshell4,cr3ea_avg,cr3ea_productname,cr3ea_stdcreampercent,cr3ea_machineno,cr3ea_lineno,cr3ea_cycle`;

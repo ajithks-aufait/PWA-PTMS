@@ -75,7 +75,8 @@ export async function fetchCycleData(QualityTourId: string) {
     };
 
     const apiVersion = "9.2";
-    const tableName = "cr3ea_prod_oprpandcpps";
+    // const tableName = "cr3ea_prod_oprpandcpps";
+    const tableName = "cr3ea_oprpandcpps";
     const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}?$filter=cr3ea_qualitytourid eq '${QualityTourId}'&$select=cr3ea_cycle,cr3ea_productname,cr3ea_batchno,cr3ea_location,cr3ea_category,cr3ea_fecentrepass1,cr3ea_fecentrepass2,cr3ea_nfecentrepass1,cr3ea_nfecentrepass2,cr3ea_sscentrepass1,cr3ea_sscentrepass2,cr3ea_mdsensitivity,cr3ea_executivename`;
 
     let response = await fetch(apiUrl, { headers });
