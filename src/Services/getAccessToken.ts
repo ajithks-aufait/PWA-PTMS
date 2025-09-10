@@ -3,7 +3,7 @@ export async function getAccessToken(token?: string, expiry?: number) {
     // If token and expiry are provided, store and return them
     if (token && expiry) {
         if(expiry > currentTime){
-            return
+            return { token: token, expiry: expiry };
         }
     }
     const storedToken = JSON.parse(localStorage.getItem("access_token") || "null");
