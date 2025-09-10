@@ -13,6 +13,7 @@ import OPRPAndCCPRecord from './components/OPRPAndCCPRecord';
 import SealIntegrityTest from './components/SealIntegrityTest';
 import ALC from './components/ALC';
 import BakingProcessRecord from './components/BakingProcessRecord';
+import PlantTourSection from './components/PlantTourSection';
 import DashboardLayout from './pages/HomePage';
 import SieveandMagnetnewplant from './components/SieveandMagnetnewplant';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -149,6 +150,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ALC />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/plant-tour-section"
+            element={
+              <ProtectedRoute>
+                <PlantTourSection />
               </ProtectedRoute>
             }
           />

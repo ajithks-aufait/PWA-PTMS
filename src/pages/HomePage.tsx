@@ -513,6 +513,31 @@ export default function HomePage() {
     }
   };
 
+  // Department-based handlers for non-Quality Rajpura departments
+  const handleOtherDepartmentPlantTour = () => {
+    console.log('Navigating to plant-tour-section for other department');
+    navigate("/plant-tour-section");
+  };
+
+  const handleOtherDepartmentOfflinePlantTour = () => {
+    console.log('Navigating to plant-tour-section for offline plant tour');
+    navigate("/plant-tour-section");
+  };
+
+  const handleOtherDepartmentStartOfflinePlantTour = async () => {
+    console.log('Starting offline plant tour for other department - API call will be implemented later');
+    // TODO: Implement API call to fetch new plant tour sections
+    // For now, just navigate to the section
+    navigate("/plant-tour-section");
+  };
+
+  const handleOtherDepartmentSyncCancelOffline = async () => {
+    console.log('Syncing plant-tour-section offline data for other department');
+    // TODO: Implement sync logic for plant-tour-section data
+    // This should sync locally saved data from localStorage/IndexedDB
+    alert('Plant tour section sync functionality will be implemented');
+  };
+
   const handleCancelOffline = async () => {
     console.log('Attempting to sync/cancel offline mode...');
 
@@ -1591,7 +1616,13 @@ export default function HomePage() {
               <>
                 <button
                   className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-                  onClick={() => setIsModalOpen(true)}
+                  onClick={() => {
+                    if (employees[0]?.departmentName === "Quality - Rajpura") {
+                      setIsModalOpen(true);
+                    } else {
+                      handleOtherDepartmentPlantTour();
+                    }
+                  }}
                   disabled={isPlantTourLoading}
                 >
                   Plant Tour
@@ -1602,7 +1633,13 @@ export default function HomePage() {
                       ? 'bg-gray-600 hover:bg-gray-700 text-white dark:bg-gray-700 dark:hover:bg-gray-600'
                       : 'bg-gray-400 text-gray-600 cursor-not-allowed'
                     }`}
-                  onClick={handleOfflineTour}
+                  onClick={() => {
+                    if (employees[0]?.departmentName === "Quality - Rajpura") {
+                      handleOfflineTour();
+                    } else {
+                      handleOtherDepartmentStartOfflinePlantTour();
+                    }
+                  }}
                   disabled={!isOnline}
                   title={!isOnline ? 'Internet connection required to start offline mode' : 'Start offline mode'}
                 >
@@ -1619,7 +1656,13 @@ export default function HomePage() {
               <>
                 <button
                   className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-                  onClick={() => setIsModalOpen(true)}
+                  onClick={() => {
+                    if (employees[0]?.departmentName === "Quality - Rajpura") {
+                      setIsModalOpen(true);
+                    } else {
+                      handleOtherDepartmentOfflinePlantTour();
+                    }
+                  }}
                   disabled={isPlantTourLoading}
                 >
                   + Offline Plant Tour
@@ -1630,7 +1673,13 @@ export default function HomePage() {
                       ? 'bg-gray-600 hover:bg-gray-700 text-white dark:bg-gray-700 dark:hover:bg-gray-600'
                       : 'bg-gray-400 text-gray-600 cursor-not-allowed'
                     }`}
-                  onClick={handleCancelOffline}
+                  onClick={() => {
+                    if (employees[0]?.departmentName === "Quality - Rajpura") {
+                      handleCancelOffline();
+                    } else {
+                      handleOtherDepartmentSyncCancelOffline();
+                    }
+                  }}
                   disabled={!isOnline}
                   title={!isOnline ? 'Internet connection required to sync offline data' : 'Sync and cancel offline mode'}
                 >
