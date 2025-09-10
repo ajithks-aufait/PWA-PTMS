@@ -34,6 +34,22 @@ const PlantTourSection: React.FC = () => {
   const [criteriaAttachments, setCriteriaAttachments] = useState<{ [key: string]: { [questionId: string]: File[] } }>({});
   const [criteriaNearMiss, setCriteriaNearMiss] = useState<{ [key: string]: { [questionId: string]: boolean } }>({});
   
+  // State for tour statistics
+  const [tourStats, setTourStats] = useState({
+    startedDate: '',
+    duration: '00:00',
+    completionDate: '',
+    totalCriteria: 0,
+    approvedCriteria: 0,
+    rejectedCriteria: 0,
+    pendingCriteria: 0,
+    tourScore: 0,
+    isCompleted: false
+  });
+  
+  // State for loading and saving
+  const [isSaving, setIsSaving] = useState(false);
+  
   
 
 
@@ -94,23 +110,73 @@ const PlantTourSection: React.FC = () => {
   };
 
   // Handle save criteria data
-  const handleSaveCriteria = (sectionName: string, questionId: string) => {
-    const response = checklistResponses[sectionName]?.[questionId];
-    const comment = criteriaComments[sectionName]?.[questionId] || '';
-    const attachments = criteriaAttachments[sectionName]?.[questionId] || [];
-    const isNearMiss = criteriaNearMiss[sectionName]?.[questionId] || false;
-    
-    console.log('Saving criteria data:', {
-      sectionName,
-      questionId,
-      response,
-      comment,
-      attachments: attachments.map(f => f.name),
-      isNearMiss
-    });
-    
-    // TODO: Implement actual save logic to backend
-    alert('Criteria data saved successfully!');
+  const handleSaveCriteria = async (sectionName: string, questionId: string) => {
+    try {
+      setIsSaving(true);
+      const response = checklistResponses[sectionName]?.[questionId];
+      const comment = criteriaComments[sectionName]?.[questionId] || '';
+      const isNearMiss = criteriaNearMiss[sectionName]?.[questionId] || false;
+      
+      // Find the criteria details
+      const criteria = criteriaList.find(c => c.id === questionId);
+      if (!criteria) {
+        console.error('Criteria not found:', questionId);
+        return;
+      }
+      
+      // Get access token
+      if (accounts.length === 0) {
+        console.error('No user accounts found');
+        return;
+      }
+      
+      const tokenResponse = await instance.acquireTokenSilent({
+        ...loginRequest,
+        account: accounts[0],
+      });
+      
+      // Prepare data for API
+      const observationData = {
+        cr3ea_title: `${employeeDetails?.roleName || 'User'}_${new Date().toLocaleDateString('en-US')}`,
+        cr3ea_observedbyrole: employeeDetails?.roleName || 'User',
+        cr3ea_plantid: employeeDetails?.plantId || '',
+        cr3ea_departmentid: employeeDetails?.departmentId || '',
+        cr3ea_departmenttourid: plantTourId,
+        cr3ea_areaid: criteria.Area || sectionName,
+        cr3ea_criteriaid: questionId,
+        cr3ea_observedby: user?.Name || '',
+        cr3ea_observedperson: employeeDetails?.name || '',
+        cr3ea_categoryid: criteria.Category || null,
+        cr3ea_categorytitle: criteria.Category || '',
+        cr3ea_what: criteria.What || '',
+        cr3ea_criteria: criteria.Criteria || '',
+        cr3ea_observation: comment,
+        cr3ea_correctiveaction: '',
+        cr3ea_severityid: getSeverityId(response, isNearMiss),
+        cr3ea_status: getStatus(response),
+        cr3ea_tourdate: new Date().toLocaleString(),
+        cr3ea_action: response,
+        cr3ea_observeddate: new Date().toLocaleString(),
+        cr3ea_where: criteria.Area || sectionName,
+        cr3ea_closurecomment: '',
+        cr3ea_nearmiss: isNearMiss
+      };
+      
+      // Save to backend API
+      await saveObservationToAPI(tokenResponse.accessToken, observationData);
+      
+      // Update local statistics
+      updateTourStatistics();
+      
+      console.log('Criteria data saved successfully:', observationData);
+      alert('Criteria data saved successfully!');
+      
+    } catch (error) {
+      console.error('Error saving criteria data:', error);
+      alert('Failed to save criteria data. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Handle clear criteria data
@@ -148,16 +214,320 @@ const PlantTourSection: React.FC = () => {
     }));
   };
 
+  // Helper function to get severity ID based on response and near miss
+  const getSeverityId = (response: string, isNearMiss: boolean): string => {
+    if (response === 'Approved') {
+      return '1'; // Approved severity
+    } else if (response === 'Rejected') {
+      return isNearMiss ? '3' : '2'; // Near miss = 3, Rejected = 2
+    }
+    return '1'; // Default
+  };
+
+  // Helper function to get status based on response
+  const getStatus = (response: string): string => {
+    if (response === 'Approved') {
+      return 'NA';
+    } else if (response === 'Rejected') {
+      return 'Pending';
+    }
+    return 'NA'; // Not Applicable
+  };
+
+  // API function to save observation data
+  const saveObservationToAPI = async (accessToken: string, observationData: any) => {
+    const environmentUrl = 'https://bectors.crm.dynamics.com'; // Update with your environment URL
+    const tableName = 'cr3ea_prod_observationses';
+    const apiVersion = '9.2';
+    
+    const headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json; charset=utf-8',
+      'OData-MaxVersion': '4.0',
+      'OData-Version': '4.0',
+      'Prefer': 'return=representation',
+      'Authorization': `Bearer ${accessToken}`
+    };
+    
+    const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}`;
+    
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(observationData)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  };
+
+  // Function to update tour statistics
+  const updateTourStatistics = () => {
+    const groupedCriteria = groupCriteriaByArea();
+    let totalCriteria = 0;
+    let approvedCriteria = 0;
+    let rejectedCriteria = 0;
+    let pendingCriteria = 0;
+    
+    Object.values(groupedCriteria).forEach((areaCriteria: any[]) => {
+      totalCriteria += areaCriteria.length;
+      areaCriteria.forEach(criteria => {
+        const response = checklistResponses[criteria.Area]?.[criteria.id];
+        if (response === 'Approved') {
+          approvedCriteria++;
+        } else if (response === 'Rejected') {
+          rejectedCriteria++;
+        } else if (!response) {
+          pendingCriteria++;
+        }
+      });
+    });
+    
+    const tourScore = totalCriteria > 0 ? (approvedCriteria / totalCriteria) * 100 : 0;
+    
+    setTourStats(prev => ({
+      ...prev,
+      totalCriteria,
+      approvedCriteria,
+      rejectedCriteria,
+      pendingCriteria,
+      tourScore: Math.round(tourScore)
+    }));
+  };
+
+  // Function to fetch existing observation data
+  const fetchExistingObservations = async () => {
+    try {
+      
+      if (accounts.length === 0) {
+        console.error('No user accounts found');
+        return;
+      }
+      
+      const tokenResponse = await instance.acquireTokenSilent({
+        ...loginRequest,
+        account: accounts[0],
+      });
+      
+      const environmentUrl = 'https://bectors.crm.dynamics.com'; // Update with your environment URL
+      const tableName = 'cr3ea_prod_observationses';
+      const apiVersion = '9.2';
+      const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}?$filter=cr3ea_departmenttourid eq '${plantTourId}'`;
+      
+      const headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
+        'OData-MaxVersion': '4.0',
+        'OData-Version': '4.0',
+        'Authorization': `Bearer ${tokenResponse.accessToken}`
+      };
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('Existing observations:', data.value);
+      
+      // Populate existing data
+      if (data.value && data.value.length > 0) {
+        data.value.forEach((observation: any) => {
+          const areaName = observation.cr3ea_where || observation.cr3ea_areaid;
+          const criteriaId = observation.cr3ea_criteriaid;
+          
+          // Set the response
+          setChecklistResponses(prev => ({
+            ...prev,
+            [areaName]: {
+              ...prev[areaName],
+              [criteriaId]: observation.cr3ea_action
+            }
+          }));
+          
+          // Set the comment
+          if (observation.cr3ea_observation) {
+            setCriteriaComments(prev => ({
+              ...prev,
+              [areaName]: {
+                ...prev[areaName],
+                [criteriaId]: observation.cr3ea_observation
+              }
+            }));
+          }
+          
+          // Set near miss
+          if (observation.cr3ea_nearmiss) {
+            setCriteriaNearMiss(prev => ({
+              ...prev,
+              [areaName]: {
+                ...prev[areaName],
+                [criteriaId]: observation.cr3ea_nearmiss
+              }
+            }));
+          }
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error fetching existing observations:', error);
+    }
+  };
+
   // Handle pause tour
-  const handlePauseTour = () => {
-    console.log('Pausing tour...');
-    // TODO: Implement pause tour logic
+  const handlePauseTour = async () => {
+    try {
+      setIsSaving(true);
+      console.log('Pausing tour...');
+      
+      // Validate that at least one criteria is selected
+      const hasAnySelection = Object.values(checklistResponses).some(areaResponses => 
+        Object.values(areaResponses).some(response => response !== '')
+      );
+      
+      if (!hasAnySelection) {
+        alert('Please do any selection before pausing the tour');
+        return;
+      }
+      
+      // Update tour status to "In Progress"
+      await updateTourStatus('In Progress');
+      
+      alert('Tour paused successfully!');
+      
+    } catch (error) {
+      console.error('Error pausing tour:', error);
+      alert('Failed to pause tour. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Handle finish tour
-  const handleFinishTour = () => {
-    console.log('Finishing tour...');
-    // TODO: Implement finish tour logic
+  const handleFinishTour = async () => {
+    try {
+      setIsSaving(true);
+      console.log('Finishing tour...');
+      
+      // Validate all criteria are completed
+      const validationResult = validateTourCompletion();
+      if (!validationResult.isValid) {
+        alert(validationResult.message);
+        return;
+      }
+      
+      // Update tour status to "Completed"
+      await updateTourStatus('Completed');
+      
+      setTourStats(prev => ({
+        ...prev,
+        isCompleted: true,
+        completionDate: new Date().toLocaleDateString()
+      }));
+      
+      alert('Tour completed successfully!');
+      
+    } catch (error) {
+      console.error('Error finishing tour:', error);
+      alert('Failed to finish tour. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Function to validate tour completion
+  const validateTourCompletion = () => {
+    const groupedCriteria = groupCriteriaByArea();
+    let totalCriteria = 0;
+    let completedCriteria = 0;
+    let missingComments = [];
+    
+    Object.entries(groupedCriteria).forEach(([areaName, areaCriteria]: [string, any[]]) => {
+      areaCriteria.forEach(criteria => {
+        totalCriteria++;
+        const response = checklistResponses[areaName]?.[criteria.id];
+        
+        if (!response) {
+          return { isValid: false, message: 'Please take action on each criteria' };
+        }
+        
+        completedCriteria++;
+        
+        // Check if rejected criteria have comments
+        if (response === 'Rejected') {
+          const comment = criteriaComments[areaName]?.[criteria.id];
+          if (!comment || comment.trim() === '') {
+            missingComments.push(criteria.What);
+          }
+        }
+      });
+    });
+    
+    if (missingComments.length > 0) {
+      return {
+        isValid: false,
+        message: 'Please enter comment for all Observations / Near Miss'
+      };
+    }
+    
+    return { isValid: true, message: 'Tour validation successful' };
+  };
+
+  // Function to update tour status
+  const updateTourStatus = async (status: string) => {
+    if (accounts.length === 0) {
+      console.error('No user accounts found');
+      return;
+    }
+    
+    const tokenResponse = await instance.acquireTokenSilent({
+      ...loginRequest,
+      account: accounts[0],
+    });
+    
+    const environmentUrl = 'https://bectors.crm.dynamics.com'; // Update with your environment URL
+    const tableName = 'cr3ea_prod_departmenttours';
+    const apiVersion = '9.2';
+    const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}(${plantTourId})`;
+    
+    const headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json; charset=utf-8',
+      'OData-MaxVersion': '4.0',
+      'OData-Version': '4.0',
+      'Prefer': 'return=representation',
+      'Authorization': `Bearer ${tokenResponse.accessToken}`
+    };
+    
+    const dataToSave = {
+      cr3ea_finalcomment: comments,
+      cr3ea_totalcriterias: tourStats.totalCriteria,
+      cr3ea_totalobservations: tourStats.rejectedCriteria,
+      cr3ea_totalnacriterias: 0, // Not Applicable count
+      cr3ea_totalcompliances: tourStats.approvedCriteria,
+      cr3ea_tourscore: tourStats.tourScore,
+      cr3ea_tourcompletiondate: new Date().toLocaleString(),
+      cr3ea_status: status
+    };
+    
+    const response = await fetch(apiUrl, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(dataToSave)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.statusText}`);
+    }
+    
+    return await response.json();
   };
 
   // Group criteria by area
@@ -294,6 +664,20 @@ const PlantTourSection: React.FC = () => {
       loadCriteriaMasterList();
     }
   }, [accounts]);
+
+  // Fetch existing observations when criteria list is loaded
+  useEffect(() => {
+    if (criteriaList.length > 0 && plantTourId) {
+      fetchExistingObservations();
+    }
+  }, [criteriaList, plantTourId]);
+
+  // Update tour statistics when checklist responses change
+  useEffect(() => {
+    if (criteriaList.length > 0) {
+      updateTourStatistics();
+    }
+  }, [checklistResponses, criteriaList]);
 
 
   return (
@@ -432,13 +816,15 @@ const PlantTourSection: React.FC = () => {
                               <div className="flex justify-start gap-3">
                                 <button
                                   onClick={() => handleSaveCriteria(areaName, criteria.id)}
-                                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                                  disabled={isSaving}
+                                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                  Save
+                                  {isSaving ? 'Saving...' : 'Save'}
                                 </button>
                                 <button
                                   onClick={() => handleClearCriteria(areaName, criteria.id)}
-                                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                                  disabled={isSaving}
+                                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   Clear
                                 </button>
@@ -512,13 +898,15 @@ const PlantTourSection: React.FC = () => {
                               <div className="flex justify-start gap-3">
                                 <button
                                   onClick={() => handleSaveCriteria(areaName, criteria.id)}
-                                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                                  disabled={isSaving}
+                                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                  Save
+                                  {isSaving ? 'Saving...' : 'Save'}
                                 </button>
                                 <button
                                   onClick={() => handleClearCriteria(areaName, criteria.id)}
-                                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                                  disabled={isSaving}
+                                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   Clear
                                 </button>
@@ -544,16 +932,41 @@ const PlantTourSection: React.FC = () => {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-800">Department Tour</h3>
             <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-              <span className="text-gray-600 text-sm font-bold">0%</span>
+              <span className="text-gray-600 text-sm font-bold">{tourStats.tourScore}%</span>
             </div>
           </div>
           
           <div className="flex items-center gap-6 mb-4">
             <div className="text-sm text-gray-600">
-              <span className="font-medium">Started On:</span> 10-Sep-25
+              <span className="font-medium">Started On:</span> {tourStats.startedDate || new Date().toLocaleDateString()}
             </div>
             <div className="text-sm text-gray-600">
-              <span className="font-medium">Duration(HH:MM):</span> 06:43
+              <span className="font-medium">Duration(HH:MM):</span> {tourStats.duration}
+            </div>
+            {tourStats.isCompleted && (
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">Completed On:</span> {tourStats.completionDate}
+              </div>
+            )}
+          </div>
+
+          {/* Tour Statistics */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{tourStats.totalCriteria}</div>
+              <div className="text-xs text-gray-600">Total Criteria</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{tourStats.approvedCriteria}</div>
+              <div className="text-xs text-gray-600">Approved</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-600">{tourStats.rejectedCriteria}</div>
+              <div className="text-xs text-gray-600">Rejected</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-yellow-600">{tourStats.pendingCriteria}</div>
+              <div className="text-xs text-gray-600">Pending</div>
             </div>
           </div>
 
@@ -565,23 +978,35 @@ const PlantTourSection: React.FC = () => {
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               rows={4}
               placeholder="Enter your comments here..."
+              disabled={tourStats.isCompleted}
             />
           </div>
 
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={handlePauseTour}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
-            >
-              Pause Tour
-            </button>
-            <button
-              onClick={handleFinishTour}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
-            >
-              Finish Tour
-            </button>
-          </div>
+          {!tourStats.isCompleted && (
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={handlePauseTour}
+                disabled={isSaving}
+                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? 'Pausing...' : 'Pause Tour'}
+              </button>
+              <button
+                onClick={handleFinishTour}
+                disabled={isSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? 'Finishing...' : 'Finish Tour'}
+              </button>
+            </div>
+          )}
+          
+          {tourStats.isCompleted && (
+            <div className="text-center py-4">
+              <div className="text-green-600 font-semibold text-lg">✅ Tour Completed Successfully!</div>
+              <div className="text-sm text-gray-600 mt-2">Final Score: {tourStats.tourScore}%</div>
+            </div>
+          )}
         </div>
       </div>
 
