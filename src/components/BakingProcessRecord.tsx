@@ -5,7 +5,7 @@ import type { RootState } from '../store/store';
 import DashboardLayout from './DashboardLayout';
 import { showOfflineSaveAlertForCategory } from '../utils/offlineAlerts';
 import { setFetchedCycles, selectFetchedCycles, addOfflineData } from '../store/BakingProcessSlice';
-import { startSessionHandler as bakingStart, fetchCycleData as bakingFetchCycles, collectEstimationDataCycleSave as bakingCollect, savesectionApicall as bakingSave, uploadFileToSharePoint } from '../Services/BakingProcesRecord';
+import { startSessionHandler as bakingStart, fetchCycleData as bakingFetchCycles, collectEstimationDataCycleSave as bakingCollect, savesectionApicall as bakingSave } from '../Services/BakingProcesRecord';
 import BakingProcessImageUpload from './BakingProcessImageUpload';
 
 

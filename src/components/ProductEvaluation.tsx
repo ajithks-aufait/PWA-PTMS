@@ -8,7 +8,6 @@ import { getAccessToken } from "../Services/getAccessToken";
 import { 
   getInitialCycleData, 
   saveInitialCycleData, 
-  getDefaultFormValues,
   validateInitialCycleData 
 } from "../utils/initialCycleData";
 // @ts-ignore

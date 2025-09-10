@@ -7,8 +7,7 @@ import { saveSectionData } from "../Services/saveSectionData";
 import { getAccessToken } from "../Services/getAccessToken";
 import { 
   getInitialCycleData, 
-  saveInitialCycleData, 
-  getDefaultFormValues,
+  saveInitialCycleData,
   validateInitialCycleData
 } from "../utils/initialCycleData";
 // @ts-ignore
