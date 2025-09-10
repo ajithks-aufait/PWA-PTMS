@@ -25,6 +25,7 @@ import { setFetchedCycles as setSITFetchedCycles, clearOfflineData as clearSealI
 import { clearOfflineData as clearALCOfflineData, setFetchedCycles as setALCFetchedCycles } from "../store/ALCSlice";
 import { setFetchedCycles as setNWMFetchedCycles, clearOfflineData as clearNWMOfflineData } from "../store/NetWeightMonitoringRecordSlice";
 import { clearOfflineData as clearBakingOfflineData } from "../store/BakingProcessSlice";
+import { clearOfflineData as clearOPRPAndCcpOfflineData } from "../store/OPRPAndCCPSlice";
 import { savesectionApicall as saveBakingSection, collectEstimationDataCycleSave as collectBakingForSync } from "../Services/BakingProcesRecord";
 import { saveSectionApiCall as saveSealSection } from "../Services/SealIntegrityTest.ts";
 import type { CodeVerificationCycleData } from "../Services/CodeVerificationRecord";
@@ -133,6 +134,8 @@ export default function HomePage() {
   const alcOfflineData = useSelector((state: any) => state.ALC?.offlineSavedData || []);
   // Get Net Weight Monitoring offline data from Redux
   const netWeightOfflineData = useSelector((state: any) => state.NetWeightMonitoring?.offlineSavedData || []);
+  // Get OPRP and CCP offline data from Redux
+  const oprpAndCcpOfflineData = useSelector((state: any) => state.oprpAndCcp?.offlineSavedData || []);
 
   const user = useSelector((state: any) => state.user.user);
   const userState = useSelector((state: any) => state.user);
@@ -152,7 +155,8 @@ export default function HomePage() {
       bakingOfflineData.length + 
       sealIntegrityOfflineData.length + 
       alcOfflineData.length + 
-      netWeightOfflineData.length;
+      netWeightOfflineData.length + 
+      oprpAndCcpOfflineData.length;
     
     console.log('HomePage: Calculating total offline count:', count);
     console.log('HomePage: Breakdown:', {
@@ -165,11 +169,12 @@ export default function HomePage() {
       bakingOfflineData: bakingOfflineData.length,
       sealIntegrityOfflineData: sealIntegrityOfflineData.length,
       alcOfflineData: alcOfflineData.length,
-      netWeightOfflineData: netWeightOfflineData.length
+      netWeightOfflineData: netWeightOfflineData.length,
+      oprpAndCcpOfflineData: oprpAndCcpOfflineData.length
     });
     
     return count;
-  }, [pqiOfflineCount, creamPercentagePendingSync.length, sieveAndMagnetNewPlantPendingSync.length, sieveAndMagnetOldPlantPendingSync.length, productMonitoringPendingSync.length, codeVerificationOfflineData.length, bakingOfflineData.length, sealIntegrityOfflineData.length, alcOfflineData.length, netWeightOfflineData.length]);
+  }, [pqiOfflineCount, creamPercentagePendingSync.length, sieveAndMagnetNewPlantPendingSync.length, sieveAndMagnetOldPlantPendingSync.length, productMonitoringPendingSync.length, codeVerificationOfflineData.length, bakingOfflineData.length, sealIntegrityOfflineData.length, alcOfflineData.length, netWeightOfflineData.length, oprpAndCcpOfflineData.length]);
 
   const metrics = [
     { label: "5S", icon: <Clock className="text-orange-500" />, count: 0 },
@@ -1064,37 +1069,133 @@ export default function HomePage() {
     }
 
     // Sync Net Weight Monitoring offline data
+    console.log('=== CHECKING NET WEIGHT MONITORING OFFLINE DATA ===');
+    console.log('Net Weight Monitoring offline data length:', netWeightOfflineData.length);
+    console.log('Net Weight Monitoring offline data:', netWeightOfflineData);
+    
     if (netWeightOfflineData.length > 0) {
       console.log('Syncing Net Weight Monitoring offline data...');
+      console.log('Net Weight Monitoring pending sync data:', netWeightOfflineData);
       try {
         for (const data of netWeightOfflineData) {
           try {
             const cycleNo = data.cycleNo;
             const plantTourId = planTourState.plantTourId;
             const userName = user?.Name || 'Current User';
+            const selectedShift = planTourState.selectedCycle;
 
-            // Build payload directly using the service collector (reads DOM ids if present)
-            const { collectEstimationDataCycleSave, saveSectionApiCall } = await import('../Services/NetWeightMonitoringRecord');
-            const { savedData } = await collectEstimationDataCycleSave(cycleNo, plantTourId || 'N/A', userName);
-            const response = await saveSectionApiCall(savedData);
+            console.log(`Syncing Net Weight Monitoring cycle ${cycleNo}:`, data);
+            console.log('Using data for Net Weight Monitoring sync:', {
+              cycleNo: data.cycleNo,
+              plantTourId,
+              userName,
+              selectedShift,
+              recordsCount: data.records.length
+            });
+            console.log('Net Weight Monitoring records data:', data.records);
+            console.log('First record details:', data.records[0]);
+            if (data.records[0]) {
+              console.log('First record mc1:', data.records[0].mc1);
+              console.log('First record mc2:', data.records[0].mc2);
+              console.log('First record mc3:', data.records[0].mc3);
+              console.log('First record mc4:', data.records[0].mc4);
+            }
+
+            // Import the sync function from NetWeightMonitoringRecord service
+            console.log('Importing syncOfflineDataToBackend function...');
+            const { syncOfflineDataToBackend } = await import('../Services/NetWeightMonitoringRecord');
+            console.log('syncOfflineDataToBackend function imported successfully');
+            
+            // Sync the offline data
+            console.log('Calling syncOfflineDataToBackend with data:', [data]);
+            const response = await syncOfflineDataToBackend(
+              [data], // Pass as array since the function expects OfflineSavedData[]
+              plantTourId || 'N/A',
+              userName,
+              selectedShift
+            );
+            console.log('syncOfflineDataToBackend response:', response);
 
             if (response.success) {
               console.log(`Successfully synced Net Weight Monitoring cycle ${cycleNo}`);
               totalSynced++;
             } else {
-              throw new Error(`Failed to sync Net Weight cycle ${cycleNo}: ${response.message}`);
+              throw new Error(`Failed to sync Net Weight Monitoring cycle ${cycleNo}: ${response.message}`);
             }
-          } catch (nwmErr) {
-            console.error('Error syncing Net Weight Monitoring item:', nwmErr);
+          } catch (nwmError) {
+            console.error(`Failed to sync Net Weight Monitoring cycle ${data.cycleNo}:`, nwmError);
             totalErrors++;
           }
         }
+
+        console.log('Net Weight Monitoring offline data sync completed');
       } catch (error) {
         console.error('Error syncing Net Weight Monitoring offline data:', error);
         totalErrors++;
       }
     } else {
       console.log('No Net Weight Monitoring offline data to sync');
+    }
+
+    // Sync OPRP and CCP offline data
+    console.log('=== CHECKING OPRP AND CCP OFFLINE DATA ===');
+    console.log('OPRP and CCP offline data length:', oprpAndCcpOfflineData.length);
+    console.log('OPRP and CCP offline data:', oprpAndCcpOfflineData);
+    
+    if (oprpAndCcpOfflineData.length > 0) {
+      console.log('Syncing OPRP and CCP offline data...');
+      console.log('OPRP and CCP pending sync data:', oprpAndCcpOfflineData);
+      try {
+        for (const data of oprpAndCcpOfflineData) {
+          try {
+            const cycleNo = data.cycleNo;
+            const plantTourId = planTourState.plantTourId;
+            const userName = user?.Name || 'Current User';
+            const selectedShift = planTourState.selectedCycle;
+
+            console.log(`Syncing OPRP and CCP cycle ${cycleNo}:`, data);
+            console.log('Using data for OPRP and CCP sync:', {
+              cycleNo: data.cycleNo,
+              plantTourId,
+              userName,
+              selectedShift,
+              recordsCount: data.records.length
+            });
+
+            // Import the sync function from OPRPAndCCPRecord service
+            console.log('Importing syncOfflineDataToBackend function...');
+            const { syncOfflineDataToBackend } = await import('../Services/OPRPAndCCPRecord');
+            console.log('syncOfflineDataToBackend function imported successfully');
+            
+            // Sync the offline data
+            console.log('Calling syncOfflineDataToBackend with data:', [data]);
+            const response = await syncOfflineDataToBackend(
+              [data], // Pass as array since the function expects OfflineSavedData[]
+              plantTourId || 'N/A',
+              userName,
+              selectedShift
+            );
+            console.log('syncOfflineDataToBackend response:', response);
+
+            if (response.success) {
+              console.log(`Successfully synced OPRP and CCP cycle ${cycleNo}`);
+              totalSynced++;
+            } else {
+              throw new Error(`Failed to sync OPRP and CCP cycle ${cycleNo}: ${response.message}`);
+            }
+          } catch (oprpError) {
+            console.error(`Failed to sync OPRP and CCP cycle ${data.cycleNo}:`, oprpError);
+            totalErrors++;
+          }
+        }
+
+        console.log('OPRP and CCP offline data sync completed');
+      } catch (error) {
+        console.error('Error syncing OPRP and CCP offline data:', error);
+        totalErrors++;
+      }
+    } else {
+      console.log('No OPRP and CCP offline data to sync');
     }
 
     // Show sync results and clear data only if ALL sync operations were successful
@@ -1130,6 +1231,8 @@ export default function HomePage() {
       dispatch(clearALCOfflineData());
       // Clear Net Weight Monitoring Redux state
       dispatch(clearNWMOfflineData());
+      // Clear OPRP and CCP Redux state
+      dispatch(clearOPRPAndCcpOfflineData());
 
       setShowOfflineError(false);
 
@@ -1181,6 +1284,8 @@ export default function HomePage() {
       dispatch(clearSealIntegrityOfflineData());
       // Clear ALC Redux state
       dispatch(clearALCOfflineData());
+      // Clear OPRP and CCP Redux state
+      dispatch(clearOPRPAndCcpOfflineData());
 
       setShowOfflineError(false);
 

@@ -24,6 +24,7 @@ interface CreamPercentagePayload {
   cr3ea_stdcreampercent: string;
   cr3ea_machineno: string;
   cr3ea_lineno: string;
+  cr3ea_executivename:string;
 }
 
 interface FormData {
@@ -31,6 +32,7 @@ interface FormData {
   machineNo: string;
   line: string;
   standardCreamPercentage: string;
+  executiveName: string;
 }
 
 interface WeightData {
@@ -128,7 +130,8 @@ export const saveCreamPercentageData = async (params: SaveCreamPercentageParams)
       cr3ea_productname: formData.product,
       cr3ea_stdcreampercent: formData.standardCreamPercentage,
       cr3ea_machineno: formData.machineNo,
-      cr3ea_lineno: formData.line
+      cr3ea_lineno: formData.line,
+      cr3ea_executivename: formData.executiveName,
     };
 
     console.log('Full payload:', payload);

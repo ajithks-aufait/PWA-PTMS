@@ -6,6 +6,7 @@ import DashboardLayout from './DashboardLayout';
 import { showOfflineSaveAlertForCategory } from '../utils/offlineAlerts';
 import { setFetchedCycles, selectFetchedCycles, addOfflineData } from '../store/OPRPAndCCPSlice';
 import type { OPRPAndCCPCycleData } from '../Services/OPRPAndCCPRecord';
+import { startSessionHandler } from '../Services/OPRPAndCCPRecord';
 
 
 
@@ -80,19 +81,77 @@ const OPRPAndCCPRecord: React.FC = () => {
         setChecklistItems(prev => prev.map(item => item.id === itemId ? { ...item, remarks } : item));
     };
 
+    // Function to reset checklist items for new cycle
+    const resetChecklistItems = () => {
+        setChecklistItems([
+            { id: 'fe-centre-1', group: 'FE', label: 'Centre 1st Pass', status: null, remarks: '' },
+            { id: 'fe-centre-2', group: 'FE', label: 'Centre 2nd Pass', status: null, remarks: '' },
+            { id: 'nfe-centre-1', group: 'NFE', label: 'Centre 1st Pass', status: null, remarks: '' },
+            { id: 'nfe-centre-2', group: 'NFE', label: 'Centre 2nd Pass', status: null, remarks: '' },
+            { id: 'ss-centre-1', group: 'SS', label: 'Centre 1st Pass', status: null, remarks: '' },
+            { id: 'ss-centre-2', group: 'SS', label: 'Centre 2nd Pass', status: null, remarks: '' },
+            { id: 'md-sensitivity', group: 'M.D. Sensitivity & Rejection in Time', label: 'M.D. Sensitivity & Rejection in Time', status: null, remarks: '' },
+        ]);
+    };
+
     const handleStartSession = async () => {
         console.log('Starting code verification session with product:', selectedProduct, 'executive:', startFormData.executiveName);
 
+        // Validate required fields
+        if (!selectedProduct) {
+            alert('Please select a product before starting the session.');
+            return;
+        }
+
+        if (!startFormData.executiveName.trim()) {
+            alert('Please enter the executive name before starting the session.');
+            return;
+        }
+
+        if (!startFormData.batchNo.trim()) {
+            alert('Please enter the batch number before starting the session.');
+            return;
+        }
+
+        if (!startFormData.locationFrequency.trim()) {
+            alert('Please enter the location/frequency before starting the session.');
+            return;
+        }
+
         try {
+            console.log('=== STARTING SESSION ===');
+            console.log('Current cycle:', currentCycle, 'Type:', typeof currentCycle);
+            console.log('Selected product:', selectedProduct, 'Type:', typeof selectedProduct);
+            console.log('Form data:', startFormData);
+            console.log('Plant Tour ID:', plantTourId);
+            console.log('User:', user?.Name);
+            
+            // Validate currentCycle is a valid number
+            if (typeof currentCycle !== 'number' || currentCycle <= 0) {
+                throw new Error(`Invalid currentCycle value: ${currentCycle}`);
+            }
+
             // Ensure shift is available for API save
             try {
                 sessionStorage.setItem('shiftValue', selectedCycle || 'Shift 1');
+                console.log('Shift value set in sessionStorage:', selectedCycle || 'Shift 1');
             } catch (e) {
                 console.warn('Unable to set shiftValue in sessionStorage', e);
             }
+
             // Use the service to handle start session
-            const { startSessionHandler } = await import('../Services/OPRPAndCCPRecord');
-            await startSessionHandler(
+            console.log('Using startSessionHandler...');
+
+            console.log('Calling startSessionHandler with parameters:', {
+                currentCycle,
+                selectedProduct,
+                executiveName: startFormData.executiveName,
+                batchNo: startFormData.batchNo,
+                locationFrequency: startFormData.locationFrequency,
+                category: startFormData.category
+            });
+
+            const result = await startSessionHandler(
                 currentCycle,
                 selectedProduct,
                 startFormData.executiveName,
@@ -101,10 +160,19 @@ const OPRPAndCCPRecord: React.FC = () => {
                 startFormData.category
             );
 
+            console.log('startSessionHandler completed successfully:', result);
+
+            // Reset checklist items for new cycle
+            resetChecklistItems();
+            
             setIsSessionStarted(true);
             setIsExpanded(true);
+            console.log('Session started successfully');
         } catch (error) {
-            console.error('Error starting session:', error);
+            console.error('=== ERROR STARTING SESSION ===');
+            console.error('Error details:', error);
+            console.error('Error message:', error instanceof Error ? error.message : 'Unknown error');
+            console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
             alert('Error starting session. Please try again.');
         }
     };
@@ -221,6 +289,9 @@ const OPRPAndCCPRecord: React.FC = () => {
                 return nextCycle;
             });
 
+            // Reset checklist items for the new cycle
+            resetChecklistItems();
+
         } catch (error) {
             console.error('Error saving data:', error);
             alert('Error saving data. Please try again.');
@@ -253,19 +324,27 @@ const OPRPAndCCPRecord: React.FC = () => {
         console.log('Is Offline:', isOfflineStarted);
         console.log('Fetched cycles from Redux:', fetchedCycles.length);
 
-        // Only fetch cycle data if we don't already have data in Redux
-        if (plantTourId && fetchedCycles.length === 0) {
-            console.log('Plant Tour ID found but no cycles in Redux, calling fetchCycleDataFromAPI...');
+        // Only fetch cycle data if we don't already have data in Redux AND we're not in offline mode
+        if (plantTourId && fetchedCycles.length === 0 && !isOfflineStarted) {
+            console.log('Plant Tour ID found but no cycles in Redux and not in offline mode, calling fetchCycleDataFromAPI...');
             fetchCycleDataFromAPI();
         } else if (plantTourId && fetchedCycles.length > 0) {
             console.log('Plant Tour ID found and cycles already exist in Redux, skipping fetch');
+        } else if (isOfflineStarted) {
+            console.log('In offline mode, skipping API fetch');
         } else {
             console.log('No Plant Tour ID found, cannot fetch cycle data');
         }
-    }, [plantTourId, fetchedCycles.length]); // Added fetchedCycles.length dependency
+    }, [plantTourId, fetchedCycles.length, isOfflineStarted]); // Added isOfflineStarted dependency
 
     // Update current cycle based on fetched cycles from Redux
     useEffect(() => {
+        console.log('=== CYCLE MANAGEMENT USEEFFECT ===');
+        console.log('fetchedCycles.length:', fetchedCycles.length);
+        console.log('fetchedCycles:', fetchedCycles);
+        console.log('reduxCurrentCycle:', reduxCurrentCycle);
+        console.log('Current local currentCycle:', currentCycle);
+        
         if (fetchedCycles.length > 0) {
             // Find the highest cycle number from fetched cycles
             const maxCycleNumber = Math.max(...fetchedCycles.map(cycle => parseInt(cycle.cycleNum)));
@@ -284,10 +363,17 @@ const OPRPAndCCPRecord: React.FC = () => {
 
     // Update local cycle when Redux cycle changes (only if no fetched cycles from Redux)
     useEffect(() => {
-        if (fetchedCycles.length === 0) {
-            setCurrentCycle(1);
+        if (fetchedCycles.length === 0 && reduxCurrentCycle > 0) {
+            console.log('No fetched cycles but Redux current cycle is', reduxCurrentCycle, 'setting local cycle to', reduxCurrentCycle);
+            setCurrentCycle(reduxCurrentCycle);
         }
     }, [reduxCurrentCycle, fetchedCycles.length]);
+
+    // Reset checklist items whenever currentCycle changes
+    useEffect(() => {
+        console.log('Current cycle changed to:', currentCycle, '- resetting checklist items');
+        resetChecklistItems();
+    }, [currentCycle]);
 
     // Function to fetch cycle data from API
     const fetchCycleDataFromAPI = async () => {
@@ -341,8 +427,8 @@ const OPRPAndCCPRecord: React.FC = () => {
                     {/* Back Button */}
                     <button
                         onClick={() => {
-                            console.log('Back button clicked, navigating to previous page');
-                            navigate(-1);
+                            console.log('Back button clicked, navigating to home page');
+                            navigate('/');
                         }}
                         className="flex items-center text-blue-600 hover:text-blue-800 transition-colors flex-shrink-0"
                     >
@@ -369,12 +455,6 @@ const OPRPAndCCPRecord: React.FC = () => {
                                 <span className="text-xs sm:text-sm font-medium text-gray-700">{selectedCycle || 'Shift 1'}</span>
                             </div>
                             <span className="text-xs sm:text-sm text-gray-600">{formattedDate}</span>
-                            {isOfflineStarted && (
-                                <div className="bg-orange-100 border border-orange-300 rounded-full px-2 sm:px-3 py-1 flex items-center gap-1 sm:gap-2">
-                                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                                    <span className="text-xs sm:text-sm font-medium text-orange-700">Offline Mode</span>
-                                </div>
-                            )}
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -763,30 +843,45 @@ const OPRPAndCCPRecord: React.FC = () => {
                             ))}
                         </div>
 
-                        {/* M.D. Sensitivity & Rejection in Time */}
-                        <div className="border rounded-lg p-3 sm:p-4">
-                            {checklistItems.filter(i => i.id === 'md-sensitivity').map(item => (
-                                <div key={item.id} className="flex items-center justify-between">
-                                    <span className="text-sm sm:text-base font-medium text-gray-800">{item.group}</span>
-                                    <div className="flex items-center gap-3 sm:gap-4">
-                                        <button
-                                            type="button"
-                                            onClick={() => handleStatusChange(item.id, 'not-okay')}
-                                            className={`px-3 py-1 rounded border ${item.status === 'not-okay' ? 'bg-red-100 border-red-600 text-red-600' : 'border-red-400 text-red-500'}`}
-                                        >
-                                            Not Okay
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleStatusChange(item.id, 'okay')}
-                                            className={`px-3 py-1 rounded border ${item.status === 'okay' ? 'bg-green-100 border-green-600 text-green-600' : 'border-green-400 text-green-500'}`}
-                                        >
-                                            Okay
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                         {/* M.D. Sensitivity & Rejection in Time */}
+                         <div className="border rounded-lg p-3 sm:p-4">
+                             <div className="font-semibold text-gray-800 mb-2">M.D. Sensitivity & Rejection in Time</div>
+                             {checklistItems.filter(i => i.id === 'md-sensitivity').map(item => (
+                                 <div key={item.id} className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-white mb-3 last:mb-0">
+                                     <div className="flex items-center justify-between">
+                                         <span className="text-sm sm:text-base font-medium text-gray-800">{item.label}</span>
+                                         <div className="flex items-center gap-3 sm:gap-4">
+                                             <button
+                                                 type="button"
+                                                 onClick={() => handleStatusChange(item.id, 'not-okay')}
+                                                 className={`px-3 py-1 rounded border ${item.status === 'not-okay' ? 'bg-red-100 border-red-600 text-red-600' : 'border-red-400 text-red-500'}`}
+                                             >
+                                                 Not Okay
+                                             </button>
+                                             <button
+                                                 type="button"
+                                                 onClick={() => handleStatusChange(item.id, 'okay')}
+                                                 className={`px-3 py-1 rounded border ${item.status === 'okay' ? 'bg-green-100 border-green-600 text-green-600' : 'border-green-400 text-green-500'}`}
+                                             >
+                                                 Okay
+                                             </button>
+                                         </div>
+                                     </div>
+                                     {item.status === 'not-okay' && (
+                                         <div className="mt-4 pt-4 border-t border-gray-200">
+                                             <label className="block text-sm font-medium text-gray-700 mb-2">Major Defects and Remarks</label>
+                                             <textarea
+                                                 value={item.remarks}
+                                                 onChange={(e) => handleRemarksChange(item.id, e.target.value)}
+                                                 placeholder="Type Here..."
+                                                 className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                                 rows={4}
+                                             />
+                                         </div>
+                                     )}
+                                 </div>
+                             ))}
+                         </div>
 
                         {/* Action Buttons */}
                         <div className="flex justify-end space-x-4">

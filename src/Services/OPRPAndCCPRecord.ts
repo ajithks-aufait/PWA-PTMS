@@ -41,21 +41,65 @@ export async function startSessionHandler(
   locationFrequency: string,
   category: string
 ) {
-  // Store both generic keys and CRM-specific keys for flexibility
-  const startData = {
-    product,
-    executiveName,
-    batchNo,
-    locationFrequency,
-    category,
-    cr3ea_productname: product,
-    cr3ea_executivename: executiveName,
-    cr3ea_batchno: batchNo,
-    cr3ea_location: locationFrequency,
-    cr3ea_category: category
-  };
-  localStorage.setItem(`oprp-ccp-cycle-${cycleNum}-start-data`, JSON.stringify(startData));
-  return startData;
+  try {
+    console.log('=== START SESSION HANDLER ===');
+    console.log('Parameters:', { cycleNum, product, executiveName, batchNo, locationFrequency, category });
+
+    // Validate required parameters
+    if (!cycleNum || cycleNum <= 0) {
+      throw new Error('Invalid cycle number');
+    }
+
+    if (!product || product.trim() === '') {
+      throw new Error('Product is required');
+    }
+
+    if (!executiveName || executiveName.trim() === '') {
+      throw new Error('Executive name is required');
+    }
+
+    if (!batchNo || batchNo.trim() === '') {
+      throw new Error('Batch number is required');
+    }
+
+    if (!locationFrequency || locationFrequency.trim() === '') {
+      throw new Error('Location/frequency is required');
+    }
+
+    // Store both generic keys and CRM-specific keys for flexibility
+    const startData = {
+      product: product.trim(),
+      executiveName: executiveName.trim(),
+      batchNo: batchNo.trim(),
+      locationFrequency: locationFrequency.trim(),
+      category: category || 'OPRP Old Plant',
+      cr3ea_productname: product.trim(),
+      cr3ea_executivename: executiveName.trim(),
+      cr3ea_batchno: batchNo.trim(),
+      cr3ea_location: locationFrequency.trim(),
+      cr3ea_category: category || 'OPRP Old Plant'
+    };
+
+    console.log('Start data to store:', startData);
+
+    // Store in localStorage
+    const storageKey = `oprp-ccp-cycle-${cycleNum}-start-data`;
+    
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(startData));
+      console.log('Data stored successfully in localStorage with key:', storageKey);
+    } catch (storageError) {
+      console.error('Error storing data in localStorage:', storageError);
+      throw new Error('Failed to store session data in localStorage');
+    }
+    
+    console.log('=== START SESSION HANDLER COMPLETED ===');
+    
+    return startData;
+  } catch (error) {
+    console.error('Error in startSessionHandler:', error);
+    throw error;
+  }
 }
 
 // Fetch existing cycles for OPRP/CCP
@@ -143,6 +187,12 @@ export async function collectEstimationDataCycleSave(
   const location = startData.cr3ea_location || startData.locationFrequency || null;
   const category = startData.cr3ea_category || startData.category || null;
 
+  console.log('=== EXECUTIVE NAME DEBUG ===');
+  console.log('UserName parameter:', UserName);
+  console.log('executiveName from localStorage:', executiveName);
+  console.log('startData from localStorage:', startData);
+  console.log('Final executive name will be:', UserName || executiveName || null);
+
   // Defaults
   let fecentrepass1 = "OK", fecentrepass2 = "OK", nfecentrepass1 = "OK", nfecentrepass2 = "OK",
       sscentrepass1 = "OK", sscentrepass2 = "OK", md = "OK";
@@ -213,7 +263,7 @@ export async function collectEstimationDataCycleSave(
     cr3ea_sscentrepass2: sscentrepass2,
     cr3ea_mdsensitivity: md,
     cr3ea_productname: product,
-    cr3ea_executivename: executiveName
+    cr3ea_executivename: UserName || executiveName || null
   };
 
   savedData.push(data);
@@ -305,6 +355,183 @@ export interface OPRPAndCCPCycleData {
   sscentrepass1?: string;
   sscentrepass2?: string;
   md?: string;
+  // Offline data fields (for compatibility with Redux offline data structure)
+  sku?: string | null;
+  proof?: string | null;
+  remarks?: string | null;
+}
+
+// Interface for offline saved data (matches Redux structure)
+interface OfflineSavedData {
+  cycleNo: number;
+  records: OPRPAndCCPCycleData[];
+  timestamp: number;
+}
+
+// Sync offline data to backend
+export async function syncOfflineDataToBackend(
+  offlineData: OfflineSavedData[],
+  QualityTourId: string,
+  UserName: string,
+  selectedShift?: string | null
+): Promise<SaveResponse> {
+  try {
+    console.log('=== SYNCING OFFLINE DATA TO BACKEND ===');
+    console.log('Offline data to sync:', offlineData);
+    console.log('Offline data length:', offlineData.length);
+    console.log('Quality Tour ID:', QualityTourId);
+    console.log('User Name:', UserName);
+    console.log('Selected Shift:', selectedShift);
+
+    if (!offlineData || offlineData.length === 0) {
+      console.log('No offline data to sync - returning early');
+      return {
+        success: true,
+        message: 'No offline data to sync',
+        data: []
+      };
+    }
+
+    const allSavedData: OPRPAndCCPData[] = [];
+    let successCount = 0;
+    let errorCount = 0;
+    const errors: string[] = [];
+
+    // Process each offline data item
+    for (const offlineItem of offlineData) {
+      console.log(`Processing offline item for cycle ${offlineItem.cycleNo}`);
+      
+      // Process each record in the offline item
+      for (const record of offlineItem.records) {
+        try {
+          // Convert offline record to API format
+          const apiData = await convertOfflineRecordToApiFormat(
+            record,
+            offlineItem.cycleNo,
+            QualityTourId,
+            UserName,
+            selectedShift
+          );
+          
+          allSavedData.push(apiData);
+          successCount++;
+        } catch (error) {
+          console.error(`Error converting record for cycle ${offlineItem.cycleNo}:`, error);
+          errorCount++;
+          errors.push(`Cycle ${offlineItem.cycleNo}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+    }
+
+    // Save all converted data to backend
+    if (allSavedData.length > 0) {
+      console.log(`Saving ${allSavedData.length} records to backend...`);
+      const saveResult = await saveSectionApiCall(allSavedData);
+      
+      if (saveResult.success) {
+        console.log('All offline data synced successfully');
+        return {
+          success: true,
+          message: `Successfully synced ${successCount} records. ${errorCount > 0 ? `${errorCount} errors occurred.` : ''}`,
+          data: saveResult.data
+        };
+      } else {
+        throw new Error(saveResult.message);
+      }
+    } else {
+      return {
+        success: false,
+        message: 'No valid data to sync',
+        data: []
+      };
+    }
+
+  } catch (error) {
+    console.error('Error syncing offline data:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to sync offline data',
+      data: []
+    };
+  }
+}
+
+// Convert offline record to API format
+async function convertOfflineRecordToApiFormat(
+  record: OPRPAndCCPCycleData,
+  cycleNo: number,
+  QualityTourId: string,
+  UserName: string,
+  selectedShift?: string | null
+): Promise<OPRPAndCCPData> {
+  console.log('=== CONVERTING OFFLINE RECORD TO API FORMAT ===');
+  console.log('Input record:', record);
+  console.log('Cycle number:', cycleNo);
+  console.log('Quality Tour ID:', QualityTourId);
+  console.log('User Name:', UserName);
+  console.log('Selected Shift:', selectedShift);
+
+  // Parse statuses from the stored proof/remarks strings
+  const parseList = (s?: string | null) => {
+    if (!s) return [] as string[];
+    const cleaned = s.replace(/^Okays:\s*/i, '').replace(/^Defects:\s*/i, '');
+    return cleaned.split(';').map(x => x.trim()).filter(Boolean);
+  };
+
+  console.log('Record proof field:', record.proof);
+  console.log('Record remarks field:', record.remarks);
+  
+  const okays = new Set(parseList(record.proof));
+  const defectsArr = parseList(record.remarks);
+  const defectsMap = new Map<string, string>();
+  
+  console.log('Parsed okays:', Array.from(okays));
+  console.log('Parsed defects array:', defectsArr);
+  
+  defectsArr.forEach((d: string) => {
+    const [k, v] = d.split(':').map((x: string) => x?.trim());
+    if (k) defectsMap.set(k, v || 'No remarks');
+  });
+  
+  console.log('Defects map:', Object.fromEntries(defectsMap));
+
+  const statusFor = (group: string, label: string) => {
+    const key = `${group} - ${label}`;
+    if (okays.has(key)) return 'OK';
+    if (defectsMap.has(key)) return `Not Okay (${defectsMap.get(key)})`;
+    return 'OK';
+  };
+
+  // Get start data from localStorage if available
+  const startDataStr = localStorage.getItem(`oprp-ccp-cycle-${cycleNo}-start-data`);
+  const startData = startDataStr ? JSON.parse(startDataStr) : {};
+
+  const apiData: OPRPAndCCPData = {
+    cr3ea_qualitytourid: QualityTourId,
+    cr3ea_title: 'OPRP_' + moment().format('MM-DD-YYYY'),
+    cr3ea_cycle: `Cycle-${cycleNo}`,
+    cr3ea_shift: selectedShift || sessionStorage.getItem("shiftValue") || 'shift 1',
+    cr3ea_tourstartdate: moment().format('MM-DD-YYYY'),
+    cr3ea_observedby: UserName || null,
+    cr3ea_batchno: startData.cr3ea_batchno || startData.batchNo || record.batchNo || null,
+    cr3ea_category: startData.cr3ea_category || startData.category || record.category || null,
+    cr3ea_location: startData.cr3ea_location || startData.locationFrequency || record.location || null,
+    cr3ea_fecentrepass1: statusFor('FE', 'Centre 1st Pass'),
+    cr3ea_fecentrepass2: statusFor('FE', 'Centre 2nd Pass'),
+    cr3ea_nfecentrepass1: statusFor('NFE', 'Centre 1st Pass'),
+    cr3ea_nfecentrepass2: statusFor('NFE', 'Centre 2nd Pass'),
+    cr3ea_sscentrepass1: statusFor('SS', 'Centre 1st Pass'),
+    cr3ea_sscentrepass2: statusFor('SS', 'Centre 2nd Pass'),
+    cr3ea_mdsensitivity: statusFor('M.D. Sensitivity & Rejection in Time', 'M.D. Sensitivity & Rejection in Time'),
+    cr3ea_productname: startData.cr3ea_productname || startData.product || record.product,
+    cr3ea_executivename: UserName || startData.cr3ea_executivename || startData.executiveName || record.executiveName || null
+  };
+
+  console.log('=== FINAL API DATA ===');
+  console.log('Converted API data:', apiData);
+  console.log('API data keys:', Object.keys(apiData));
+  console.log('=== END CONVERSION ===');
+  return apiData;
 }
 
 

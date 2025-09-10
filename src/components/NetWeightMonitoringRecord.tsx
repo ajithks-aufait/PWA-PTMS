@@ -108,6 +108,26 @@ const NetWeightMonitoringRecord: React.FC = () => {
             if (isOfflineStarted) {
                 console.log('Processing in offline mode...');
                 
+                // Build the proper data structure for offline sync
+                const buildArr = (m: number) => [1,2,3,4,5]
+                  .map(i => (inspectionValues[`mc${m}_ins${i}`] ?? '').toString().trim());
+                
+                console.log('=== BUILDING OFFLINE DATA ===');
+                console.log('inspectionValues:', inspectionValues);
+                console.log('inspectionValues keys:', Object.keys(inspectionValues));
+                console.log('MC1 keys being checked:', [1,2,3,4,5].map(i => `mc1_ins${i}`));
+                console.log('MC2 keys being checked:', [1,2,3,4,5].map(i => `mc2_ins${i}`));
+                console.log('MC3 keys being checked:', [1,2,3,4,5].map(i => `mc3_ins${i}`));
+                console.log('MC4 keys being checked:', [1,2,3,4,5].map(i => `mc4_ins${i}`));
+                console.log('MC1 raw values:', [1,2,3,4,5].map(i => inspectionValues[`mc1_ins${i}`]));
+                console.log('MC2 raw values:', [1,2,3,4,5].map(i => inspectionValues[`mc2_ins${i}`]));
+                console.log('MC3 raw values:', [1,2,3,4,5].map(i => inspectionValues[`mc3_ins${i}`]));
+                console.log('MC4 raw values:', [1,2,3,4,5].map(i => inspectionValues[`mc4_ins${i}`]));
+                console.log('MC1 buildArr result:', buildArr(1));
+                console.log('MC2 buildArr result:', buildArr(2));
+                console.log('MC3 buildArr result:', buildArr(3));
+                console.log('MC4 buildArr result:', buildArr(4));
+                
                 // Store data for offline sync in slice
                 const offlineData = {
                     cycleNo: currentCycle,
@@ -115,9 +135,13 @@ const NetWeightMonitoringRecord: React.FC = () => {
                         cycleNum: currentCycle.toString(),
                         product: selectedProduct,
                         executiveName: startFormData.executiveName || 'N/A',
-                        sku: null as any,
-                        proof: null as any,
-                        remarks: JSON.stringify({ header: { batchNo: startFormData.batchNo, packaged: startFormData.packaged, expiry: startFormData.expiry }, inspections: inspectionValues })
+                        batchNo: startFormData.batchNo || 'N/A',
+                        packageDate: startFormData.packaged || 'N/A',
+                        expiryDate: startFormData.expiry || 'N/A',
+                        mc1: buildArr(1),
+                        mc2: buildArr(2),
+                        mc3: buildArr(3),
+                        mc4: buildArr(4)
                     }],
                     timestamp: Date.now()
                 };
@@ -132,9 +156,6 @@ const NetWeightMonitoringRecord: React.FC = () => {
                 }, 100);
                  
                  // Add the completed cycle to Redux so it shows in completed section
-                const buildArr = (m: number) => [1,2,3,4,5]
-                  .map(i => (inspectionValues[`mc${m}_ins${i}`] ?? '').toString().trim())
-                  .filter(v => v !== '');
                 const completedCycleData: NetWeightMonitoringCycleData = {
                     cycleNum: currentCycle.toString(),
                     product: selectedProduct,

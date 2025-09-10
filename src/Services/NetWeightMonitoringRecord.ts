@@ -293,3 +293,197 @@ export interface NetWeightMonitoringCycleData {
   mc3: string[];
   mc4: string[];
 }
+
+// Interface for offline saved data structure
+export interface OfflineSavedData {
+  cycleNo: number;
+  records: NetWeightMonitoringCycleData[];
+  timestamp: number;
+}
+
+// Function to sync offline data to backend
+export async function syncOfflineDataToBackend(
+  offlineData: OfflineSavedData[],
+  QualityTourId: string,
+  UserName: string,
+  selectedShift: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    console.log('=== SYNCING NET WEIGHT MONITORING OFFLINE DATA TO BACKEND ===');
+    console.log('Offline data to sync:', offlineData);
+    console.log('Offline data length:', offlineData.length);
+    console.log('Quality Tour ID:', QualityTourId);
+    console.log('User Name:', UserName);
+    console.log('Selected Shift:', selectedShift);
+
+    if (!offlineData || offlineData.length === 0) {
+      console.log('No offline data to sync');
+      return { success: true, message: 'No offline data to sync' };
+    }
+
+    let totalSynced = 0;
+    let totalErrors = 0;
+
+    for (const data of offlineData) {
+      try {
+        console.log(`Processing offline data for cycle ${data.cycleNo}:`, data);
+        
+        for (const record of data.records) {
+          const apiData = await convertOfflineRecordToApiFormat(
+            record,
+            data.cycleNo,
+            QualityTourId,
+            UserName,
+            selectedShift
+          );
+          
+          console.log('Converted API data:', apiData);
+          
+          const response = await saveSectionApiCall([apiData]);
+          
+          if (response.success) {
+            console.log(`Successfully synced record for cycle ${data.cycleNo}`);
+            totalSynced++;
+          } else {
+            throw new Error(`Failed to sync record: ${response.message}`);
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to sync cycle ${data.cycleNo}:`, error);
+        totalErrors++;
+      }
+    }
+
+    const message = `Synced ${totalSynced} records successfully${totalErrors > 0 ? `, ${totalErrors} errors` : ''}`;
+    console.log('Sync completed:', message);
+    
+    return {
+      success: totalErrors === 0,
+      message
+    };
+  } catch (error) {
+    console.error('Error syncing offline data:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to sync offline data'
+    };
+  }
+}
+
+// Function to convert offline record to API format
+export async function convertOfflineRecordToApiFormat(
+  record: NetWeightMonitoringCycleData,
+  cycleNo: number,
+  QualityTourId: string,
+  UserName: string,
+  selectedShift: string
+): Promise<NetWeightMonitoringData> {
+  console.log('=== CONVERTING OFFLINE RECORD TO API FORMAT ===');
+  console.log('Input record:', record);
+  console.log('Input record type:', typeof record);
+  console.log('Input record keys:', Object.keys(record));
+  console.log('Cycle number:', cycleNo);
+  console.log('Quality Tour ID:', QualityTourId);
+  console.log('User Name:', UserName);
+  console.log('Selected Shift:', selectedShift);
+
+  // Parse inspection values from arrays
+  const mc1Values = record.mc1 || [];
+  const mc2Values = record.mc2 || [];
+  const mc3Values = record.mc3 || [];
+  const mc4Values = record.mc4 || [];
+
+  console.log('MC1 values:', mc1Values);
+  console.log('MC1 values type:', typeof mc1Values);
+  console.log('MC1 values length:', mc1Values.length);
+  console.log('MC2 values:', mc2Values);
+  console.log('MC2 values type:', typeof mc2Values);
+  console.log('MC2 values length:', mc2Values.length);
+  console.log('MC3 values:', mc3Values);
+  console.log('MC3 values type:', typeof mc3Values);
+  console.log('MC3 values length:', mc3Values.length);
+  console.log('MC4 values:', mc4Values);
+  console.log('MC4 values type:', typeof mc4Values);
+  console.log('MC4 values length:', mc4Values.length);
+
+  // Helper function to calculate average
+  const calculateAverage = (values: string[]): string | null => {
+    const numbers = values
+      .map(v => parseFloat(v))
+      .filter(n => !isNaN(n));
+    
+    if (numbers.length === 0) return null;
+    
+    const sum = numbers.reduce((acc, curr) => acc + curr, 0);
+    return (sum / numbers.length).toFixed(2);
+  };
+
+  const apiData: NetWeightMonitoringData = {
+    cr3ea_qualitytourid: QualityTourId,
+    cr3ea_title: 'NetWeights_' + moment().format('MM-DD-YYYY'),
+    cr3ea_cycle: `Cycle-${cycleNo}`,
+    cr3ea_shift: selectedShift || "shift 1",
+    cr3ea_tourstartdate: moment().format('MM-DD-YYYY'),
+    cr3ea_observedby: UserName || null,
+    cr3ea_productname: record.product || "N/A",
+    cr3ea_executivename: UserName || record.executiveName || null,
+    cr3ea_batchno: record.batchNo || null,
+    cr3ea_expirydate: record.expiryDate || null,
+    cr3ea_packeddate: record.packageDate || null,
+    
+    // MC1 inspection values
+    cr3ea_mc1inspection1: (mc1Values[0] && mc1Values[0].trim() !== '') ? mc1Values[0] : null,
+    cr3ea_mc1inspection2: (mc1Values[1] && mc1Values[1].trim() !== '') ? mc1Values[1] : null,
+    cr3ea_mc1inspection3: (mc1Values[2] && mc1Values[2].trim() !== '') ? mc1Values[2] : null,
+    cr3ea_mc1inspection4: (mc1Values[3] && mc1Values[3].trim() !== '') ? mc1Values[3] : null,
+    cr3ea_mc1inspection5: (mc1Values[4] && mc1Values[4].trim() !== '') ? mc1Values[4] : null,
+    cr3ea_mc1avg: calculateAverage(mc1Values),
+    
+    // MC2 inspection values
+    cr3ea_mc2inspection1: (mc2Values[0] && mc2Values[0].trim() !== '') ? mc2Values[0] : null,
+    cr3ea_mc2inspection2: (mc2Values[1] && mc2Values[1].trim() !== '') ? mc2Values[1] : null,
+    cr3ea_mc2inspection3: (mc2Values[2] && mc2Values[2].trim() !== '') ? mc2Values[2] : null,
+    cr3ea_mc2inspection4: (mc2Values[3] && mc2Values[3].trim() !== '') ? mc2Values[3] : null,
+    cr3ea_mc2inspection5: (mc2Values[4] && mc2Values[4].trim() !== '') ? mc2Values[4] : null,
+    cr3ea_mc2avg: calculateAverage(mc2Values),
+    
+    // MC3 inspection values
+    cr3ea_mc3inspection1: (mc3Values[0] && mc3Values[0].trim() !== '') ? mc3Values[0] : null,
+    cr3ea_mc3inspection2: (mc3Values[1] && mc3Values[1].trim() !== '') ? mc3Values[1] : null,
+    cr3ea_mc3inspection3: (mc3Values[2] && mc3Values[2].trim() !== '') ? mc3Values[2] : null,
+    cr3ea_mc3inspection4: (mc3Values[3] && mc3Values[3].trim() !== '') ? mc3Values[3] : null,
+    cr3ea_mc3inspection5: (mc3Values[4] && mc3Values[4].trim() !== '') ? mc3Values[4] : null,
+    cr3ea_mc3avg: calculateAverage(mc3Values),
+    
+    // MC4 inspection values
+    cr3ea_mc4inspection1: (mc4Values[0] && mc4Values[0].trim() !== '') ? mc4Values[0] : null,
+    cr3ea_mc4inspection2: (mc4Values[1] && mc4Values[1].trim() !== '') ? mc4Values[1] : null,
+    cr3ea_mc4inspection3: (mc4Values[2] && mc4Values[2].trim() !== '') ? mc4Values[2] : null,
+    cr3ea_mc4inspection4: (mc4Values[3] && mc4Values[3].trim() !== '') ? mc4Values[3] : null,
+    cr3ea_mc4inspection5: (mc4Values[4] && mc4Values[4].trim() !== '') ? mc4Values[4] : null,
+    cr3ea_mc4avg: calculateAverage(mc4Values)
+  };
+
+  console.log('=== FINAL API DATA ===');
+  console.log('Converted API data:', apiData);
+  console.log('API data keys:', Object.keys(apiData));
+  console.log('MC1 inspection values:', {
+    cr3ea_mc1inspection1: apiData.cr3ea_mc1inspection1,
+    cr3ea_mc1inspection2: apiData.cr3ea_mc1inspection2,
+    cr3ea_mc1inspection3: apiData.cr3ea_mc1inspection3,
+    cr3ea_mc1inspection4: apiData.cr3ea_mc1inspection4,
+    cr3ea_mc1inspection5: apiData.cr3ea_mc1inspection5,
+    cr3ea_mc1avg: apiData.cr3ea_mc1avg
+  });
+  console.log('MC2 inspection values:', {
+    cr3ea_mc2inspection1: apiData.cr3ea_mc2inspection1,
+    cr3ea_mc2inspection2: apiData.cr3ea_mc2inspection2,
+    cr3ea_mc2inspection3: apiData.cr3ea_mc2inspection3,
+    cr3ea_mc2inspection4: apiData.cr3ea_mc2inspection4,
+    cr3ea_mc2inspection5: apiData.cr3ea_mc2inspection5,
+    cr3ea_mc2avg: apiData.cr3ea_mc2avg
+  });
+  console.log('=== END CONVERSION ===');
+
+  return apiData;
+}
