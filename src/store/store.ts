@@ -102,7 +102,7 @@ const oprpAndCcpPersistConfig = {
 const bakingProcessPersistConfig = {
   key: "bakingProcess",
   storage,
-  whitelist: ["fetchedCycles", "offlineSavedData", "lastFetchTimestamp"]
+  whitelist: ["fetchedCycles", "offlineSavedData", "offlineFiles", "lastFetchTimestamp"]
 };
 
 const rootReducer = combineReducers({

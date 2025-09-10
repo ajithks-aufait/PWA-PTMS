@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Clock,
   LineChart,
@@ -11,6 +11,7 @@ import { loginRequest } from "../auth/authConfig";
 import { useMsal } from "@azure/msal-react";
 import { fetchEmployeeList } from "../Services/getEmployeeDetails";
 import { useDispatch, useSelector } from "react-redux";
+import store from "../store/store";
 import DashboardLayout from "../components/DashboardLayout";
 import { setPlantTourId, setEmployeeDetails, clearAllDataExceptEssential, setSummaryData, setCycleData, setLastFetchTimestamp, setCategorySummary, setCycleCount } from "../store/planTourSlice";
 import { setOfflineStarted, setOfflineCompleted, setProgress, resetOfflineState } from "../store/stateSlice.ts";
@@ -140,10 +141,20 @@ export default function HomePage() {
   const [isPlantTourLoading, setIsPlantTourLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Debug: Log count changes
-  useEffect(() => {
-    const totalCount = pqiOfflineCount + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length;
-    console.log('HomePage: Total offline count changed:', totalCount);
+  // Calculate total offline count with better reliability
+  const totalOfflineCount = useMemo(() => {
+    const count = pqiOfflineCount + 
+      creamPercentagePendingSync.length + 
+      sieveAndMagnetNewPlantPendingSync.length + 
+      sieveAndMagnetOldPlantPendingSync.length + 
+      productMonitoringPendingSync.length + 
+      codeVerificationOfflineData.length + 
+      bakingOfflineData.length + 
+      sealIntegrityOfflineData.length + 
+      alcOfflineData.length + 
+      netWeightOfflineData.length;
+    
+    console.log('HomePage: Calculating total offline count:', count);
     console.log('HomePage: Breakdown:', {
       pqiOfflineCount,
       creamPercentagePendingSync: creamPercentagePendingSync.length,
@@ -156,6 +167,8 @@ export default function HomePage() {
       alcOfflineData: alcOfflineData.length,
       netWeightOfflineData: netWeightOfflineData.length
     });
+    
+    return count;
   }, [pqiOfflineCount, creamPercentagePendingSync.length, sieveAndMagnetNewPlantPendingSync.length, sieveAndMagnetOldPlantPendingSync.length, productMonitoringPendingSync.length, codeVerificationOfflineData.length, bakingOfflineData.length, sealIntegrityOfflineData.length, alcOfflineData.length, netWeightOfflineData.length]);
 
   const metrics = [
@@ -333,7 +346,102 @@ export default function HomePage() {
         dispatch(setALCFetchedCycles([] as any));
       }
 
-      // Step 3.10: Fetch existing Net Weight Monitoring completed cycles
+      // Step 3.10: Fetch existing Cream Percentage completed cycles
+      console.log('=== FETCHING CREAM PERCENTAGE DATA FROM HOMEPAGE ===');
+      console.log('Plant Tour ID for cream percentage:', plantTourId);
+      console.log('User name:', user?.Name);
+      try {
+        const { getCreamPercentageData } = await import('../Services/getCreamPercentageData');
+        console.log('About to call getCreamPercentageData with qualityTourId:', plantTourId);
+        
+        // Test the API call
+        console.log('Testing API call...');
+        const existingCreamPercentageCycles = await getCreamPercentageData({ qualityTourId: plantTourId });
+        console.log('API call completed successfully');
+        console.log('Successfully fetched existing Cream Percentage cycles:', existingCreamPercentageCycles);
+        console.log('Number of cycles fetched:', existingCreamPercentageCycles?.length || 0);
+        console.log('Type of response:', typeof existingCreamPercentageCycles);
+        console.log('Is array:', Array.isArray(existingCreamPercentageCycles));
+        
+        if (existingCreamPercentageCycles && existingCreamPercentageCycles.length > 0) {
+          // Process fetched data to populate Redux state
+          const processedCycles: number[] = [];
+          const processedCycleData: { [key: number]: any } = {};
+          
+          existingCreamPercentageCycles.forEach((cycle: any) => {
+            const cycleNum = parseInt(cycle.cycleNum);
+            processedCycles.push(cycleNum);
+            
+            // Convert API data format to local format
+            processedCycleData[cycleNum] = {
+              formData: {
+                product: cycle.product,
+                machineNo: cycle.machineNo,
+                line: cycle.lineNo,
+                standardCreamPercentage: cycle.standardCreamPercentage
+              },
+              weightData: {
+                sandwichWeights: cycle.wtSandwich || ['', '', '', ''],
+                shellWeights: cycle.wtShell || ['', '', '', '']
+              },
+              qualityTourId: plantTourId,
+              userName: user?.Name || null,
+              shiftValue: 'shift 1',
+              timestamp: new Date().toISOString()
+            };
+            
+            console.log(`Processed Cream Percentage cycle ${cycleNum}:`, processedCycleData[cycleNum]);
+          });
+          
+          // Load data into Redux using the cream percentage slice
+          console.log('About to load data into Redux...');
+          console.log('Processed cycles to store:', processedCycles);
+          console.log('Processed cycle data to store:', processedCycleData);
+          
+          const { loadOfflineData } = await import('../store/creamPercentageSlice');
+          const nextCycle = Math.max(...processedCycles) + 1;
+          console.log('Next cycle number:', nextCycle);
+          
+          // Create the payload
+          const payload = {
+            cycleData: processedCycleData,
+            completedCycles: processedCycles,
+            currentCycle: nextCycle
+          };
+          
+          console.log('Payload to dispatch:', payload);
+          console.log('About to dispatch loadOfflineData...');
+          
+          dispatch(loadOfflineData(payload));
+          
+          console.log('loadOfflineData dispatched successfully');
+          
+          // Wait a bit for Redux state to update
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // Check Redux state after dispatch
+          const currentState = store.getState();
+          const creamPercentageState = currentState.creamPercentage;
+          console.log('Redux state after dispatch:', creamPercentageState);
+          console.log('Cycle data in Redux:', Object.keys(creamPercentageState.cycleData || {}));
+          console.log('Completed cycles in Redux:', creamPercentageState.completedCycles);
+          console.log('Current cycle in Redux:', creamPercentageState.currentCycle);
+          
+          console.log('Successfully loaded existing Cream Percentage cycles:', processedCycles.length);
+          console.log('Final processed cycles:', processedCycles);
+          console.log('Final processed cycle data:', processedCycleData);
+        } else {
+          console.log('No existing Cream Percentage cycles found on server.');
+        }
+      } catch (creamPercentageError) {
+        console.error('=== ERROR LOADING CREAM PERCENTAGE DATA ===');
+        console.error('Error details:', creamPercentageError);
+        console.error('Error message:', creamPercentageError instanceof Error ? creamPercentageError.message : 'Unknown error');
+        console.error('Error stack:', creamPercentageError instanceof Error ? creamPercentageError.stack : 'No stack trace');
+        // Continue with offline mode even if Cream Percentage fetch fails
+      }
+
+      // Step 3.11: Fetch existing Net Weight Monitoring completed cycles
       console.log('Fetching existing Net Weight Monitoring completed cycles...');
       try {
         const { fetchCycleData } = await import('../Services/NetWeightMonitoringRecord.ts');
@@ -1393,7 +1501,7 @@ export default function HomePage() {
                   disabled={!isOnline}
                   title={!isOnline ? 'Internet connection required to start offline mode' : 'Start offline mode'}
                 >
-                  + Start Offline Mode {(pqiOfflineCount + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length) > 0 && `(${pqiOfflineCount + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length})`}
+                  + Start Offline Mode {totalOfflineCount > 0 && `(${totalOfflineCount})`}
                 </button>
                 {showOfflineError && (
                   <div className="w-full sm:w-auto text-xs text-red-600 mt-1">
@@ -1421,28 +1529,12 @@ export default function HomePage() {
                   disabled={!isOnline}
                   title={!isOnline ? 'Internet connection required to sync offline data' : 'Sync and cancel offline mode'}
                 >
-                  + Sync & Cancel Offline {(() => {
-                    const totalCount = pqiOfflineCount + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length;
-                    console.log('Sync button count calculation:', {
-                      pqiOfflineCount,
-                      creamPercentagePendingSync: creamPercentagePendingSync.length,
-                      sieveAndMagnetNewPlantPendingSync: sieveAndMagnetNewPlantPendingSync.length,
-                      sieveAndMagnetOldPlantPendingSync: sieveAndMagnetOldPlantPendingSync.length,
-                      productMonitoringPendingSync: productMonitoringPendingSync.length,
-                      codeVerificationOfflineData: codeVerificationOfflineData.length,
-                      bakingOfflineData: bakingOfflineData.length,
-                      sealIntegrityOfflineData: sealIntegrityOfflineData.length,
-                      alcOfflineData: alcOfflineData.length,
-                      netWeightOfflineData: netWeightOfflineData.length,
-                      totalCount
-                    });
-                    return totalCount > 0 ? `(${totalCount})` : '';
-                  })()}
+                  + Sync & Cancel Offline {totalOfflineCount > 0 && `(${totalOfflineCount})`}
                   {!isOnline && <span className="ml-1 text-xs">(Internet Required)</span>}
                 </button>
-                {(pqiOfflineCount + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length) > 0 && !isOnline && (
+                {totalOfflineCount > 0 && !isOnline && (
                   <div className="w-full sm:w-auto text-xs text-orange-600 mt-1">
-                    ⚠️ {pqiOfflineCount + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length + netWeightOfflineData.length} offline submission(s) waiting for internet connection
+                    ⚠️ {totalOfflineCount} offline submission(s) waiting for internet connection
                   </div>
                 )}
               </>
@@ -1470,27 +1562,6 @@ export default function HomePage() {
           <a href="#" className="text-orange-600 text-sm font-medium hover:underline" onClick={e => { e.preventDefault(); setIsViewAllOpen(true); }}>
             View All →
           </a>
-          <button 
-            onClick={() => {
-              const totalCount = pqiOfflineCount + creamPercentagePendingSync.length + sieveAndMagnetNewPlantPendingSync.length + sieveAndMagnetOldPlantPendingSync.length + productMonitoringPendingSync.length + codeVerificationOfflineData.length + bakingOfflineData.length + sealIntegrityOfflineData.length + alcOfflineData.length;
-              console.log('Manual count check:', {
-                pqiOfflineCount,
-                creamPercentagePendingSync: creamPercentagePendingSync.length,
-                sieveAndMagnetNewPlantPendingSync: sieveAndMagnetNewPlantPendingSync.length,
-                sieveAndMagnetOldPlantPendingSync: sieveAndMagnetOldPlantPendingSync.length,
-                productMonitoringPendingSync: productMonitoringPendingSync.length,
-                codeVerificationOfflineData: codeVerificationOfflineData.length,
-                bakingOfflineData: bakingOfflineData.length,
-                sealIntegrityOfflineData: sealIntegrityOfflineData.length,
-                alcOfflineData: alcOfflineData.length,
-                totalCount
-              });
-              alert(`Total offline count: ${totalCount}`);
-            }}
-            className="ml-4 text-blue-600 text-sm font-medium hover:underline"
-          >
-            Debug Count
-          </button>
           {planTourState.plantTourId && (
             <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-blue-800 text-xs font-mono">
               <strong>Plan Tour ID:</strong> {planTourState.plantTourId}

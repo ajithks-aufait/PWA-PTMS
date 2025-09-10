@@ -20,31 +20,8 @@ export default defineConfig({
         sourcemap: true,
       },
       injectRegister: 'auto',
-      manifest: {
-        name: 'Task Manager PWA',
-        short_name: 'Tasks',
-        description: 'A Progressive Web App for managing tasks with offline functionality',
-        theme_color: '#3B82F6',
-        background_color: '#FFFFFF',
-        display: 'standalone',
-        orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
-        icons: [
-          {
-            src: '/icons/icon-192x192.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any maskable'
-          },
-          {
-            src: '/icons/icon-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable'
-          }
-        ]
-      },
+      // Disable manifest generation since we're using public/manifest.json
+      manifest: false,
       devOptions: {
         enabled: true,
         type: 'module'

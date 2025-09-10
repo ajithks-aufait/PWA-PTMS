@@ -5,7 +5,8 @@ import type { RootState } from '../store/store';
 import DashboardLayout from './DashboardLayout';
 import { showOfflineSaveAlertForCategory } from '../utils/offlineAlerts';
 import { setFetchedCycles, selectFetchedCycles, addOfflineData } from '../store/BakingProcessSlice';
-import { startSessionHandler as bakingStart, fetchCycleData as bakingFetchCycles, collectEstimationDataCycleSave as bakingCollect, savesectionApicall as bakingSave } from '../Services/BakingProcesRecord';
+import { startSessionHandler as bakingStart, fetchCycleData as bakingFetchCycles, collectEstimationDataCycleSave as bakingCollect, savesectionApicall as bakingSave, uploadFileToSharePoint } from '../Services/BakingProcesRecord';
+import BakingProcessImageUpload from './BakingProcessImageUpload';
 
 
 
@@ -73,11 +74,6 @@ const BakingProcessRecord: React.FC = () => {
     const [bottomZones, setBottomZones] = useState<BakingZones>({ zone1: '', zone2: '', zone3: '', zone4: '', zone5: '', zone6: '', zone7: '', productTempAfter: '' });
     const updateTop = (key: keyof BakingZones, value: string) => setTopZones(prev => ({ ...prev, [key]: value }));
     const updateBottom = (key: keyof BakingZones, value: string) => setBottomZones(prev => ({ ...prev, [key]: value }));
-    const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
-    const handleAttachmentChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
-        const file = e.target.files && e.target.files[0];
-        setAttachmentFile(file || null);
-    };
 
     const handleStartSession = async () => {
         console.log('Starting baking process session with product:', selectedProduct, 'executive:', startFormData.executiveName);
@@ -147,6 +143,7 @@ const BakingProcessRecord: React.FC = () => {
                         proof: '',
                         remarks: ''
                     }],
+                    files: [], // Add empty files array
                     timestamp: Date.now()
                 };
                 console.log('Storing offline data in Redux:', offlineData);
@@ -164,9 +161,27 @@ const BakingProcessRecord: React.FC = () => {
                     cycleNum: currentCycle.toString(),
                     product: selectedProduct,
                     executiveName: startFormData.executiveName || 'N/A',
+                    bakingTime: startFormData.bakingTime || 'N/A',
                     sku: formData.sku,
                     proof: formData.machineProof,
-                    remarks: formData.majorDefectsRemarks
+                    remarks: formData.majorDefectsRemarks,
+                    // Include temperature zone data
+                    topbakingtempzone1: topZones.zone1 || null,
+                    topbakingtempzone2: topZones.zone2 || null,
+                    topbakingtempzone3: topZones.zone3 || null,
+                    topbakingtempzone4: topZones.zone4 || null,
+                    topbakingtempzone5: topZones.zone5 || null,
+                    topbakingtempzone6: topZones.zone6 || null,
+                    topbakingtempzone7: topZones.zone7 || null,
+                    topproducttempafterbaking: topZones.productTempAfter || null,
+                    bottombakingtempzone1: bottomZones.zone1 || null,
+                    bottombakingtempzone2: bottomZones.zone2 || null,
+                    bottombakingtempzone3: bottomZones.zone3 || null,
+                    bottombakingtempzone4: bottomZones.zone4 || null,
+                    bottombakingtempzone5: bottomZones.zone5 || null,
+                    bottombakingtempzone6: bottomZones.zone6 || null,
+                    bottombakingtempzone7: bottomZones.zone7 || null,
+                    bottomproducttempafterbaking: bottomZones.productTempAfter || null,
                 };
                 dispatch(setFetchedCycles([...fetchedCycles, completedCycleData]));
 
@@ -190,9 +205,27 @@ const BakingProcessRecord: React.FC = () => {
                         cycleNum: currentCycle.toString(),
                         product: selectedProduct,
                         executiveName: startFormData.executiveName || 'N/A',
+                        bakingTime: startFormData.bakingTime || 'N/A',
                         sku: formData.sku,
                         proof: formData.machineProof,
-                        remarks: formData.majorDefectsRemarks
+                        remarks: formData.majorDefectsRemarks,
+                        // Include temperature zone data
+                        topbakingtempzone1: topZones.zone1 || null,
+                        topbakingtempzone2: topZones.zone2 || null,
+                        topbakingtempzone3: topZones.zone3 || null,
+                        topbakingtempzone4: topZones.zone4 || null,
+                        topbakingtempzone5: topZones.zone5 || null,
+                        topbakingtempzone6: topZones.zone6 || null,
+                        topbakingtempzone7: topZones.zone7 || null,
+                        topproducttempafterbaking: topZones.productTempAfter || null,
+                        bottombakingtempzone1: bottomZones.zone1 || null,
+                        bottombakingtempzone2: bottomZones.zone2 || null,
+                        bottombakingtempzone3: bottomZones.zone3 || null,
+                        bottombakingtempzone4: bottomZones.zone4 || null,
+                        bottombakingtempzone5: bottomZones.zone5 || null,
+                        bottombakingtempzone6: bottomZones.zone6 || null,
+                        bottombakingtempzone7: bottomZones.zone7 || null,
+                        bottomproducttempafterbaking: bottomZones.productTempAfter || null,
                     };
                     dispatch(setFetchedCycles([...fetchedCycles, completedCycleData]));
 
@@ -208,6 +241,10 @@ const BakingProcessRecord: React.FC = () => {
                 machineProof: '',
                 majorDefectsRemarks: ''
             });
+
+            // Reset temperature zones for next cycle
+            setTopZones({ zone1: '', zone2: '', zone3: '', zone4: '', zone5: '', zone6: '', zone7: '', productTempAfter: '' });
+            setBottomZones({ zone1: '', zone2: '', zone3: '', zone4: '', zone5: '', zone6: '', zone7: '', productTempAfter: '' });
 
             // Reset session started state to show start form for next cycle
             setIsSessionStarted(false);
@@ -666,16 +703,19 @@ const BakingProcessRecord: React.FC = () => {
                         </div>
 
                         {/* Upload Attachment */}
-                        <div className="">
-                            <div className="text-sm font-medium mb-2">Upload Attachment</div>
-                            <div className="flex items-center gap-3">
-                                <input type="file" onChange={handleAttachmentChange} />
-                                <button type="button" className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Upload</button>
-                            </div>
-                            <div className="text-xs text-gray-500 mt-2">You can upload supporting documents or images here.</div>
-                            {attachmentFile && (
-                                <div className="text-xs text-gray-600 mt-1">Selected: {attachmentFile.name}</div>
-                            )}
+                        <div className="border rounded-lg p-3 sm:p-4 bg-white">
+                            <div className="text-sm font-medium mb-3">Upload Image</div>
+                            <BakingProcessImageUpload
+                                cycleNum={currentCycle}
+                                qualityTourId={plantTourId || ''}
+                                onUploadSuccess={(imageData) => {
+                                    console.log('Image uploaded successfully:', imageData);
+                                }}
+                                onUploadError={(error) => {
+                                    console.error('Image upload failed:', error);
+                                    alert(`Upload failed: ${error}`);
+                                }}
+                            />
                         </div>
 
                         {/* Action Buttons */}

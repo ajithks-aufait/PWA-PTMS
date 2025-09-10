@@ -5,6 +5,12 @@ import { setSectionDetails } from "../store/planTourSlice";
 import { addOfflineSubmissionByCategory } from "../store/stateSlice.ts";
 import { saveSectionData } from "../Services/saveSectionData";
 import { getAccessToken } from "../Services/getAccessToken";
+import { 
+  getInitialCycleData, 
+  saveInitialCycleData, 
+  getDefaultFormValues,
+  validateInitialCycleData 
+} from "../utils/initialCycleData";
 // @ts-ignore
 import moment from "moment";
 
@@ -98,31 +104,42 @@ const ProductEvaluation: React.FC<ProductEvaluationProps> = ({
         cycleNum: cycleNo,
       };
       dispatch(setSectionDetails({ cycleNo, details }));
+      
+      // If this is cycle 1 and we have all required fields, save as initial cycle data
+      if (cycleNo === 1 && validateInitialCycleData(updatedForCycle)) {
+        console.log('ProductEvaluation: Saving initial cycle data for auto-fill:', updatedForCycle);
+        saveInitialCycleData(updatedForCycle);
+      }
+      
       return next;
     });
   };
 
-  // Auto-fill start fields across cycles from first entered values
+  // Auto-fill start fields from localStorage initial cycle data
   useEffect(() => {
-    const base = sectionDetails[1] || Object.values(sectionDetails)[0];
-    if (!base) return;
+    const initialData = getInitialCycleData();
+    if (!initialData) return;
+    
+    console.log('ProductEvaluation: Auto-filling from initial cycle data:', initialData);
+    
     setFormFields((prev) => {
       const next = { ...prev } as { [cycle: number]: any };
       for (let i = 1; i <= totalCycles; i++) {
         const current = next[i] || {};
+        // Only auto-fill if the field is empty (don't overwrite existing data)
         next[i] = {
           ...current,
-          product: current.product ?? base.product ?? '',
-          batchNo: current.batchNo ?? base.batchNo ?? '',
-          lineNo: current.lineNo ?? base.lineNo ?? '',
-          packaged: current.packaged ?? base.packaged ?? '',
-          expiry: current.expiry ?? base.expiry ?? '',
-          executiveName: current.executiveName ?? base.executiveName ?? '',
+          product: current.product || initialData.product || '',
+          batchNo: current.batchNo || initialData.batchNo || '',
+          lineNo: current.lineNo || initialData.lineNo || '',
+          packaged: current.packaged || initialData.packaged || '',
+          expiry: current.expiry || initialData.expiry || '',
+          executiveName: current.executiveName || initialData.executiveName || '',
         };
       }
       return next;
     });
-  }, [sectionDetails]);
+  }, []); // Run only once on component mount
 
   const processProductData = useCallback((cycleData: any[]) => {
     console.log('ProductEvaluation: Processing Product data', { cycleDataLength: cycleData?.length });

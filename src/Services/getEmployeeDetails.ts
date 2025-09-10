@@ -50,7 +50,7 @@ export async function fetchEmployeeList(accessToken: string, employeeName: strin
  */
 
 export async function getSharePointUserIdByEmail(email: string, accessToken: string): Promise<number> {
-  const webUrl = "https://aufaitcloud.sharepoint.com/sites/Mrs_Bectors_PTMS";
+  const webUrl = "https://bectors.sharepoint.com/sites/PTMS_UAT";
   const url = `${webUrl}/_api/web/siteusers?$filter=Email eq '${email}'`;
 
   const response = await fetch(url, {

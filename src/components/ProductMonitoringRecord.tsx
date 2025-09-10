@@ -62,7 +62,7 @@ const ProductMonitoringRecord: React.FC = () => {
     // Session state
     const [isSessionStarted, setIsSessionStarted] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
-    const [selectedProduct, setSelectedProduct] = useState('Speciality Sauces');
+    const [selectedProduct, setSelectedProduct] = useState('');
     const [expandedCompletedCycles, setExpandedCompletedCycles] = useState<Set<string>>(new Set());
 
     const handleInputChange = (category: keyof FormData, field: string, value: string) => {
@@ -410,9 +410,12 @@ const ProductMonitoringRecord: React.FC = () => {
                                     value={selectedProduct}
                                     onChange={(e) => setSelectedProduct(e.target.value)}
                                 >
-                                    <option value="Speciality Sauces">Speciality Sauces</option>
-                                    <option value="Zesty Wasabi">Zesty Wasabi</option>
-                                    <option value="Product 3">Product 3</option>
+                                    <option value="">Select Product</option>
+                                    <option value="speciality_sauces">Speciality Sauces</option>
+                                    <option value="zesty_wasabi">Zesty Wasabi</option>
+                                    <option value="mayonnaise">Mayonnaise</option>
+                                    <option value="sandwich_spread">Sandwich Spread</option>
+                                    <option value="indian_chutneys">Indian Chutneys</option>
                                 </select>
                             </div>
                         </div>

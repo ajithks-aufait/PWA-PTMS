@@ -11,10 +11,22 @@ interface BakingProcessCycleData {
   remarks: string | null;
 }
 
+// Interface for offline file data
+interface OfflineFileData {
+  cycleNum: number;
+  file: File;
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+  timestamp: number;
+  qualityTourId: string;
+}
+
 // Interface for offline saved data
 interface OfflineSavedData {
   cycleNo: number;
   records: BakingProcessCycleData[];
+  files: OfflineFileData[];
   timestamp: number;
 }
 
@@ -25,6 +37,9 @@ interface BakingProcessState {
   
   // Offline saved data
   offlineSavedData: OfflineSavedData[];
+  
+  // Offline files pending upload
+  offlineFiles: OfflineFileData[];
   
   // Loading states
   isLoading: boolean;
@@ -41,6 +56,7 @@ interface BakingProcessState {
 const initialState: BakingProcessState = {
   fetchedCycles: [],
   offlineSavedData: [],
+  offlineFiles: [],
   isLoading: false,
   isSyncing: false,
   error: null,
@@ -57,15 +73,31 @@ const BakingProcessSlice = createSlice({
       state.offlineSavedData.push(action.payload);
     },
     
+    // Add offline file
+    addOfflineFile: (state, action: PayloadAction<OfflineFileData>) => {
+      state.offlineFiles.push(action.payload);
+    },
+    
     // Clear all offline data (for cancel operation)
     clearOfflineData: (state) => {
       state.offlineSavedData = [];
+      state.offlineFiles = [];
     },
     
     // Remove specific offline data item
     removeOfflineDataItem: (state, action: PayloadAction<number>) => {
       state.offlineSavedData = state.offlineSavedData.filter(
         item => item.cycleNo !== action.payload
+      );
+      state.offlineFiles = state.offlineFiles.filter(
+        item => item.cycleNum !== action.payload
+      );
+    },
+    
+    // Remove specific offline file
+    removeOfflineFile: (state, action: PayloadAction<number>) => {
+      state.offlineFiles = state.offlineFiles.filter(
+        item => item.cycleNum !== action.payload
       );
     },
     
@@ -84,6 +116,7 @@ const BakingProcessSlice = createSlice({
     resetState: (state) => {
       state.fetchedCycles = [];
       state.offlineSavedData = [];
+      state.offlineFiles = [];
       state.isLoading = false;
       state.isSyncing = false;
       state.error = null;
@@ -105,8 +138,10 @@ const BakingProcessSlice = createSlice({
 // Export actions
 export const {
   addOfflineData,
+  addOfflineFile,
   clearOfflineData,
   removeOfflineDataItem,
+  removeOfflineFile,
   setFetchedCycles,
   clearError,
   resetState,
@@ -117,6 +152,8 @@ export const {
 // Export selectors
 export const selectBakingProcessState = (state: { bakingProcess: BakingProcessState }) => state.bakingProcess;
 export const selectOfflineDataCount = (state: { bakingProcess: BakingProcessState }) => state.bakingProcess.offlineSavedData.length;
+export const selectOfflineFilesCount = (state: { bakingProcess: BakingProcessState }) => state.bakingProcess.offlineFiles.length;
+export const selectOfflineFiles = (state: { bakingProcess: BakingProcessState }) => state.bakingProcess.offlineFiles;
 export const selectFetchedCycles = (state: { bakingProcess: BakingProcessState }) => state.bakingProcess.fetchedCycles;
 export const selectIsLoading = (state: { bakingProcess: BakingProcessState }) => state.bakingProcess.isLoading;
 export const selectIsSyncing = (state: { bakingProcess: BakingProcessState }) => state.bakingProcess.isSyncing;

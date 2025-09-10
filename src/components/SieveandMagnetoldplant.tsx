@@ -5,12 +5,12 @@ import type { RootState } from '../store/store';
 import DashboardLayout from './DashboardLayout';
 import { saveSieveAndMagnetOldPlant, collectEstimationDataCycleSave, fetchCycleData } from '../Services/saveSieveAndMagnetOldPlant';
 import {
-  setCompletedCycles,
-  addCompletedCycle,
-  addPendingSync,
-  setLastFetchTimestamp,
-  setIsOffline,
-  setCurrentCycle,
+    setCompletedCycles,
+    addCompletedCycle,
+    addPendingSync,
+    setLastFetchTimestamp,
+    setIsOffline,
+    setCurrentCycle,
 } from '../store/sieveAndMagnetOldPlantSlice';
 
 interface ChecklistItem {
@@ -43,19 +43,19 @@ interface ReduxCompletedCycleData {
 
 const SieveandMagnetoldplant: React.FC = () => {
     console.log('SieveandMagnetoldplant component is rendering...');
-    
+
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const { plantTourId, selectedCycle } = useSelector((state: RootState) => state.planTour);
     const { user } = useSelector((state: RootState) => state.user);
-    const { 
-        completedCycles, 
-        pendingSync, 
-        lastFetchTimestamp, 
-        isOffline, 
-        currentCycle: reduxCurrentCycle 
+    const {
+        completedCycles,
+        pendingSync,
+        lastFetchTimestamp,
+        isOffline,
+        currentCycle: reduxCurrentCycle
     } = useSelector((state: RootState) => state.sieveAndMagnetOldPlant);
-    
+
     console.log('Redux state loaded successfully:', {
         plantTourId,
         selectedCycle,
@@ -68,7 +68,7 @@ const SieveandMagnetoldplant: React.FC = () => {
 
     // Form state for start section
     const [formData, setFormData] = useState<FormData>({
-        product: 'Speciality Sauces',
+        product: '',
         machineNo: '',
         line: '',
         standardPercentage: ''
@@ -119,9 +119,9 @@ const SieveandMagnetoldplant: React.FC = () => {
         { id: 'biscuit-dust-magnet-1', label: 'Biscuit Dust Magnet 1', status: null, remarks: '' },
         { id: 'biscuit-dust-magnet-2', label: 'Biscuit Dust Magnet 2', status: null, remarks: '' }
     ]);
-          
 
-        const [isExpanded, setIsExpanded] = useState(true);
+
+    const [isExpanded, setIsExpanded] = useState(true);
 
     const handleInputChange = (field: string, value: string) => {
         setFormData(prev => ({
@@ -137,26 +137,26 @@ const SieveandMagnetoldplant: React.FC = () => {
 
 
     const handleStatusChange = (itemId: string, status: 'okay' | 'not-okay') => {
-         setChecklistItems(prev =>
-             prev.map(item =>
-                 item.id === itemId ? { ...item, status } : item
-             )
-         );
-     };
+        setChecklistItems(prev =>
+            prev.map(item =>
+                item.id === itemId ? { ...item, status } : item
+            )
+        );
+    };
 
-     const handleRemarksChange = (itemId: string, remarks: string) => {
-         setChecklistItems(prev =>
-             prev.map(item =>
-                 item.id === itemId ? { ...item, remarks } : item
-             )
-         );
-     };
+    const handleRemarksChange = (itemId: string, remarks: string) => {
+        setChecklistItems(prev =>
+            prev.map(item =>
+                item.id === itemId ? { ...item, remarks } : item
+            )
+        );
+    };
 
     const handleSave = async () => {
         console.log('=== HANDLE SAVE STARTED ===');
         console.log('Saving checklist data for cycle:', reduxCurrentCycle, checklistItems);
         console.log('Current offline status:', isOffline);
-        
+
         // Check if we have any data to save
         const hasDataToSave = checklistItems.some(item => item.status !== null);
         if (!hasDataToSave) {
@@ -168,7 +168,7 @@ const SieveandMagnetoldplant: React.FC = () => {
             // Process data locally first (for both online and offline modes)
             const defects: { title: string; remarks: string }[] = [];
             const okays: string[] = [];
-            
+
             checklistItems.forEach((item) => {
                 if (item.status === 'okay') {
                     okays.push(item.label);
@@ -193,7 +193,7 @@ const SieveandMagnetoldplant: React.FC = () => {
             // Check if we're offline
             if (isOffline) {
                 console.log('Processing in offline mode...');
-                
+
                 // Store data for offline sync - only store the essential data needed for sync
                 const pendingData = {
                     cycleNumber: reduxCurrentCycle,
@@ -203,12 +203,12 @@ const SieveandMagnetoldplant: React.FC = () => {
                     timestamp: Date.now()
                 };
                 dispatch(addPendingSync(pendingData));
-                
+
                 console.log('Data saved offline. Will sync when connection is restored.');
                 alert('Data saved offline. Will sync when connection is restored.');
             } else {
                 console.log('Processing in online mode...');
-                
+
                 // Online mode - collect data for API
                 const { savedData } = collectEstimationDataCycleSave(
                     reduxCurrentCycle,
@@ -239,26 +239,26 @@ const SieveandMagnetoldplant: React.FC = () => {
                     alert('Network error. Data saved offline. Will sync when connection is restored.');
                 }
             }
-            
+
             // Move to next cycle (both online and offline)
             dispatch(setCurrentCycle(reduxCurrentCycle + 1));
-            
+
             // Reset checklist items for next cycle
             setChecklistItems(prev => prev.map(item => ({ ...item, status: null, remarks: '' })));
-            
+
             // Reset session started state to show start form for next cycle
             setIsSessionStarted(false);
-            
+
             // Reset general remarks
             setGeneralRemarks('');
-            
+
         } catch (error) {
             console.error('Error saving data:', error);
-            
+
             // If any error occurs, save offline
             const defects: { title: string; remarks: string }[] = [];
             const okays: string[] = [];
-            
+
             checklistItems.forEach((item) => {
                 if (item.status === 'okay') {
                     okays.push(item.label);
@@ -280,7 +280,7 @@ const SieveandMagnetoldplant: React.FC = () => {
             };
             dispatch(addPendingSync(pendingData));
             dispatch(setIsOffline(true));
-            
+
             // Add to completed cycles for display
             const completedCycleData: ReduxCompletedCycleData = {
                 cycleNumber: reduxCurrentCycle,
@@ -290,19 +290,19 @@ const SieveandMagnetoldplant: React.FC = () => {
                 remarks: generalRemarks
             };
             dispatch(addCompletedCycle(completedCycleData));
-            
+
             // Move to next cycle
             dispatch(setCurrentCycle(reduxCurrentCycle + 1));
-            
+
             // Reset checklist items for next cycle
             setChecklistItems(prev => prev.map(item => ({ ...item, status: null, remarks: '' })));
-            
+
             // Reset session started state to show start form for next cycle
             setIsSessionStarted(false);
-            
+
             // Reset general remarks
             setGeneralRemarks('');
-            
+
             alert('Network error. Data saved offline. Will sync when connection is restored.');
         }
     };
@@ -333,13 +333,13 @@ const SieveandMagnetoldplant: React.FC = () => {
             console.log('=== LOADING EXISTING DATA ===');
             console.log('Plant Tour ID:', plantTourId);
             console.log('Last fetch timestamp:', lastFetchTimestamp);
-            
+
             if (plantTourId) {
                 try {
                     console.log('Fetching existing cycle data from server...');
                     const existingCycles = await fetchCycleData(plantTourId);
                     console.log('Fetched existing cycles:', existingCycles);
-                    
+
                     if (existingCycles.length > 0) {
                         // Convert fetched data to ReduxCompletedCycleData format
                         const completedCyclesData: ReduxCompletedCycleData[] = existingCycles.map((cycle: any) => ({
@@ -349,16 +349,16 @@ const SieveandMagnetoldplant: React.FC = () => {
                             formData: { product: '', machineNo: '', line: '', standardPercentage: '' }, // Default form data
                             remarks: ''
                         }));
-                        
+
                         console.log('Converted completed cycles data:', completedCyclesData);
-                        
+
                         dispatch(setCompletedCycles(completedCyclesData));
                         dispatch(setLastFetchTimestamp(Date.now()));
-                        
+
                         // Set current cycle to the next cycle number
                         const maxCycle = Math.max(...existingCycles.map((cycle: any) => cycle.cycleNum));
                         dispatch(setCurrentCycle(maxCycle + 1));
-                        
+
                         console.log('Successfully loaded existing cycles. Max cycle:', maxCycle, 'Next cycle:', maxCycle + 1);
                     } else {
                         console.log('No existing cycles found on server.');
@@ -377,7 +377,7 @@ const SieveandMagnetoldplant: React.FC = () => {
         // Only fetch if we don't have data or if it's been more than 5 minutes
         const shouldFetch = !lastFetchTimestamp || (Date.now() - lastFetchTimestamp > 5 * 60 * 1000);
         console.log('Should fetch existing data:', shouldFetch);
-        
+
         if (shouldFetch) {
             loadExistingData();
         } else {
@@ -423,9 +423,9 @@ const SieveandMagnetoldplant: React.FC = () => {
 
                 {/* Sieve and Magnet Old Plant Header */}
                 <div className="bg-gray-100 px-3 sm:px-4 md:px-6 py-3 sm:py-4 mb-4 sm:mb-6 rounded-lg w-full">
-                                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
-                                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                                                         <h1 className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Critical Points(CP) Verification & Monitoring Record (Sieve, Magnet, Rh and Temperature) Old Plant
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                            <h1 className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Critical Points(CP) Verification & Monitoring Record (Sieve, Magnet, Rh and Temperature) Old Plant
                             </h1>
                             <div className="flex items-center gap-2 sm:gap-4">
                                 <div className="bg-gray-200 rounded-full px-2 sm:px-3 py-1 flex items-center gap-1 sm:gap-2">
@@ -465,7 +465,7 @@ const SieveandMagnetoldplant: React.FC = () => {
                                         </svg>
                                     </div>
                                 </div>
-                                
+
                                 {/* Expandable Content for Completed Cycle */}
                                 {expandedCompletedCycles.has(cycleData.cycleNumber) && (
                                     <div className="mt-4 pt-4 border-t border-gray-200">
@@ -475,7 +475,7 @@ const SieveandMagnetoldplant: React.FC = () => {
                                                 <div className="text-sm text-gray-600 mb-2">Selected Product:</div>
                                                 <div className="text-base font-medium text-gray-800">{cycleData.formData.product}</div>
                                             </div>
-                                            
+
                                             {/* Defects Section with Table */}
                                             <div className="border border-gray-300 rounded-lg overflow-hidden">
                                                 <div className="px-4 py-3">
@@ -545,22 +545,25 @@ const SieveandMagnetoldplant: React.FC = () => {
                     </div>
                 )}
 
-                                 {/* Main Content - Cycle Section */}
-                 <div className="bg-white rounded-lg shadow-sm border p-3 sm:p-4 md:p-6 w-full">
-                                          <h2 className="text-base sm:text-lg font-bold text-gray-800 mb-4 sm:mb-6">Cycle {reduxCurrentCycle}</h2>
-                    
+                {/* Main Content - Cycle Section */}
+                <div className="bg-white rounded-lg shadow-sm border p-3 sm:p-4 md:p-6 w-full">
+                    <h2 className="text-base sm:text-lg font-bold text-gray-800 mb-4 sm:mb-6">Cycle {reduxCurrentCycle}</h2>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6">
                         {/* Product Field */}
                         <div>
                             <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Product</label>
-                            <select 
+                            <select
                                 className="w-full border border-gray-300 rounded-md px-2 sm:px-3 py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 value={formData.product}
                                 onChange={(e) => handleInputChange('product', e.target.value)}
                             >
-                                <option value="Speciality Sauces">Speciality Sauces</option>
-                                <option value="Zesty Wasabi">Zesty Wasabi</option>
-                                <option value="Product 3">Product 3</option>
+                                <option value="">Select Product</option>
+                                <option value="speciality_sauces">Speciality Sauces</option>
+                                <option value="zesty_wasabi">Zesty Wasabi</option>
+                                <option value="mayonnaise">Mayonnaise</option>
+                                <option value="sandwich_spread">Sandwich Spread</option>
+                                <option value="indian_chutneys">Indian Chutneys</option>
                             </select>
                         </div>
 
@@ -577,10 +580,10 @@ const SieveandMagnetoldplant: React.FC = () => {
                     </div>
                 </div>
 
-                                 {/* Disabled Next Cycle Preview */}
-                 <div className="bg-white rounded-lg shadow-sm border p-3 sm:p-4 md:p-6 w-full mt-4 sm:mt-6 opacity-50">
-                     <h2 className="text-base sm:text-lg font-bold text-gray-800">Cycle {reduxCurrentCycle + 1}</h2>
-                 </div>
+                {/* Disabled Next Cycle Preview */}
+                <div className="bg-white rounded-lg shadow-sm border p-3 sm:p-4 md:p-6 w-full mt-4 sm:mt-6 opacity-50">
+                    <h2 className="text-base sm:text-lg font-bold text-gray-800">Cycle {reduxCurrentCycle + 1}</h2>
+                </div>
             </DashboardLayout>
         );
     }
@@ -613,7 +616,7 @@ const SieveandMagnetoldplant: React.FC = () => {
             <div className="bg-gray-100 px-3 sm:px-4 md:px-6 py-3 sm:py-4 mb-4 sm:mb-6 rounded-lg w-full">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                                                 <h1 className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Critical Points(CP) Verification & Monitoring Record (Sieve, Magnet, Rh and Temperature) Old Plant</h1>
+                        <h1 className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Critical Points(CP) Verification & Monitoring Record (Sieve, Magnet, Rh and Temperature) Old Plant</h1>
                         <div className="flex items-center gap-2 sm:gap-4">
                             <div className="bg-gray-200 rounded-full px-2 sm:px-3 py-1 flex items-center gap-1 sm:gap-2">
                                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -652,7 +655,7 @@ const SieveandMagnetoldplant: React.FC = () => {
                                     </svg>
                                 </div>
                             </div>
-                            
+
                             {/* Expandable Content for Completed Cycle */}
                             {expandedCompletedCycles.has(cycleData.cycleNumber) && (
                                 <div className="mt-4 pt-4 border-t border-gray-200">
@@ -662,27 +665,27 @@ const SieveandMagnetoldplant: React.FC = () => {
                                             <div className="text-sm text-gray-600 mb-2">Selected Product:</div>
                                             <div className="text-base font-medium text-gray-800">{cycleData.formData.product}</div>
                                         </div>
-                                        
+
                                         {/* Defects Section with Table */}
                                         <div className="border border-gray-300 rounded-lg overflow-hidden">
                                             <div className="px-4 py-3">
                                                 <h3 className="text-lg font-bold text-red-600">Defects</h3>
                                             </div>
-                                                                                         {cycleData.defects && cycleData.defects.length > 0 ? (
-                                                 <div className="bg-white">
-                                                     {/* Table Header */}
-                                                     <div className="grid grid-cols-2 bg-gray-50 border-b border-gray-300">
-                                                         <div className="px-4 py-3 text-sm font-medium text-gray-700 border-r border-gray-300">Title</div>
-                                                         <div className="px-4 py-3 text-sm font-medium text-gray-700">Remarks</div>
-                                                     </div>
-                                                     {/* Table Rows */}
-                                                     {cycleData.defects.map((defect, index) => (
-                                                         <div key={`defect-${index}`} className="grid grid-cols-2 border-b border-gray-300 last:border-b-0">
-                                                             <div className="px-4 py-3 text-sm text-gray-700 border-r border-gray-300">{defect.title}</div>
-                                                             <div className="px-4 py-3 text-sm text-gray-700">{defect.remarks || '-'}</div>
-                                                         </div>
-                                                     ))}
-                                                 </div>
+                                            {cycleData.defects && cycleData.defects.length > 0 ? (
+                                                <div className="bg-white">
+                                                    {/* Table Header */}
+                                                    <div className="grid grid-cols-2 bg-gray-50 border-b border-gray-300">
+                                                        <div className="px-4 py-3 text-sm font-medium text-gray-700 border-r border-gray-300">Title</div>
+                                                        <div className="px-4 py-3 text-sm font-medium text-gray-700">Remarks</div>
+                                                    </div>
+                                                    {/* Table Rows */}
+                                                    {cycleData.defects.map((defect, index) => (
+                                                        <div key={`defect-${index}`} className="grid grid-cols-2 border-b border-gray-300 last:border-b-0">
+                                                            <div className="px-4 py-3 text-sm text-gray-700 border-r border-gray-300">{defect.title}</div>
+                                                            <div className="px-4 py-3 text-sm text-gray-700">{defect.remarks || '-'}</div>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             ) : (
                                                 <div className="px-4 py-3 text-sm text-gray-500">No defects found</div>
                                             )}
@@ -694,14 +697,14 @@ const SieveandMagnetoldplant: React.FC = () => {
                                                 {/* Left Sub-section - Okays */}
                                                 <div className="p-4">
                                                     <h3 className="text-lg font-bold text-green-800 mb-3">Okays</h3>
-                                                                                                         {cycleData.okays && cycleData.okays.length > 0 ? (
-                                                         <div className="space-y-2">
-                                                             {cycleData.okays.map((okay, index) => (
-                                                                 <div key={`okay-${index}`} className="text-sm text-gray-700">
-                                                                     • {okay}
-                                                                 </div>
-                                                             ))}
-                                                         </div>
+                                                    {cycleData.okays && cycleData.okays.length > 0 ? (
+                                                        <div className="space-y-2">
+                                                            {cycleData.okays.map((okay, index) => (
+                                                                <div key={`okay-${index}`} className="text-sm text-gray-700">
+                                                                    • {okay}
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                     ) : (
                                                         <div className="text-sm text-gray-700">None</div>
                                                     )}
@@ -710,14 +713,14 @@ const SieveandMagnetoldplant: React.FC = () => {
                                                 {/* Right Sub-section - Defects */}
                                                 <div className="p-4">
                                                     <h3 className="text-lg font-bold text-gray-800 mb-3">Defects</h3>
-                                                                                                         {cycleData.defects && cycleData.defects.length > 0 ? (
-                                                         <div className="space-y-2">
-                                                             {cycleData.defects.map((defect, index) => (
-                                                                 <div key={`defect-summary-${index}`} className="text-sm text-gray-700">
-                                                                     {defect.title}
-                                                                 </div>
-                                                             ))}
-                                                         </div>
+                                                    {cycleData.defects && cycleData.defects.length > 0 ? (
+                                                        <div className="space-y-2">
+                                                            {cycleData.defects.map((defect, index) => (
+                                                                <div key={`defect-summary-${index}`} className="text-sm text-gray-700">
+                                                                    {defect.title}
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                     ) : (
                                                         <div className="text-sm text-gray-700">None</div>
                                                     )}
@@ -736,7 +739,7 @@ const SieveandMagnetoldplant: React.FC = () => {
             <div className="bg-white rounded-lg shadow-sm border p-3 sm:p-4 md:p-6 w-full">
                 {/* Cycle Header with Dropdown Icon */}
                 <div className="flex items-center justify-between mb-4 sm:mb-6">
-                                         <h2 className="text-base sm:text-lg font-bold text-gray-800">Cycle {reduxCurrentCycle}</h2>
+                    <h2 className="text-base sm:text-lg font-bold text-gray-800">Cycle {reduxCurrentCycle}</h2>
                     <svg
                         className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-500 cursor-pointer transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                         fill="none"
@@ -751,54 +754,54 @@ const SieveandMagnetoldplant: React.FC = () => {
                 {/* Checklist Items */}
                 {isExpanded && (
                     <div className="space-y-3 sm:space-y-4">
-                                                 {checklistItems.map((item) => (
-                             <div key={item.id} className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-white">
-                                 <div className="flex items-center justify-between">
-                                     <span className="text-sm sm:text-base font-medium text-gray-800">{item.label}</span>
-                                     <div className="flex items-center gap-3 sm:gap-4">
-                                         {/* Not Okay Button */}
-                                         <button
-                                             type="button"
-                                             onClick={() => handleStatusChange(item.id, 'not-okay')}
-                                             className={`px-3 py-1 rounded border ${item.status === 'not-okay'
-                                                     ? "bg-red-100 border-red-600 text-red-600"
-                                                     : "border-red-400 text-red-500"
-                                                 }`}
-                                         >
-                                             Not Okay
-                                         </button>
+                        {checklistItems.map((item) => (
+                            <div key={item.id} className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-white">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm sm:text-base font-medium text-gray-800">{item.label}</span>
+                                    <div className="flex items-center gap-3 sm:gap-4">
+                                        {/* Not Okay Button */}
+                                        <button
+                                            type="button"
+                                            onClick={() => handleStatusChange(item.id, 'not-okay')}
+                                            className={`px-3 py-1 rounded border ${item.status === 'not-okay'
+                                                ? "bg-red-100 border-red-600 text-red-600"
+                                                : "border-red-400 text-red-500"
+                                                }`}
+                                        >
+                                            Not Okay
+                                        </button>
 
-                                         {/* Okay Button */}
-                                         <button
-                                             type="button"
-                                             onClick={() => handleStatusChange(item.id, 'okay')}
-                                             className={`px-3 py-1 rounded border ${item.status === 'okay'
-                                                     ? "bg-green-100 border-green-600 text-green-600"
-                                                     : "border-green-400 text-green-500"
-                                                 }`}
-                                         >
-                                             Okay
-                                         </button>
-                                     </div>
-                                 </div>
-                                 
-                                 {/* Major Defects and Remarks Section - Shows when Not Okay is selected */}
-                                 {item.status === 'not-okay' && (
-                                     <div className="mt-4 pt-4 border-t border-gray-200">
-                                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                                             Major Defects and Remarks
-                                         </label>
-                                         <textarea
-                                             value={item.remarks}
-                                             onChange={(e) => handleRemarksChange(item.id, e.target.value)}
-                                             placeholder="Type Here..."
-                                             className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                                             rows={4}
-                                         />
-                                     </div>
-                                 )}
-                             </div>
-                         ))}
+                                        {/* Okay Button */}
+                                        <button
+                                            type="button"
+                                            onClick={() => handleStatusChange(item.id, 'okay')}
+                                            className={`px-3 py-1 rounded border ${item.status === 'okay'
+                                                ? "bg-green-100 border-green-600 text-green-600"
+                                                : "border-green-400 text-green-500"
+                                                }`}
+                                        >
+                                            Okay
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Major Defects and Remarks Section - Shows when Not Okay is selected */}
+                                {item.status === 'not-okay' && (
+                                    <div className="mt-4 pt-4 border-t border-gray-200">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Major Defects and Remarks
+                                        </label>
+                                        <textarea
+                                            value={item.remarks}
+                                            onChange={(e) => handleRemarksChange(item.id, e.target.value)}
+                                            placeholder="Type Here..."
+                                            className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                            rows={4}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        ))}
                     </div>
                 )}
 
