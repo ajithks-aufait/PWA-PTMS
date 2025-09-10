@@ -162,7 +162,8 @@ export const fetchCycleData = async (plantTourId: string) => {
     };
 
     const apiVersion = "9.2";
-    const tableName = "cr3ea_prod_sievesandmagnetsnewplants";
+    // const tableName = "cr3ea_prod_sievesandmagnetsnewplants";
+    const tableName = "cr3ea_sievesandmagnetsnewplants";
     const environmentUrl = "https://org487f0635.crm8.dynamics.com";
     const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}?$filter=cr3ea_qualitytourid eq '${plantTourId}'&$select=cr3ea_cycle,cr3ea_criteria,cr3ea_defectremarks,cr3ea_description`;
 

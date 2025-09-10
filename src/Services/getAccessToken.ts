@@ -14,7 +14,7 @@ export async function getAccessToken(token?: string, expiry?: number) {
         localStorage.removeItem("access_token");
     }
     // dev const flowUrl = "https://prod-19.centralindia.logic.azure.com:443/workflows/182bf483e5b84314aba7baf2612543fc/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=ei-Y9XzgIJnoNFWO-mh3COUtjYJkqYgvYW57JPWFQxk"; // Replace with your Power Automate flow URL
-    const flowUrl = "https://prod-24.centralindia.logic.azure.com:443/workflows/7b6770178a5b424baddc640faef80342/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=-vK5eFyMUINt3lp8qvpPzPSN0SwXDf9efw5a4T_SzEI"; // Replace with your Power Automate flow URL
+    const flowUrl = "https://defaultaa44c5c154484e7488d917838a6f9d.5a.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/7b6770178a5b424baddc640faef80342/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=nuoXJf61QZZVrfx9lRTTHUVmNjBDN1TNdGIQhU8j6No"; // Replace with your Power Automate flow URL
 
 
     try {
