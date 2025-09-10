@@ -221,6 +221,32 @@ const CreamPercentageIndex: React.FC = () => {
     return navigator.onLine;
   };
 
+  // Add online/offline event listeners to sync Redux state
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('Browser came online, updating Redux state');
+      dispatch(setOfflineMode(false));
+    };
+
+    const handleOffline = () => {
+      console.log('Browser went offline, updating Redux state');
+      dispatch(setOfflineMode(true));
+    };
+
+    // Add event listeners
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Set initial offline state based on browser status
+    dispatch(setOfflineMode(!navigator.onLine));
+
+    // Cleanup event listeners
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [dispatch]);
+
   // Fetch existing cycle data when component mounts
   useEffect(() => {
     const fetchExistingData = async () => {
