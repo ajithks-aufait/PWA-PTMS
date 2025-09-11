@@ -140,9 +140,27 @@ export default function HomePage() {
   const user = useSelector((state: any) => state.user.user);
   const userState = useSelector((state: any) => state.user);
   const planTourState = useSelector((state: any) => state.planTour);
+  const employeeDetails = useSelector((state: any) => state.planTour.employeeDetails);
   const [isViewAllOpen, setIsViewAllOpen] = useState(false);
   const [isPlantTourLoading, setIsPlantTourLoading] = useState(false);
   const navigate = useNavigate();
+
+  // Helper function to get department name with fallback
+  const getDepartmentName = () => {
+    // First try to get from local employees state (when online)
+    if (employees && employees.length > 0 && employees[0]?.departmentName) {
+      console.log('Using department from local employees state:', employees[0].departmentName);
+      return employees[0].departmentName;
+    }
+    // Fallback to Redux employee details (persisted data)
+    if (employeeDetails?.departmentName) {
+      console.log('Using department from Redux employee details:', employeeDetails.departmentName);
+      return employeeDetails.departmentName;
+    }
+    // Default fallback
+    console.log('Using default department fallback: Quality - Rajpura');
+    return "Quality - Rajpura";
+  };
 
   // Calculate total offline count with better reliability
   const totalOfflineCount = useMemo(() => {
@@ -1598,7 +1616,7 @@ export default function HomePage() {
 
 
   return (
-    <DashboardLayout rightContent={<p className="text-gray-500 dark:text-gray-400 text-sm font-semibold">{employees[0]?.departmentName}</p>} onLogout={handleLogout}>
+    <DashboardLayout rightContent={<p className="text-gray-500 dark:text-gray-400 text-sm font-semibold">{getDepartmentName()}</p>} onLogout={handleLogout}>
       <div>
         {/* Content */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
@@ -1617,7 +1635,7 @@ export default function HomePage() {
                 <button
                   className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
                   onClick={() => {
-                    if (employees[0]?.departmentName === "Quality - Rajpura") {
+                    if (getDepartmentName() === "Quality - Rajpura") {
                       setIsModalOpen(true);
                     } else {
                       handleOtherDepartmentPlantTour();
@@ -1634,7 +1652,7 @@ export default function HomePage() {
                       : 'bg-gray-400 text-gray-600 cursor-not-allowed'
                     }`}
                   onClick={() => {
-                    if (employees[0]?.departmentName === "Quality - Rajpura") {
+                    if (getDepartmentName() === "Quality - Rajpura") {
                       handleOfflineTour();
                     } else {
                       handleOtherDepartmentStartOfflinePlantTour();
@@ -1657,9 +1675,13 @@ export default function HomePage() {
                 <button
                   className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
                   onClick={() => {
-                    if (employees[0]?.departmentName === "Quality - Rajpura") {
+                    const department = getDepartmentName();
+                    console.log('Offline Plant Tour button clicked, department:', department);
+                    if (department === "Quality - Rajpura") {
+                      console.log('Opening modal for Quality - Rajpura department');
                       setIsModalOpen(true);
                     } else {
+                      console.log('Navigating to plant-tour-section for other department:', department);
                       handleOtherDepartmentOfflinePlantTour();
                     }
                   }}
@@ -1674,7 +1696,7 @@ export default function HomePage() {
                       : 'bg-gray-400 text-gray-600 cursor-not-allowed'
                     }`}
                   onClick={() => {
-                    if (employees[0]?.departmentName === "Quality - Rajpura") {
+                    if (getDepartmentName() === "Quality - Rajpura") {
                       handleCancelOffline();
                     } else {
                       handleOtherDepartmentSyncCancelOffline();
