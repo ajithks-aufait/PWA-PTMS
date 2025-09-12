@@ -35,9 +35,8 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    host: true,
-    // Configure history API fallback for client-side routing
-    historyApiFallback: true
+    host: true
+    // Note: Vite automatically handles history API fallback for client-side routing
   },
   build: {
     outDir: 'dist',
