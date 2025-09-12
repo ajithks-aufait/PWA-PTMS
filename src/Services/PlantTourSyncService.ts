@@ -144,18 +144,27 @@ async function syncNotApplicableObservation(observation: OfflineObservationData)
   
   console.log('Syncing Not Applicable observation:', observation.observationData);
   
-  // Use the existing NotApplicableObservationService
-  const result = await saveNotApplicableObservation(
-    observation.observationData,
+  // Extract criteria details from observationData
+  const criteriaDetails = {
+    id: observation.observationData.cr3ea_criteriaid || observation.questionId,
+    Area: observation.observationData.cr3ea_areaid || observation.sectionName,
+    Category: observation.observationData.cr3ea_categoryid || '',
+    What: observation.observationData.cr3ea_what || '',
+    Criteria: observation.observationData.cr3ea_criteria || '',
+    // Add other required fields from observationData
+    ...observation.observationData
+  };
+  
+  // Use the existing NotApplicableObservationService with correct parameters
+  await saveNotApplicableObservation(
+    criteriaDetails,
     observation.employeeDetails,
-    observation.user
+    observation.user,
+    observation.plantTourId,
+    observation.sectionName
   );
   
-  if (!result) {
-    throw new Error('Failed to save Not Applicable observation to API');
-  }
-  
-  console.log('Not Applicable observation synced successfully:', result);
+  console.log('Not Applicable observation synced successfully');
 }
 
 /**
