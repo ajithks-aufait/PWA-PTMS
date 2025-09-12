@@ -13,6 +13,7 @@ import ALCReducer from './ALCSlice';
 import NetWeightMonitoringReducer from './NetWeightMonitoringRecordSlice';
 import bakingProcessReducer from './BakingProcessSlice';
 import oprpAndCcpReducer from './OPRPAndCCPSlice';
+import plantTourSectionReducer from './plantTourSectionSlice';
 import { persistStore, persistReducer } from "redux-persist";
 import storage from "redux-persist/lib/storage";
 
@@ -27,7 +28,7 @@ const userPersistConfig = {
 const planTourPersistConfig = {
   key: "planTour",
   storage,
-  whitelist: ["plantTourId", "employeeDetails", "selectedCycle", "selectedTour", "sectionDetails", "summaryData", "cycleData", "lastFetchTimestamp"]
+  whitelist: ["plantTourId", "employeeDetails", "selectedCycle", "selectedTour", "sectionDetails", "summaryData", "cycleData", "lastFetchTimestamp", "offlineCriteriaList", "offlineEmployeeDetails", "offlineExistingObservations", "offlineDataTimestamp", "isOfflineMode"]
 };
 
 // Persist config for appState
@@ -105,6 +106,13 @@ const bakingProcessPersistConfig = {
   whitelist: ["fetchedCycles", "offlineSavedData", "offlineFiles", "lastFetchTimestamp"]
 };
 
+// Persist config for plantTourSection
+const plantTourSectionPersistConfig = {
+  key: "plantTourSection",
+  storage,
+  whitelist: ["criteriaList", "employeeDetails", "existingObservations", "isOfflineMode", "offlineDataTimestamp", "accessToken", "sharepointToken", "plantTourId", "departmentTourId", "isDataFetched"]
+};
+
 const rootReducer = combineReducers({
   user: persistReducer(userPersistConfig, userReducer),
   planTour: persistReducer(planTourPersistConfig, planTourReducer),
@@ -119,6 +127,7 @@ const rootReducer = combineReducers({
   NetWeightMonitoring: persistReducer(NetWeightMonitoringPersistConfig, NetWeightMonitoringReducer),
   oprpAndCcp: persistReducer(oprpAndCcpPersistConfig, oprpAndCcpReducer),
   bakingProcess: persistReducer(bakingProcessPersistConfig, bakingProcessReducer),
+  plantTourSection: persistReducer(plantTourSectionPersistConfig, plantTourSectionReducer),
 });
 
 const store = configureStore({

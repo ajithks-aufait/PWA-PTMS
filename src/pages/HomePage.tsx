@@ -26,6 +26,11 @@ import { clearOfflineData as clearALCOfflineData, setFetchedCycles as setALCFetc
 import { setFetchedCycles as setNWMFetchedCycles, clearOfflineData as clearNWMOfflineData } from "../store/NetWeightMonitoringRecordSlice";
 import { clearOfflineData as clearBakingOfflineData } from "../store/BakingProcessSlice";
 import { clearOfflineData as clearOPRPAndCcpOfflineData } from "../store/OPRPAndCCPSlice";
+import { hasOfflineDataToSync, clearAllOfflineData } from "../Services/PlantTourSyncService";
+import { setOfflineCriteriaList, setOfflineEmployeeDetails, setOfflineExistingObservations, setOfflineDataTimestamp, setOfflineMode } from "../store/planTourSlice";
+import { createOrFetchDepartmentTour } from "../Services/createOrFetchDepartmentTour";
+import * as CriteriaMasterService from "../Services/CriteriaMasterService";
+import * as PlantTourService from "../Services/PlantTourService";
 import { savesectionApicall as saveBakingSection, collectEstimationDataCycleSave as collectBakingForSync } from "../Services/BakingProcesRecord";
 import { saveSectionApiCall as saveSealSection } from "../Services/SealIntegrityTest.ts";
 import type { CodeVerificationCycleData } from "../Services/CodeVerificationRecord";
@@ -164,6 +169,33 @@ export default function HomePage() {
 
   // Calculate total offline count with better reliability
   const totalOfflineCount = useMemo(() => {
+    // Get Plant Tour Section offline data count
+    let plantTourSectionOfflineCount = 0;
+    try {
+      const { getAllOfflineData } = require('../Services/PlantTourOfflineStorage');
+      const allPlantTourData = getAllOfflineData();
+      plantTourSectionOfflineCount = Object.values(allPlantTourData).reduce((total: number, tourData: any) => {
+        return total + (tourData.observations?.length || 0);
+      }, 0);
+    } catch (error) {
+      console.error('Error getting Plant Tour Section offline count:', error);
+    }
+
+    // Get pause and finish data count
+    let pauseDataCount = 0;
+    let finishDataCount = 0;
+    try {
+      const offlineData = JSON.parse(localStorage.getItem('plantTourOfflineData') || '{}');
+      if (offlineData.pauseData) {
+        pauseDataCount = 1; // Count pause data as 1 item
+      }
+      if (offlineData.finishData) {
+        finishDataCount = 1; // Count finish data as 1 item
+      }
+    } catch (error) {
+      console.error('Error getting pause/finish data count:', error);
+    }
+
     const count = pqiOfflineCount + 
       creamPercentagePendingSync.length + 
       sieveAndMagnetNewPlantPendingSync.length + 
@@ -174,7 +206,10 @@ export default function HomePage() {
       sealIntegrityOfflineData.length + 
       alcOfflineData.length + 
       netWeightOfflineData.length + 
-      oprpAndCcpOfflineData.length;
+      oprpAndCcpOfflineData.length +
+      plantTourSectionOfflineCount +
+      pauseDataCount +
+      finishDataCount;
     
     console.log('HomePage: Calculating total offline count:', count);
     console.log('HomePage: Breakdown:', {
@@ -188,7 +223,10 @@ export default function HomePage() {
       sealIntegrityOfflineData: sealIntegrityOfflineData.length,
       alcOfflineData: alcOfflineData.length,
       netWeightOfflineData: netWeightOfflineData.length,
-      oprpAndCcpOfflineData: oprpAndCcpOfflineData.length
+      oprpAndCcpOfflineData: oprpAndCcpOfflineData.length,
+      plantTourSectionOfflineCount,
+      pauseDataCount,
+      finishDataCount
     });
     
     return count;
@@ -543,17 +581,406 @@ export default function HomePage() {
   };
 
   const handleOtherDepartmentStartOfflinePlantTour = async () => {
-    console.log('Starting offline plant tour for other department - API call will be implemented later');
-    // TODO: Implement API call to fetch new plant tour sections
-    // For now, just navigate to the section
-    navigate("/plant-tour-section");
+    console.log('=== STARTING OFFLINE PLANT TOUR FOR OTHER DEPARTMENT ===');
+    console.log('Department:', getDepartmentName());
+    
+    try {
+      setIsPlantTourLoading(true);
+      setIsOfflineLoading(true);
+      dispatch(setProgress(0));
+      
+      // Check if user has required Name property
+      if (!user?.Name) {
+        throw new Error('User name not found. Please ensure you are logged in properly.');
+      }
+      console.log('User name:', user.Name);
+
+      // Check if we're online or offline
+      const isOnline = navigator.onLine;
+      console.log('Internet status:', isOnline ? 'Online' : 'Offline');
+
+      if (isOnline) {
+        console.log('=== ONLINE MODE: FETCHING DATA FROM APIS ===');
+        
+        // Step 1: Get access tokens
+        console.log('Getting access tokens...');
+        dispatch(setProgress(10));
+        const tokenResult = await getAccessToken();
+        const accessToken = tokenResult?.token;
+        
+        if (!accessToken) {
+          throw new Error('Failed to get access token');
+        }
+
+        // Get SharePoint token for employee list
+        const response = await instance.acquireTokenSilent({
+          ...loginRequest,
+          account: accounts[0],
+        });
+        const sharepointToken = response.accessToken;
+
+        // Step 2: Fetch employee details
+        console.log('Fetching employee details...');
+        dispatch(setProgress(20));
+        const employeeList = await fetchEmployeeList(sharepointToken, user.Name);
+        if (!employeeList || employeeList.length === 0) {
+          throw new Error(`Employee details not found for user: ${user.Name}`);
+        }
+        const currentEmployeeDetails = employeeList[0];
+        console.log('Employee details fetched:', currentEmployeeDetails);
+
+        // Step 3: Create or fetch plant tour ID
+        console.log('Creating/fetching plant tour ID...');
+        dispatch(setProgress(30));
+        const plantTourId = await createOrFetchPlantTour({
+          accessToken,
+          departmentId: currentEmployeeDetails.departmentId || '135',
+          employeeName: currentEmployeeDetails.employeeName || user?.Name || '',
+          roleName: currentEmployeeDetails.roleName || 'QA',
+          plantId: currentEmployeeDetails.plantId || '1',
+          userRoleID: currentEmployeeDetails.roleId || '1',
+        });
+
+        if (!plantTourId) {
+          throw new Error('Failed to create or fetch plant tour ID');
+        }
+        console.log('Plant tour ID created/fetched:', plantTourId);
+
+        // Step 4: Create or fetch department tour ID
+        console.log('Creating/fetching department tour ID...');
+        dispatch(setProgress(40));
+        const departmentTourId = await createOrFetchDepartmentTour({
+          accessToken,
+          departmentId: currentEmployeeDetails.departmentId || '135',
+          employeeName: currentEmployeeDetails.employeeName || user?.Name || '',
+          roleName: currentEmployeeDetails.roleName || 'QA',
+          plantId: currentEmployeeDetails.plantId || '1',
+          userRoleID: currentEmployeeDetails.roleId || '1',
+        });
+
+        if (!departmentTourId) {
+          throw new Error('Failed to create or fetch department tour ID');
+        }
+        console.log('Department tour ID created/fetched:', departmentTourId);
+
+        // Step 5: Fetch criteria master list
+        console.log('Fetching criteria master list...');
+        dispatch(setProgress(50));
+        const plantName = currentEmployeeDetails?.plantName || currentEmployeeDetails?.PlantName || '';
+        const departmentName = currentEmployeeDetails?.departmentName || currentEmployeeDetails?.DepartmentName || '';
+        
+        // Debug logging for Production - Old Plant department
+        console.log('=== HOMEPAGE OFFLINE SETUP DEBUGGING ===');
+        console.log('Plant Name:', plantName);
+        console.log('Department Name:', departmentName);
+        console.log('Employee Details:', currentEmployeeDetails);
+        
+        // For Plant Tour Section, we want to show ALL areas for the department, not just the employee's specific area
+        // So we pass undefined for areaName to get all areas
+        const criteriaList = await CriteriaMasterService.fetchCriteriaMasterList(
+          sharepointToken,
+          plantName,
+          departmentName,
+          undefined // Don't filter by area - show all areas for the department
+        );
+        console.log('Criteria master list fetched:', criteriaList.length, 'items');
+
+        // Step 6: Fetch existing observations
+        console.log('Fetching existing observations...');
+        dispatch(setProgress(60));
+        const existingObservations = await PlantTourService.fetchExistingObservations(plantTourId);
+        console.log('Existing observations fetched:', existingObservations.length, 'items');
+
+        // Step 7: Store all data in Redux
+        console.log('Storing all data in Redux...');
+        dispatch(setProgress(80));
+        dispatch(setOfflineCriteriaList(criteriaList));
+        dispatch(setOfflineEmployeeDetails(currentEmployeeDetails));
+        dispatch(setOfflineExistingObservations(existingObservations));
+        dispatch(setOfflineDataTimestamp(Date.now()));
+
+        // Step 8: Mark as offline mode
+        dispatch(setProgress(90));
+        dispatch(setOfflineCompleted(true));
+        dispatch(setOfflineStarted(true));
+        dispatch(setOfflineMode(true));
+
+        console.log('=== ONLINE DATA FETCH COMPLETED ===');
+        console.log('Plant Tour ID:', plantTourId);
+        console.log('Department Tour ID:', departmentTourId);
+        console.log('Criteria Count:', criteriaList.length);
+        console.log('Employee Details:', currentEmployeeDetails ? 'Available' : 'Not found');
+        console.log('Existing Observations Count:', existingObservations.length);
+
+      } else {
+        console.log('=== OFFLINE MODE: USING CACHED REDUX DATA ===');
+        dispatch(setProgress(20));
+        
+        // Check if we have cached data
+        const planTourState = useSelector((state: any) => state.planTour);
+        
+        if (!planTourState.offlineCriteriaList.length) {
+          throw new Error('No offline data available. Please connect to internet to fetch data first.');
+        }
+
+        console.log('Using cached data from Redux');
+        console.log('Cached criteria count:', planTourState.offlineCriteriaList.length);
+        console.log('Cached employee details:', planTourState.offlineEmployeeDetails ? 'Available' : 'Not found');
+        console.log('Cached observations count:', planTourState.offlineExistingObservations.length);
+
+        // Mark as offline mode
+        dispatch(setProgress(80));
+        dispatch(setOfflineCompleted(true));
+        dispatch(setOfflineStarted(true));
+        dispatch(setOfflineMode(true));
+      }
+
+      // Final completion
+      dispatch(setProgress(100));
+      
+      // Don't navigate - just complete the setup
+      console.log('=== OFFLINE PLANT TOUR SETUP COMPLETED ===');
+      console.log('Button will now change to "Offline Plant Tour"');
+
+    } catch (error) {
+      console.error('=== ERROR STARTING OFFLINE PLANT TOUR ===');
+      console.error('Error details:', error);
+      console.error('Error message:', error instanceof Error ? error.message : 'Unknown error');
+      alert(`Failed to start offline plant tour: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsPlantTourLoading(false);
+      setIsOfflineLoading(false);
+    }
   };
 
   const handleOtherDepartmentSyncCancelOffline = async () => {
-    console.log('Syncing plant-tour-section offline data for other department');
-    // TODO: Implement sync logic for plant-tour-section data
-    // This should sync locally saved data from localStorage/IndexedDB
-    alert('Plant tour section sync functionality will be implemented');
+    console.log('=== CHECKING FOR OFFLINE DATA TO SYNC ===');
+    
+    try {
+      // Check if there's any offline data to sync
+      const hasOfflineData = hasOfflineDataToSync();
+      
+      // Check for Plant Tour Section offline data
+      const { getOfflineToursForSync } = await import('../Services/PlantTourOfflineStorage');
+      const plantTourOfflineData = getOfflineToursForSync();
+      const hasPlantTourOfflineData = plantTourOfflineData.length > 0;
+      
+      console.log('General offline data available:', hasOfflineData);
+      console.log('Plant Tour Section offline data available:', hasPlantTourOfflineData);
+      console.log('Plant Tour Section offline data count:', plantTourOfflineData.length);
+      
+      if (!hasOfflineData && !hasPlantTourOfflineData) {
+        console.log('No offline data found to sync. Canceling offline mode...');
+        
+        // Clear offline data from localStorage
+        clearAllOfflineData();
+        
+        // Clear offline mode and all related Redux state
+        dispatch(setOfflineMode(false));
+        dispatch(clearOfflineData()); // Clears offlineCriteriaList, offlineEmployeeDetails, etc.
+        dispatch(setOfflineStarted(false));
+        dispatch(setOfflineCompleted(false));
+        dispatch(resetOfflineState()); // Resets progress and other offline state
+        
+        // Clear Plant Tour Section specific Redux state
+        dispatch(setOfflineCriteriaList([]));
+        dispatch(setOfflineEmployeeDetails(null));
+        dispatch(setOfflineExistingObservations([]));
+        dispatch(setOfflineDataTimestamp(0));
+        
+        console.log('All offline data cleared from localStorage and Redux state');
+        alert('No offline data found. Offline mode cancelled.');
+        return;
+      }
+
+      // If there is offline data, sync it
+      console.log('Offline data found. Starting sync process...');
+      
+      // Check if internet is available
+      if (!isOnline) {
+        console.log('No internet connection available for syncing');
+        alert('⚠️ Internet connection required to sync offline data. Please check your connection and try again.');
+        return;
+      }
+
+      // Get access token for syncing
+      const tokenResult = await getAccessToken();
+      const accessToken = tokenResult?.token;
+
+      if (!accessToken) {
+        console.error('No access token available for syncing');
+        alert('❌ Authentication error. Please log in again.');
+        return;
+      }
+
+      let totalSynced = 0;
+      let totalErrors = 0;
+
+      // Sync Plant Tour Section offline data
+      if (hasPlantTourOfflineData) {
+        console.log('=== SYNCING PLANT TOUR SECTION OFFLINE DATA ===');
+        console.log('Plant Tour Section offline data:', plantTourOfflineData);
+        
+        try {
+          for (const tourData of plantTourOfflineData) {
+            console.log(`Syncing Plant Tour Section data for tour: ${tourData.plantTourId}`);
+            console.log(`Observations count: ${tourData.observations.length}`);
+            
+            for (const observation of tourData.observations) {
+              try {
+                console.log(`Syncing observation: ${observation.id}`, {
+                  sectionName: observation.sectionName,
+                  questionId: observation.questionId,
+                  response: observation.response,
+                  isNotApplicable: observation.isNotApplicable
+                });
+
+                if (observation.isNotApplicable) {
+                  // Sync Not Applicable observation
+                  console.log('Syncing Not Applicable observation with data:', {
+                    criteria: observation.observationData?.criteria,
+                    employeeDetails: observation.employeeDetails,
+                    user: observation.user,
+                    plantTourId: observation.plantTourId,
+                    sectionName: observation.sectionName
+                  });
+                  
+                  const { saveNotApplicableObservation } = await import('../Services/NotApplicableObservationService');
+                  await saveNotApplicableObservation(
+                    observation.observationData?.criteria || {},
+                    observation.employeeDetails,
+                    observation.user,
+                    observation.plantTourId,
+                    observation.sectionName
+                  );
+                } else {
+                  // Sync regular observation
+                  console.log('Syncing regular observation with data:', observation.observationData);
+                  await PlantTourService.saveObservationToAPI(observation.observationData);
+                }
+                
+                console.log(`Successfully synced observation: ${observation.id}`);
+                totalSynced++;
+              } catch (observationError) {
+                console.error(`Failed to sync observation ${observation.id}:`, observationError);
+                totalErrors++;
+              }
+            }
+          }
+          
+          console.log('Plant Tour Section offline data sync completed');
+        } catch (error) {
+          console.error('Error syncing Plant Tour Section offline data:', error);
+          totalErrors++;
+        }
+      }
+
+      // Sync pause data if available
+      try {
+        const offlineData = JSON.parse(localStorage.getItem('plantTourOfflineData') || '{}');
+        if (offlineData.pauseData) {
+          console.log('=== SYNCING PAUSE DATA ===');
+          console.log('Pause data found:', offlineData.pauseData);
+          
+          try {
+            // Sync pause data using PlantTourService
+            await PlantTourService.updateTourStatus(
+              offlineData.pauseData.plantTourId, 
+              offlineData.pauseData.tourUpdateData
+            );
+            
+            console.log('Successfully synced pause data');
+            totalSynced++;
+            
+            // Remove pause data from localStorage after successful sync
+            delete offlineData.pauseData;
+            localStorage.setItem('plantTourOfflineData', JSON.stringify(offlineData));
+            
+          } catch (pauseError) {
+            console.error('Failed to sync pause data:', pauseError);
+            totalErrors++;
+          }
+        }
+      } catch (error) {
+        console.error('Error checking for pause data:', error);
+      }
+
+      // Sync finish data if available
+      try {
+        const offlineData = JSON.parse(localStorage.getItem('plantTourOfflineData') || '{}');
+        if (offlineData.finishData) {
+          console.log('=== SYNCING FINISH DATA ===');
+          console.log('Finish data found:', offlineData.finishData);
+          
+          try {
+            // Import and use FinishTourService
+            const { finishPlantTour } = await import('../Services/FinishTourService');
+            
+            // Sync finish data
+            await finishPlantTour(
+              offlineData.finishData.plantTourId,
+              offlineData.finishData.validationData,
+              offlineData.finishData.finalComment
+            );
+            
+            console.log('Successfully synced finish data');
+            totalSynced++;
+            
+            // Remove finish data from localStorage after successful sync
+            delete offlineData.finishData;
+            localStorage.setItem('plantTourOfflineData', JSON.stringify(offlineData));
+            
+          } catch (finishError) {
+            console.error('Failed to sync finish data:', finishError);
+            totalErrors++;
+          }
+        }
+      } catch (error) {
+        console.error('Error checking for finish data:', error);
+      }
+
+      // Show sync results
+      if (totalSynced > 0 && totalErrors === 0) {
+        alert(`✅ Successfully synced ${totalSynced} Plant Tour Section observation(s)!`);
+        
+        // Clear Plant Tour Section offline data after successful sync
+        if (hasPlantTourOfflineData) {
+          const { clearOfflineTourData } = await import('../Services/PlantTourOfflineStorage');
+          for (const tourData of plantTourOfflineData) {
+            clearOfflineTourData(tourData.plantTourId);
+          }
+        }
+        
+        // Clear all offline data from localStorage
+        clearAllOfflineData();
+        
+        // Clear offline mode and all related Redux state
+        dispatch(setOfflineMode(false));
+        dispatch(clearOfflineData()); // Clears offlineCriteriaList, offlineEmployeeDetails, etc.
+        dispatch(setOfflineStarted(false));
+        dispatch(setOfflineCompleted(false));
+        dispatch(resetOfflineState()); // Resets progress and other offline state
+        
+        // Clear Plant Tour Section specific Redux state
+        dispatch(setOfflineCriteriaList([]));
+        dispatch(setOfflineEmployeeDetails(null));
+        dispatch(setOfflineExistingObservations([]));
+        dispatch(setOfflineDataTimestamp(0));
+        
+        console.log('All offline data cleared from localStorage and Redux state');
+        console.log('Plant Tour Section offline data cleared and offline mode cancelled');
+      } else if (totalSynced > 0 && totalErrors > 0) {
+        alert(`⚠️ Synced ${totalSynced} observation(s) successfully, but ${totalErrors} observation(s) failed. Please check console for details.`);
+      } else if (totalSynced === 0 && totalErrors > 0) {
+        alert('❌ Failed to sync Plant Tour Section offline data. Please check console for details.');
+      } else {
+        alert('No Plant Tour Section offline data to sync.');
+      }
+
+    } catch (error) {
+      console.error('Error during sync/cancel check:', error);
+      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   };
 
   const handleCancelOffline = async () => {

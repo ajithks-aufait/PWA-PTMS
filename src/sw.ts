@@ -56,11 +56,25 @@ self.addEventListener('message', (event) => {
   }
 })
 
+// Handle SPA navigation with a more robust strategy
 registerRoute(
   ({ request }) => request.mode === 'navigate',
   new NetworkFirst({
     cacheName: 'spa-navigation-cache',
-    plugins: [new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 24 * 60 * 60 })],
+    networkTimeoutSeconds: 3,
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 24 * 60 * 60 }),
+      // Add a custom plugin to handle navigation failures
+      {
+        cacheKeyWillBeUsed: async ({ request }) => {
+          return request.url
+        },
+        cacheWillUpdate: async ({ response }) => {
+          // Only cache successful responses
+          return response.status === 200 ? response : null
+        }
+      }
+    ]
   })
 )
 
@@ -72,15 +86,52 @@ registerRoute(
   })
 )
 
-const spaRoutes = ['/tasks', '/create', '/welcome']
+// Define SPA routes for the Plant Tour Management System
+const spaRoutes = [
+  '/home',
+  '/plant-tour-section',
+  '/qualityplantour',
+  '/creampercentage',
+  '/sieveandmagnetoldplant',
+  '/sieveandmagnetnewplant',
+  '/productmonitoringrecord',
+  '/netweightmonitoringrecord',
+  '/codeverificationrecord',
+  '/oprpandccprecord',
+  '/bakingprocessrecord',
+  '/sealintegritytest',
+  '/alc'
+]
+
 spaRoutes.forEach((route) => {
   registerRoute(
     ({ url }) => url.pathname === route,
     new NetworkFirst({
       cacheName: `spa-route-${route.replace('/', '')}`,
-      plugins: [new ExpirationPlugin({ maxEntries: 5, maxAgeSeconds: 24 * 60 * 60 })],
+      networkTimeoutSeconds: 3,
+      plugins: [
+        new ExpirationPlugin({ maxEntries: 5, maxAgeSeconds: 24 * 60 * 60 }),
+        {
+          cacheWillUpdate: async ({ response }) => {
+            // Only cache successful responses
+            return response.status === 200 ? response : null
+          }
+        }
+      ]
     })
   )
 })
+
+// Add a fallback route for any unmatched navigation requests
+registerRoute(
+  ({ request }) => request.mode === 'navigate' && !spaRoutes.some(route => request.url.includes(route)),
+  new NetworkFirst({
+    cacheName: 'fallback-navigation-cache',
+    networkTimeoutSeconds: 3,
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 10, maxAgeSeconds: 24 * 60 * 60 })
+    ]
+  })
+)
 
 

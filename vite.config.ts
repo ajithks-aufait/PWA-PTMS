@@ -35,7 +35,9 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    host: true
+    host: true,
+    // Configure history API fallback for client-side routing
+    historyApiFallback: true
   },
   build: {
     outDir: 'dist',

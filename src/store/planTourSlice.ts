@@ -40,6 +40,12 @@ interface PlanTourState {
   cycleAction: any; // Cycle action state
   categorySummary: any; // Category summary state
   cycleCount: number; // Cycle count state
+  // Offline data for Plant Tour
+  offlineCriteriaList: any[]; // Cached criteria master list
+  offlineEmployeeDetails: any | null; // Cached employee details
+  offlineExistingObservations: any[]; // Cached existing observations
+  offlineDataTimestamp: number | null; // Timestamp of offline data fetch
+  isOfflineMode: boolean; // Flag to indicate offline mode
 }
 
 const initialState: PlanTourState = {
@@ -59,6 +65,12 @@ const initialState: PlanTourState = {
   cycleAction: null,
   categorySummary: {},
   cycleCount: 0,
+  // Offline data initialization
+  offlineCriteriaList: [],
+  offlineEmployeeDetails: null,
+  offlineExistingObservations: [],
+  offlineDataTimestamp: null,
+  isOfflineMode: false,
 };
 
 export const planTourSlice = createSlice({
@@ -143,6 +155,29 @@ export const planTourSlice = createSlice({
     setCycleCount(state, action: PayloadAction<number>) {
       state.cycleCount = action.payload;
     },
+    // Offline data management
+    setOfflineCriteriaList(state, action: PayloadAction<any[]>) {
+      state.offlineCriteriaList = action.payload;
+    },
+    setOfflineEmployeeDetails(state, action: PayloadAction<any | null>) {
+      state.offlineEmployeeDetails = action.payload;
+    },
+    setOfflineExistingObservations(state, action: PayloadAction<any[]>) {
+      state.offlineExistingObservations = action.payload;
+    },
+    setOfflineDataTimestamp(state, action: PayloadAction<number>) {
+      state.offlineDataTimestamp = action.payload;
+    },
+    setOfflineMode(state, action: PayloadAction<boolean>) {
+      state.isOfflineMode = action.payload;
+    },
+    clearOfflineData(state) {
+      state.offlineCriteriaList = [];
+      state.offlineEmployeeDetails = null;
+      state.offlineExistingObservations = [];
+      state.offlineDataTimestamp = null;
+      state.isOfflineMode = false;
+    },
     // Clear all data except token, plantTourId, employeeDetails, and user details
     clearAllDataExceptEssential(state) {
       state.selected = {};
@@ -187,6 +222,12 @@ export const {
   setCycleCount,
   clearActionStates,
   clearApiData,
+  setOfflineCriteriaList,
+  setOfflineEmployeeDetails,
+  setOfflineExistingObservations,
+  setOfflineDataTimestamp,
+  setOfflineMode,
+  clearOfflineData,
   clearAllDataExceptEssential
 } = planTourSlice.actions;
 
