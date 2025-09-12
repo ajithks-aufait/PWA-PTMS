@@ -19,7 +19,7 @@ const PlantTourSection: React.FC = () => {
   const dispatch = useDispatch();
   // Get data from planTour slice (since plantTourSection slice was deleted)
   const { 
-    plantTourId,
+    plantTourId: reduxPlantTourId,
     employeeDetails,
     offlineCriteriaList, 
     offlineEmployeeDetails, 
@@ -27,7 +27,18 @@ const PlantTourSection: React.FC = () => {
     offlineDataTimestamp, 
     isOfflineMode
   } = useSelector((state: RootState) => state.planTour);
-  console.log(employeeDetails,'employeeDetails');
+  
+  // CRITICAL: Use localStorage backup if Redux doesn't have plant tour ID
+  const localStoragePlantTourId = localStorage.getItem('plantTourId');
+  const plantTourId = reduxPlantTourId || localStoragePlantTourId;
+  
+  console.log('🔍 PlantTourSection Debug:');
+  console.log('  - Redux plantTourId:', reduxPlantTourId);
+  console.log('  - localStorage plantTourId:', localStoragePlantTourId);
+  console.log('  - Final plantTourId:', plantTourId);
+  console.log('  - employeeDetails:', employeeDetails);
+  console.log('  - isOfflineMode:', isOfflineMode);
+  console.log('  - offlineCriteriaList.length:', offlineCriteriaList?.length || 0);
   
   const user = useSelector((state: any) => state.user.user);
   const { instance, accounts } = useMsal();

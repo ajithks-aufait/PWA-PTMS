@@ -28,6 +28,7 @@ import { clearOfflineData as clearBakingOfflineData } from "../store/BakingProce
 import { clearOfflineData as clearOPRPAndCcpOfflineData } from "../store/OPRPAndCCPSlice";
 import { hasOfflineDataToSync, clearAllOfflineData } from "../Services/PlantTourSyncService";
 import { setOfflineCriteriaList, setOfflineEmployeeDetails, setOfflineExistingObservations, setOfflineDataTimestamp, setOfflineMode } from "../store/planTourSlice";
+import { setPlantTourId as setPlantTourSectionPlantTourId } from "../store/plantTourSectionSlice";
 import { createOrFetchDepartmentTour } from "../Services/createOrFetchDepartmentTour";
 import * as CriteriaMasterService from "../Services/CriteriaMasterService";
 import * as PlantTourService from "../Services/PlantTourService";
@@ -694,10 +695,22 @@ export default function HomePage() {
         // Step 7: Store all data in Redux
         console.log('Storing all data in Redux...');
         dispatch(setProgress(80));
+        dispatch(setPlantTourId(plantTourId)); // Store plant tour ID in planTour slice
+        console.log('✅ Plant Tour ID stored in planTour slice:', plantTourId);
+        
+        // CRITICAL: Also store in localStorage as backup
+        localStorage.setItem('plantTourId', plantTourId);
+        localStorage.setItem('offlinePlantTourActive', 'true');
+        console.log('✅ Plant Tour ID stored in localStorage as backup:', plantTourId);
+        
         dispatch(setOfflineCriteriaList(criteriaList));
         dispatch(setOfflineEmployeeDetails(currentEmployeeDetails));
         dispatch(setOfflineExistingObservations(existingObservations));
         dispatch(setOfflineDataTimestamp(Date.now()));
+        
+        // Also store in plantTourSection slice for consistency
+        dispatch(setPlantTourSectionPlantTourId(plantTourId)); // Store in plantTourSection slice
+        console.log('✅ Plant Tour ID stored in plantTourSection slice:', plantTourId);
 
         // Step 8: Mark as offline mode
         dispatch(setProgress(90));
@@ -711,6 +724,22 @@ export default function HomePage() {
         console.log('Criteria Count:', criteriaList.length);
         console.log('Employee Details:', currentEmployeeDetails ? 'Available' : 'Not found');
         console.log('Existing Observations Count:', existingObservations.length);
+        
+        // Verify Redux state after storing
+        const currentState = store.getState();
+        console.log('🔍 Redux State Verification:');
+        console.log('  - planTour.plantTourId:', currentState.planTour.plantTourId);
+        console.log('  - plantTourSection.plantTourId:', currentState.plantTourSection.plantTourId);
+        console.log('  - planTour.offlineCriteriaList.length:', currentState.planTour.offlineCriteriaList.length);
+        console.log('  - planTour.offlineEmployeeDetails:', currentState.planTour.offlineEmployeeDetails ? 'Available' : 'Not found');
+        
+        // CRITICAL: Check if plantTourId is actually stored
+        if (!currentState.planTour.plantTourId) {
+          console.error('❌ CRITICAL ERROR: plantTourId is NOT stored in Redux state!');
+          console.error('This will cause the "Plant tour ID not found" error!');
+        } else {
+          console.log('✅ SUCCESS: plantTourId is stored in Redux state:', currentState.planTour.plantTourId);
+        }
 
       } else {
         console.log('=== OFFLINE MODE: USING CACHED REDUX DATA ===');
@@ -953,6 +982,11 @@ export default function HomePage() {
         
         // Clear all offline data from localStorage
         clearAllOfflineData();
+        
+        // Clear plant tour specific localStorage items
+        localStorage.removeItem('plantTourId');
+        localStorage.removeItem('offlinePlantTourActive');
+        console.log('Plant tour localStorage items cleared');
         
         // Clear offline mode and all related Redux state
         dispatch(setOfflineMode(false));
