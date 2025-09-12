@@ -78,8 +78,8 @@ export async function fetchCycleData(QualityTourId: string) {
     } as const;
 
     const apiVersion = '9.2';
-    // const tableName = 'cr3ea_prod_bakings';
-    const tableName = 'cr3ea_bakings';
+    const tableName = 'cr3ea_prod_bakings';
+    // const tableName = 'cr3ea_bakings';
     const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}?$filter=cr3ea_qualitytourid eq '${QualityTourId}'&$select=cr3ea_cycle,cr3ea_productname,cr3ea_bakingtime,cr3ea_topbakingtempzone1,cr3ea_topbakingtempzone2,cr3ea_topbakingtempzone3,cr3ea_topbakingtempzone4,cr3ea_topbakingtempzone5,cr3ea_topbakingtempzone6,cr3ea_topbakingtempzone7,cr3ea_topproducttempafterbaking,cr3ea_bottombakingtempzone1,cr3ea_bottombakingtempzone2,cr3ea_bottombakingtempzone3,cr3ea_bottombakingtempzone4,cr3ea_bottombakingtempzone5,cr3ea_bottombakingtempzone6,cr3ea_bottombakingtempzone7,cr3ea_bottomproducttempafterbaking,cr3ea_executivename`;
 
     const response = await fetch(apiUrl, { headers });
@@ -198,8 +198,8 @@ export async function savesectionApicall(data: BakingProcessData[]): Promise<Sav
     } as const;
 
     const apiVersion = '9.2';
-    // const tableName = 'cr3ea_prod_bakings';
-    const tableName = 'cr3ea_bakings';
+    const tableName = 'cr3ea_prod_bakings';
+    // const tableName = 'cr3ea_bakings';
     const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}`;
 
     const results: any[] = [];

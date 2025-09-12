@@ -55,7 +55,7 @@ export async function createOrFetchDepartmentTour({
   }
 
   const apiVersion = "9.2";
-  const tableName = "cr3ea_departmenttours";
+  const tableName = "cr3ea_prod_departmenttours";
   const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}`;
 
   const now = new Date();
@@ -199,7 +199,7 @@ export async function updateDepartmentTourStatus(
   }
 
   const apiVersion = "9.2";
-  const tableName = "cr3ea_departmenttours";
+  const tableName = "cr3ea_prod_departmenttours";
   const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}(${departmentTourId})`;
 
   const headers = {

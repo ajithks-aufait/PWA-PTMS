@@ -56,8 +56,8 @@ export async function fetchCycleData(QualityTourId: string) {
     };
 
     const apiVersion = "9.2";
-    // const tableName = "cr3ea_prod_vlts";
-    const tableName = "cr3ea_vlts";
+    const tableName = "cr3ea_prod_vlts";
+    // const tableName = "cr3ea_vlts";
     const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}?$filter=cr3ea_qualitytourid eq '${QualityTourId}'&$select=cr3ea_cycle,cr3ea_observedtime,cr3ea_productname,cr3ea_machineno,cr3ea_sampleqty,cr3ea_leakageno,cr3ea_leakagetype,cr3ea_executivename`;
 
     const response = await fetch(apiUrl, { headers });
@@ -158,8 +158,8 @@ export async function saveSectionApiCall(data: SealIntegrityTestData[]): Promise
     };
 
     const apiVersion = "9.2";
-    // const tableName = "cr3ea_prod_vlts";
-    const tableName = "cr3ea_vlts";
+    const tableName = "cr3ea_prod_vlts";
+    // const tableName = "cr3ea_vlts";
     const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}`;
 
     const results = [];

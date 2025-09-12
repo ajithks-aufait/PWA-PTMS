@@ -322,7 +322,7 @@ export async function updateTourStatus(plantTourId: string, tourData: TourUpdate
     }
 
     const environmentUrl = 'https://orgea61b289.crm8.dynamics.com';
-    const tableName = 'cr3ea_departmenttours';
+    const tableName = 'cr3ea_prod_departmenttours';
     const apiVersion = '9.2';
     const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}(${plantTourId})`;
     

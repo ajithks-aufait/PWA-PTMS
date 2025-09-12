@@ -88,8 +88,8 @@ export async function fetchCycleData(QualityTourId: string) {
     };
 
     const apiVersion = "9.2";
-    // const tableName = "cr3ea_prod_netweights";
-    const tableName = "cr3ea_netweights";
+    const tableName = "cr3ea_prod_netweights";
+    // const tableName = "cr3ea_netweights";
     const select = [
       'cr3ea_cycle',
       'cr3ea_mc1inspection1','cr3ea_mc1inspection2','cr3ea_mc1inspection3','cr3ea_mc1inspection4','cr3ea_mc1inspection5','cr3ea_mc1avg',
@@ -239,8 +239,8 @@ export async function saveSectionApiCall(data: NetWeightMonitoringData[]): Promi
     };
 
     const apiVersion = "9.2";
-    // const tableName = "cr3ea_prod_netweights";
-    const tableName = "cr3ea_netweights";
+    const tableName = "cr3ea_prod_netweights";
+    // const tableName = "cr3ea_netweights";
     const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}`;
 
     const results = [];

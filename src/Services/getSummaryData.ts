@@ -9,8 +9,8 @@ export async function fetchSummaryData(accessToken: string, qualityTourId: strin
   }
 
   const apiVersion = "9.2";
-  // const tableName = "cr3ea_prod_pqi_fronts";
-  const tableName = "cr3ea_pqi_fronts";
+  const tableName = "cr3ea_prod_pqi_fronts";
+  // const tableName = "cr3ea_pqi_fronts";
   const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}?$filter=cr3ea_qualitytourid eq '${qualityTourId}'`;
 
   const header = {

@@ -61,7 +61,7 @@ export async function fetchCycleData(QualityTourId: string) {
 
     const apiVersion = '9.2';
     // const tableName = 'cr3ea_prod_alcs';
-    const tableName = 'cr3ea_alcs';
+    const tableName = 'cr3ea_prod_alcs';
     const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}?$filter=cr3ea_qualitytourid eq '${QualityTourId}'&$select=cr3ea_cycle,cr3ea_productname,cr3ea_lineno,cr3ea_previousrunningvariety,cr3ea_runningvariety,cr3ea_area,cr3ea_criteria,cr3ea_status,cr3ea_defectcategory,cr3ea_defectremarks,cr3ea_executivename`;
 
     const response = await fetch(apiUrl, { headers });
@@ -300,7 +300,7 @@ export async function saveSectionApiCall(data: ALCData[]): Promise<SaveResponse>
 
     const apiVersion = "9.2";
     // const tableName = "cr3ea_prod_alcs";
-    const tableName = "cr3ea_alcs";
+    const tableName = "cr3ea_prod_alcs";
     const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}`;
 
     const results = [];

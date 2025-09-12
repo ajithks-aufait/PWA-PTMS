@@ -10,8 +10,8 @@ export async function fetchCycleDetails(accessToken: string, plantTourId: string
   }
 
   const apiVersion = "9.2";
-  // const tableName = "cr3ea_prod_pqi_fronts";
-  const tableName = "cr3ea_pqi_fronts";
+   const tableName = "cr3ea_prod_pqi_fronts";
+  // const tableName = "cr3ea_pqi_fronts";
   const apiUrl = `${environmentUrl}/api/data/v${apiVersion}/${tableName}?$filter=cr3ea_qualitytourid eq '${plantTourId}'`;
 
   const header = {
