@@ -6,7 +6,8 @@
 import * as CriteriaMasterService from './CriteriaMasterService';
 import * as PlantTourService from './PlantTourService';
 import { fetchEmployeeList } from './getEmployeeDetails';
-import { getAccessToken } from './getAccessToken';
+import { loginRequest } from "../auth/authConfig";
+import { useMsal } from "@azure/msal-react";
 
 export interface PlantTourOfflineData {
   criteriaList: any[];
@@ -32,12 +33,11 @@ export async function fetchPlantTourOfflineData(
     console.log('Plant Tour ID:', plantTourId);
     console.log('User:', user);
     console.log('Employee details provided:', !!employeeDetails);
-
-    // Get access token
-    const accessToken = await getAccessToken();
-    if (!accessToken) {
-      throw new Error('Failed to get access token for offline data fetch');
-    }
+    const { accounts, instance } = useMsal();
+    const response = await instance.acquireTokenSilent({
+      ...loginRequest,
+      account: accounts[0],
+    });
 
     // Use provided employee details or fetch from API
     let currentEmployeeDetails = employeeDetails;
@@ -46,7 +46,7 @@ export async function fetchPlantTourOfflineData(
       if (!user?.Name) {
         throw new Error('User name is required to fetch employee details');
       }
-      const employeeList = await fetchEmployeeList(accessToken, user.Name);
+      const employeeList = await fetchEmployeeList(response.accessToken, user.Name);
       currentEmployeeDetails = employeeList && employeeList.length > 0 ? employeeList[0] : null;
       console.log('Employee details fetched from API:', currentEmployeeDetails);
     } else {
@@ -67,7 +67,7 @@ export async function fetchPlantTourOfflineData(
     // Fetch criteria master list
     console.log('Fetching criteria master list...');
     const criteriaList = await CriteriaMasterService.fetchCriteriaMasterList(
-      accessToken,
+      response.accessToken,
       plantName,
       departmentName,
       areaName
