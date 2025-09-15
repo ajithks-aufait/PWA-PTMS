@@ -19,7 +19,7 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         sourcemap: true,
       },
-      injectRegister: 'auto',
+      injectRegister: false, // Disable automatic service worker registration
       // Disable manifest generation since we're using public/manifest.json
       manifest: false,
       devOptions: {

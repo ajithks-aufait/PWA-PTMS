@@ -78,16 +78,27 @@ registerRoute(
   })
 )
 
+// Handle the main page and login page specifically
 registerRoute(
   ({ url }) => url.pathname === '/' || url.pathname === '/index.html',
   new NetworkFirst({
     cacheName: 'main-page-cache',
-    plugins: [new ExpirationPlugin({ maxEntries: 10, maxAgeSeconds: 24 * 60 * 60 })],
+    networkTimeoutSeconds: 3,
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 10, maxAgeSeconds: 24 * 60 * 60 }),
+      {
+        cacheWillUpdate: async ({ response }) => {
+          // Always cache the main page and login page for offline access
+          return response.status === 200 ? response : null
+        }
+      }
+    ],
   })
 )
 
 // Define SPA routes for the Plant Tour Management System
 const spaRoutes = [
+  '/', // Login page
   '/home',
   '/plant-tour-section',
   '/qualityplantour',
@@ -124,7 +135,16 @@ spaRoutes.forEach((route) => {
 
 // Add a fallback route for any unmatched navigation requests
 registerRoute(
-  ({ request }) => request.mode === 'navigate' && !spaRoutes.some(route => request.url.includes(route)),
+  ({ request }) => {
+    // Only handle navigation requests that are not in our SPA routes
+    if (request.mode !== 'navigate') return false;
+    
+    const url = new URL(request.url);
+    const pathname = url.pathname;
+    
+    // Don't handle the root path or any of our defined SPA routes
+    return !spaRoutes.includes(pathname);
+  },
   new NetworkFirst({
     cacheName: 'fallback-navigation-cache',
     networkTimeoutSeconds: 3,
