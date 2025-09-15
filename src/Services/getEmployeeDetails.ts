@@ -3,7 +3,7 @@
  */
 
 export async function fetchEmployeeList(accessToken: string, employeeName: string) {
-  const url = `https://bectors.sharepoint.com/sites/PTMS_UAT/_api/web/lists/getbytitle('EmployeeList')/items?$filter=EmployeeName/Title eq '${employeeName}'&$expand=EmployeeName,DepartmentId,RoleId,PlantId&$select=Id,EmployeeName/Title,DepartmentId/Id,DepartmentId/Title,RoleId/Id,RoleId/Title,PlantId/Id,PlantId/Title`;
+  const url = `https://bectors.sharepoint.com/sites/PTMS_PRD/_api/web/lists/getbytitle('EmployeeList')/items?$filter=EmployeeName/Title eq '${employeeName}'&$expand=EmployeeName,DepartmentId,RoleId,PlantId&$select=Id,EmployeeName/Title,DepartmentId/Id,DepartmentId/Title,RoleId/Id,RoleId/Title,PlantId/Id,PlantId/Title`;
 
   try {
     const response = await fetch(url, {
