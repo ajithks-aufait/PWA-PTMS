@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
 import { useSelector } from 'react-redux';
-import type { RootState } from '../store/store';
 import { selectCycleImages } from '../store/BakingProcessSlice';
 
 interface FileUploadModalProps {
@@ -32,7 +31,7 @@ const FileUploadModal: React.FC<FileUploadModalProps> = ({
   const currentImage = currentImageId ? cycleImages.find(img => img.id === currentImageId) : null;
 
   // Check if camera is available
-  const isCameraAvailable = navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+  const isCameraAvailable = navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function';
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -168,7 +167,6 @@ const FileUploadModal: React.FC<FileUploadModalProps> = ({
                   <div className="text-xs">
                     Size: {formatFileSize(currentImage.fileSize)} • 
                     {currentImage.isFromCamera ? ' 📷 Camera' : ' 🖼️ Gallery'} • 
-                    {currentImage.isOffline ? ' Offline' : ' Online'}
                   </div>
                 </div>
               </div>
