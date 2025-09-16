@@ -19,7 +19,6 @@ interface ImagePreviewProps {
 
 const ImagePreview: React.FC<ImagePreviewProps> = ({ 
   imageData, 
-  onRemove, 
   showDetails = true,
   className = ""
 }) => {
