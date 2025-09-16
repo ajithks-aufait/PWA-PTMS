@@ -28,6 +28,7 @@ import { clearOfflineData as clearBakingOfflineData } from "../store/BakingProce
 import { clearOfflineData as clearOPRPAndCcpOfflineData } from "../store/OPRPAndCCPSlice";
 import { hasOfflineDataToSync, clearAllOfflineData } from "../Services/PlantTourSyncService";
 import { getAllOfflineData } from "../Services/PlantTourOfflineStorage";
+import { syncOfflineFiles, getMsalToken } from "../Services/BakingProcessFileUpload";
 import { setOfflineCriteriaList, setOfflineEmployeeDetails, setOfflineExistingObservations, setOfflineDataTimestamp, setOfflineMode } from "../store/planTourSlice";
 import { setPlantTourId as setPlantTourSectionPlantTourId } from "../store/plantTourSectionSlice";
 import { createOrFetchDepartmentTour } from "../Services/createOrFetchDepartmentTour";
@@ -1570,6 +1571,34 @@ export default function HomePage() {
       }
     } else {
       console.log('No Baking Process offline data to sync');
+    }
+
+    // Sync Baking Process offline images
+    try {
+      const state = store.getState();
+      const bakingOfflineFiles = state.bakingProcess.offlineFiles;
+      if (bakingOfflineFiles.length > 0) {
+        console.log('=== SYNCING BAKING PROCESS OFFLINE IMAGES ===');
+        console.log('Baking Process offline images found:', bakingOfflineFiles.length);
+        
+        const accessToken = await getMsalToken(instance, accounts);
+        if (accessToken) {
+          const imageSyncResult = await syncOfflineFiles(accessToken);
+          if (imageSyncResult.success) {
+            console.log('Successfully synced baking process images');
+            totalSynced += bakingOfflineFiles.length;
+          } else {
+            console.error('Failed to sync baking process images:', imageSyncResult);
+            totalErrors += bakingOfflineFiles.length;
+          }
+        } else {
+          console.error('No access token available for baking process image sync');
+          totalErrors += bakingOfflineFiles.length;
+        }
+      }
+    } catch (error) {
+      console.error('Error syncing baking process offline images:', error);
+      totalErrors++;
     }
 
     // Sync Net Weight Monitoring offline data
