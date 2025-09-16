@@ -27,6 +27,7 @@ import { setFetchedCycles as setNWMFetchedCycles, clearOfflineData as clearNWMOf
 import { clearOfflineData as clearBakingOfflineData } from "../store/BakingProcessSlice";
 import { clearOfflineData as clearOPRPAndCcpOfflineData } from "../store/OPRPAndCCPSlice";
 import { hasOfflineDataToSync, clearAllOfflineData } from "../Services/PlantTourSyncService";
+import { getAllOfflineData } from "../Services/PlantTourOfflineStorage";
 import { setOfflineCriteriaList, setOfflineEmployeeDetails, setOfflineExistingObservations, setOfflineDataTimestamp, setOfflineMode } from "../store/planTourSlice";
 import { setPlantTourId as setPlantTourSectionPlantTourId } from "../store/plantTourSectionSlice";
 import { createOrFetchDepartmentTour } from "../Services/createOrFetchDepartmentTour";
@@ -173,7 +174,6 @@ export default function HomePage() {
     // Get Plant Tour Section offline data count
     let plantTourSectionOfflineCount = 0;
     try {
-      const { getAllOfflineData } = require('../Services/PlantTourOfflineStorage');
       const allPlantTourData = getAllOfflineData();
       plantTourSectionOfflineCount = Object.values(allPlantTourData).reduce((total: number, tourData: any) => {
         return total + (tourData.observations?.length || 0);

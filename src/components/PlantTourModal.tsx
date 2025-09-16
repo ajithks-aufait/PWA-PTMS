@@ -29,13 +29,6 @@ const PlantTourModal: React.FC<PlantTourModalProps> = ({ isOpen, onClose, onDone
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">Start Plant Tour</h2>
-          <button
-            className="text-gray-500 hover:text-gray-800 text-2xl leading-none"
-            onClick={onClose}
-            disabled={isLoading}
-          >
-            &times;
-          </button>
         </div>
 
         {/* Tour Select */}

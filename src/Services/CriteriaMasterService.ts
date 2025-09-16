@@ -45,7 +45,7 @@ export async function fetchCriteriaMasterList(
 ): Promise<CriteriaMaster[]> {
   try {
     // Use SharePoint REST API with $expand and $select using correct field names
-    const url = `https://bectors.sharepoint.com/sites/PTMS_UAT/_api/web/lists/getbytitle('CriteriaMaster')/items?$expand=PlantId,DepartmentId,AreaId,RoleId,Category&$select=Id,Title,What,Criteria,IsActive,Sequence,ScheduledDay,Modified,PlantId/Title,PlantId/Id,DepartmentId/Title,DepartmentId/Id,AreaId/Title,AreaId/Id,RoleId/Title,RoleId/Id,Category/Title,Category/Id&$top=4999`;
+    const url = `https://bectors.sharepoint.com/sites/PTMS_PRD/_api/web/lists/getbytitle('CriteriaMaster')/items?$expand=PlantId,DepartmentId,AreaId,RoleId,Category&$select=Id,Title,What,Criteria,IsActive,Sequence,ScheduledDay,Modified,PlantId/Title,PlantId/Id,DepartmentId/Title,DepartmentId/Id,AreaId/Title,AreaId/Id,RoleId/Title,RoleId/Id,Category/Title,Category/Id&$top=4999`;
 
     console.log('Fetching CriteriaMaster list from SharePoint REST API...');
     console.log('Using access token:', accessToken ? 'Token available' : 'No token');

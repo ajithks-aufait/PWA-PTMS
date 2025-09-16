@@ -1384,13 +1384,6 @@ const PlantTourSection: React.FC = () => {
                                 >
                                   {isSaving ? 'Saving...' : 'Save'}
                                 </button>
-                                <button
-                                  onClick={() => handleClearCriteria(areaName, criteria.id)}
-                                  disabled={isSaving}
-                                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  Clear
-                                </button>
                               </div>
                             </div>
                           )}
@@ -1438,13 +1431,6 @@ const PlantTourSection: React.FC = () => {
                                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   {isSaving ? 'Saving...' : 'Save'}
-                                </button>
-                                <button
-                                  onClick={() => handleClearCriteria(areaName, criteria.id)}
-                                  disabled={isSaving}
-                                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  Clear
                                 </button>
                               </div>
                             </div>

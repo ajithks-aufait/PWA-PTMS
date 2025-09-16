@@ -13,13 +13,16 @@ interface BakingProcessCycleData {
 
 // Interface for offline file data
 interface OfflineFileData {
+  id: string; // Unique identifier for the file
   cycleNum: number;
-  file: File;
+  fileData: string; // Base64 encoded file data
   fileName: string;
   fileSize: number;
   fileType: string;
   timestamp: number;
   qualityTourId: string;
+  previewUrl: string; // Object URL for preview
+  isFromCamera: boolean; // Track if image was captured from camera
 }
 
 // Interface for offline saved data
@@ -78,8 +81,37 @@ const BakingProcessSlice = createSlice({
       state.offlineFiles.push(action.payload);
     },
     
+    // Add image to Redux store (for both online and offline)
+    addImage: (state, action: PayloadAction<OfflineFileData>) => {
+      state.offlineFiles.push(action.payload);
+    },
+    
+    // Remove image from Redux store
+    removeImage: (state, action: PayloadAction<string>) => {
+      const imageId = action.payload;
+      const imageIndex = state.offlineFiles.findIndex(img => img.id === imageId);
+      if (imageIndex !== -1) {
+        // Revoke the object URL to free memory
+        URL.revokeObjectURL(state.offlineFiles[imageIndex].previewUrl);
+        state.offlineFiles.splice(imageIndex, 1);
+      }
+    },
+    
+    // Clear all images for a specific cycle
+    clearCycleImages: (state, action: PayloadAction<number>) => {
+      const cycleNum = action.payload;
+      const imagesToRemove = state.offlineFiles.filter(img => img.cycleNum === cycleNum);
+      
+      // Revoke object URLs to free memory
+      imagesToRemove.forEach(img => URL.revokeObjectURL(img.previewUrl));
+      
+      state.offlineFiles = state.offlineFiles.filter(img => img.cycleNum !== cycleNum);
+    },
+    
     // Clear all offline data (for cancel operation)
     clearOfflineData: (state) => {
+      // Revoke all object URLs to free memory
+      state.offlineFiles.forEach(img => URL.revokeObjectURL(img.previewUrl));
       state.offlineSavedData = [];
       state.offlineFiles = [];
     },
@@ -96,6 +128,12 @@ const BakingProcessSlice = createSlice({
     
     // Remove specific offline file
     removeOfflineFile: (state, action: PayloadAction<number>) => {
+      const cycleNum = action.payload;
+      const filesToRemove = state.offlineFiles.filter(item => item.cycleNum === cycleNum);
+      
+      // Revoke object URLs to free memory
+      filesToRemove.forEach(file => URL.revokeObjectURL(file.previewUrl));
+      
       state.offlineFiles = state.offlineFiles.filter(
         item => item.cycleNum !== action.payload
       );
@@ -114,6 +152,8 @@ const BakingProcessSlice = createSlice({
     
     // Reset state
     resetState: (state) => {
+      // Revoke all object URLs to free memory
+      state.offlineFiles.forEach(img => URL.revokeObjectURL(img.previewUrl));
       state.fetchedCycles = [];
       state.offlineSavedData = [];
       state.offlineFiles = [];
@@ -139,6 +179,9 @@ const BakingProcessSlice = createSlice({
 export const {
   addOfflineData,
   addOfflineFile,
+  addImage,
+  removeImage,
+  clearCycleImages,
   clearOfflineData,
   removeOfflineDataItem,
   removeOfflineFile,
@@ -158,6 +201,11 @@ export const selectFetchedCycles = (state: { bakingProcess: BakingProcessState }
 export const selectIsLoading = (state: { bakingProcess: BakingProcessState }) => state.bakingProcess.isLoading;
 export const selectIsSyncing = (state: { bakingProcess: BakingProcessState }) => state.bakingProcess.isSyncing;
 export const selectError = (state: { bakingProcess: BakingProcessState }) => state.bakingProcess.error;
+
+// New selectors for image management
+export const selectCycleImages = (cycleNum: number) => (state: { bakingProcess: BakingProcessState }) => 
+  state.bakingProcess.offlineFiles.filter(img => img.cycleNum === cycleNum);
+export const selectAllImages = (state: { bakingProcess: BakingProcessState }) => state.bakingProcess.offlineFiles;
 
 // Export reducer
 export default BakingProcessSlice.reducer;

@@ -12,7 +12,7 @@ interface ImageDisplayData {
 
 interface ImagePreviewProps {
   imageData: ImageDisplayData;
-  onRemove?: (cycleNum: number) => void;
+  onRemove?: (imageId: string) => void;
   showDetails?: boolean;
   className?: string;
 }
@@ -67,21 +67,6 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({
             </div>
           )}
           
-          {/* Remove button */}
-          {onRemove && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemove(imageData.cycleNum);
-              }}
-              className="absolute bottom-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-              title="Remove image"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
         </div>
 
         {/* Image Details */}
@@ -115,9 +100,6 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({
               onClick={() => setIsModalOpen(false)}
               className="absolute top-4 right-4 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-75"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
             </button>
             
             {/* Image info */}

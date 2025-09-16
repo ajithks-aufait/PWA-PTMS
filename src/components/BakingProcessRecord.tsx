@@ -4,9 +4,11 @@ import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '../store/store';
 import DashboardLayout from './DashboardLayout';
 import { showOfflineSaveAlertForCategory } from '../utils/offlineAlerts';
-import { setFetchedCycles, selectFetchedCycles, addOfflineData } from '../store/BakingProcessSlice';
+import { setFetchedCycles, selectFetchedCycles, addOfflineData, selectCycleImages } from '../store/BakingProcessSlice';
 import { startSessionHandler as bakingStart, fetchCycleData as bakingFetchCycles, collectEstimationDataCycleSave as bakingCollect, savesectionApicall as bakingSave } from '../Services/BakingProcesRecord';
-import BakingProcessImageUpload from './BakingProcessImageUpload';
+import { uploadCycleImages, getMsalToken } from '../Services/BakingProcessFileUpload';
+import { useMsal } from "@azure/msal-react";
+import EnhancedBakingProcessImageUpload from './EnhancedBakingProcessImageUpload';
 
 
 
@@ -15,6 +17,7 @@ const BakingProcessRecord: React.FC = () => {
 
     const navigate = useNavigate();
     const dispatch = useDispatch();
+    const { accounts, instance } = useMsal();
     const { plantTourId, selectedCycle } = useSelector((state: RootState) => state.planTour);
     const { user } = useSelector((state: RootState) => state.user);
     const {
@@ -65,6 +68,9 @@ const BakingProcessRecord: React.FC = () => {
 
     // Local cycle management
     const [currentCycle, setCurrentCycle] = useState(1);
+    
+    // Get images for current cycle (moved after currentCycle initialization)
+    const currentCycleImages = useSelector(selectCycleImages(currentCycle));
 
     // Save-section states
     type BakingZones = {
@@ -199,6 +205,22 @@ const BakingProcessRecord: React.FC = () => {
                 const result = await bakingSave(savedData as any);
                 if (result.success) {
                     console.log('Data saved successfully to API');
+                    
+                    // Upload images for this cycle if any exist
+                    if (currentCycleImages.length > 0) {
+                        console.log(`Uploading ${currentCycleImages.length} images for Cycle ${currentCycle}`);
+                        const accessToken = await getMsalToken(instance, accounts);
+                        if (accessToken) {
+                            const imageUploadResult = await uploadCycleImages(currentCycle, accessToken);
+                            if (imageUploadResult.success) {
+                                console.log('Images uploaded successfully');
+                            } else {
+                                console.warn('Image upload failed:', imageUploadResult.message);
+                            }
+                        } else {
+                            console.warn('Failed to get access token for image upload');
+                        }
+                    }
 
                     // Add the completed cycle to Redux so it shows in completed section
                     const completedCycleData = {
@@ -704,16 +726,16 @@ const BakingProcessRecord: React.FC = () => {
 
                         {/* Upload Attachment */}
                         <div className="border rounded-lg p-3 sm:p-4 bg-white">
-                            <div className="text-sm font-medium mb-3">Upload Image</div>
-                            <BakingProcessImageUpload
+                            <div className="text-sm font-medium mb-3">Upload Images</div>
+                            <EnhancedBakingProcessImageUpload
                                 cycleNum={currentCycle}
                                 qualityTourId={plantTourId || ''}
                                 onUploadSuccess={(imageData) => {
-                                    console.log('Image uploaded successfully:', imageData);
+                                    console.log('Image added successfully:', imageData);
                                 }}
                                 onUploadError={(error) => {
-                                    console.error('Image upload failed:', error);
-                                    alert(`Upload failed: ${error}`);
+                                    console.error('Image processing failed:', error);
+                                    alert(`Image processing failed: ${error}`);
                                 }}
                             />
                         </div>
