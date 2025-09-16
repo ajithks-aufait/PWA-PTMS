@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import type { RootState } from '../store/store';
 import { addImage, removeImage, selectCycleImages } from '../store/BakingProcessSlice';
 import { generateUniqueId } from '../Services/BakingProcessFileUpload';
 import FileUploadModal from './FileUploadModal';

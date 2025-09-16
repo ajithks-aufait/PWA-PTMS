@@ -2122,7 +2122,7 @@ export default function HomePage() {
                   disabled={!isOnline}
                   title={!isOnline ? 'Internet connection required to start offline mode' : 'Start offline mode'}
                 >
-                  + Start Offline Mode {totalOfflineCount > 0 && `(${totalOfflineCount})`}
+                  + Start Offline Mode 
                 </button>
                 {showOfflineError && (
                   <div className="w-full sm:w-auto text-xs text-red-600 mt-1">
