@@ -84,6 +84,7 @@ const PlantTourSection: React.FC = () => {
   
   // State for tracking observation IDs for deletion
   const [observationIds, setObservationIds] = useState<{ [key: string]: { [questionId: string]: string } }>({});
+  console.log('observationIds', observationIds);
   
   // State for tour pause modal
   const [showPauseModal, setShowPauseModal] = useState(false);
