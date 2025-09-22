@@ -572,9 +572,97 @@ export default function HomePage() {
   };
 
   // Department-based handlers for non-Quality Rajpura departments
-  const handleOtherDepartmentPlantTour = () => {
-    console.log('Navigating to plant-tour-section for other department');
-    navigate("/plant-tour-section");
+  const handleOtherDepartmentPlantTour = async () => {
+    console.log('=== STARTING PLANT TOUR FOR OTHER DEPARTMENT ===');
+    console.log('Department:', getDepartmentName());
+    
+    try {
+      setIsPlantTourLoading(true);
+      dispatch(setProgress(0));
+      
+      // Check if user has required Name property
+      if (!user?.Name) {
+        throw new Error('User name not found. Please ensure you are logged in properly.');
+      }
+      console.log('User name:', user.Name);
+
+      // Step 1: Get access tokens
+      console.log('Getting access tokens...');
+      dispatch(setProgress(20));
+      const tokenResult = await getAccessToken();
+      const accessToken = tokenResult?.token;
+      
+      if (!accessToken) {
+        throw new Error('Failed to get access token');
+      }
+
+      // Get SharePoint token for employee list
+      const response = await instance.acquireTokenSilent({
+        ...loginRequest,
+        account: accounts[0],
+      });
+      const sharepointToken = response.accessToken;
+
+      // Step 2: Fetch employee details
+      console.log('Fetching employee details...');
+      dispatch(setProgress(40));
+      const employeeList = await fetchEmployeeList(sharepointToken, user.Name);
+      if (!employeeList || employeeList.length === 0) {
+        throw new Error(`Employee details not found for user: ${user.Name}`);
+      }
+      const currentEmployeeDetails = employeeList[0];
+      console.log('Employee details fetched:', currentEmployeeDetails);
+
+      // Step 3: Create or fetch department tour ID
+      console.log('Creating/fetching department tour ID...');
+      dispatch(setProgress(60));
+      const departmentTourId = await createOrFetchDepartmentTour({
+        accessToken,
+        departmentId: currentEmployeeDetails.departmentId || '135',
+        employeeName: currentEmployeeDetails.employeeName || user?.Name || '',
+        roleName: currentEmployeeDetails.roleName || 'QA',
+        plantId: currentEmployeeDetails.plantId || '1',
+        userRoleID: currentEmployeeDetails.roleId || '1',
+      });
+
+      if (!departmentTourId) {
+        throw new Error('Failed to create or fetch department tour ID');
+      }
+      console.log('Department tour ID created/fetched:', departmentTourId);
+
+      // Step 4: Store department tour ID in Redux
+      console.log('Storing department tour ID in Redux...');
+      dispatch(setProgress(80));
+      dispatch(setPlantTourId(departmentTourId)); // Store department tour ID as plant tour ID
+      console.log('✅ Department Tour ID stored as Plant Tour ID in planTour slice:', departmentTourId);
+      
+      // Also store in localStorage as backup
+      localStorage.setItem('plantTourId', departmentTourId);
+      console.log('✅ Department Tour ID stored in localStorage as backup:', departmentTourId);
+      
+      // Store in plantTourSection slice for consistency
+      dispatch(setPlantTourSectionPlantTourId(departmentTourId));
+      console.log('✅ Department Tour ID stored in plantTourSection slice:', departmentTourId);
+
+      // Step 5: Store employee details
+      dispatch(setEmployeeDetails(currentEmployeeDetails));
+      console.log('✅ Employee details stored in Redux');
+
+      // Final completion
+      dispatch(setProgress(100));
+      
+      console.log('=== DEPARTMENT TOUR SETUP COMPLETED ===');
+      console.log('Navigating to plant-tour-section...');
+      navigate("/plant-tour-section");
+
+    } catch (error) {
+      console.error('=== ERROR STARTING PLANT TOUR FOR OTHER DEPARTMENT ===');
+      console.error('Error details:', error);
+      console.error('Error message:', error instanceof Error ? error.message : 'Unknown error');
+      alert(`Failed to start plant tour: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsPlantTourLoading(false);
+    }
   };
 
   const handleOtherDepartmentOfflinePlantTour = () => {
@@ -696,13 +784,17 @@ export default function HomePage() {
         // Step 7: Store all data in Redux
         console.log('Storing all data in Redux...');
         dispatch(setProgress(80));
-        dispatch(setPlantTourId(plantTourId)); // Store plant tour ID in planTour slice
-        console.log('✅ Plant Tour ID stored in planTour slice:', plantTourId);
+        
+        // For non-Quality departments, use departmentTourId as the plantTourId
+        // This ensures the PlantTourSection component can find the correct tour ID
+        const finalPlantTourId = departmentTourId || plantTourId;
+        dispatch(setPlantTourId(finalPlantTourId)); // Store department tour ID as plant tour ID in planTour slice
+        console.log('✅ Department Tour ID stored as Plant Tour ID in planTour slice:', finalPlantTourId);
         
         // CRITICAL: Also store in localStorage as backup
-        localStorage.setItem('plantTourId', plantTourId);
+        localStorage.setItem('plantTourId', finalPlantTourId);
         localStorage.setItem('offlinePlantTourActive', 'true');
-        console.log('✅ Plant Tour ID stored in localStorage as backup:', plantTourId);
+        console.log('✅ Final Plant Tour ID stored in localStorage as backup:', finalPlantTourId);
         
         dispatch(setOfflineCriteriaList(criteriaList));
         dispatch(setOfflineEmployeeDetails(currentEmployeeDetails));
@@ -710,8 +802,8 @@ export default function HomePage() {
         dispatch(setOfflineDataTimestamp(Date.now()));
         
         // Also store in plantTourSection slice for consistency
-        dispatch(setPlantTourSectionPlantTourId(plantTourId)); // Store in plantTourSection slice
-        console.log('✅ Plant Tour ID stored in plantTourSection slice:', plantTourId);
+        dispatch(setPlantTourSectionPlantTourId(finalPlantTourId)); // Store in plantTourSection slice
+        console.log('✅ Final Plant Tour ID stored in plantTourSection slice:', finalPlantTourId);
 
         // Step 8: Mark as offline mode
         dispatch(setProgress(90));
@@ -722,6 +814,7 @@ export default function HomePage() {
         console.log('=== ONLINE DATA FETCH COMPLETED ===');
         console.log('Plant Tour ID:', plantTourId);
         console.log('Department Tour ID:', departmentTourId);
+        console.log('Final Plant Tour ID (stored in Redux):', finalPlantTourId);
         console.log('Criteria Count:', criteriaList.length);
         console.log('Employee Details:', currentEmployeeDetails ? 'Available' : 'Not found');
         console.log('Existing Observations Count:', existingObservations.length);
@@ -734,12 +827,12 @@ export default function HomePage() {
         console.log('  - planTour.offlineCriteriaList.length:', currentState.planTour.offlineCriteriaList.length);
         console.log('  - planTour.offlineEmployeeDetails:', currentState.planTour.offlineEmployeeDetails ? 'Available' : 'Not found');
         
-        // CRITICAL: Check if plantTourId is actually stored
+        // CRITICAL: Check if finalPlantTourId is actually stored
         if (!currentState.planTour.plantTourId) {
-          console.error('❌ CRITICAL ERROR: plantTourId is NOT stored in Redux state!');
+          console.error('❌ CRITICAL ERROR: finalPlantTourId is NOT stored in Redux state!');
           console.error('This will cause the "Plant tour ID not found" error!');
         } else {
-          console.log('✅ SUCCESS: plantTourId is stored in Redux state:', currentState.planTour.plantTourId);
+          console.log('✅ SUCCESS: finalPlantTourId is stored in Redux state:', currentState.planTour.plantTourId);
         }
 
       } else {
