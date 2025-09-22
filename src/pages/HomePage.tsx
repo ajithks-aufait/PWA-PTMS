@@ -778,7 +778,7 @@ export default function HomePage() {
         // Step 6: Fetch existing observations
         console.log('Fetching existing observations...');
         dispatch(setProgress(60));
-        const existingObservations = await PlantTourService.fetchExistingObservations(plantTourId);
+        const existingObservations = await PlantTourService.fetchExistingObservations(departmentTourId);
         console.log('Existing observations fetched:', existingObservations.length, 'items');
 
         // Step 7: Store all data in Redux
