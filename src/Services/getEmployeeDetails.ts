@@ -3,7 +3,7 @@
  */
 
 export async function fetchEmployeeList(accessToken: string, employeeName: string) {
-  const url = `https://bectors.sharepoint.com/sites/PTMS_PRD/_api/web/lists/getbytitle('EmployeeList')/items?$filter=EmployeeName/Title eq '${employeeName}'&$expand=EmployeeName,DepartmentId,RoleId,PlantId&$select=Id,EmployeeName/Title,DepartmentId/Id,DepartmentId/Title,RoleId/Id,RoleId/Title,PlantId/Id,PlantId/Title`;
+  const url = `https://bectors.sharepoint.com/sites/PTMS_PRD/_api/web/lists/getbytitle('EmployeeList')/items?$filter=EmployeeName/Title eq '${employeeName}'&$expand=EmployeeName,DepartmentId,RoleId,PlantId&$select=Id,Title,EmployeeName/Title,DepartmentId/Id,DepartmentId/Title,RoleId/Id,RoleId/Title,PlantId/Id,PlantId/Title`;
 
   try {
     const response = await fetch(url, {
@@ -26,6 +26,7 @@ export async function fetchEmployeeList(accessToken: string, employeeName: strin
 
     const employeeList = items.map((item: any) => ({
       id: item.Id,
+      Title: item.Title,
       employeeName: item.EmployeeName?.Title || "N/A",
       departmentId: item.DepartmentId?.Id || null,
       departmentName: item.DepartmentId?.Title || "N/A",

@@ -44,6 +44,7 @@ export interface EmployeeDetails {
   plantId: string;
   departmentId: string;
   name: string;
+  Title: string;
 }
 
 /**
@@ -75,7 +76,7 @@ export const createNotApplicableObservationData = (
     cr3ea_areaid: String(criteria.AreaId || ''),
     cr3ea_criteriaid: String(criteria.id || ''),
     cr3ea_observedby: String(user?.Id || ''),
-    cr3ea_observedperson: user?.Name || '',
+    cr3ea_observedperson: employeeDetails?.Title || '',
     cr3ea_categoryid: criteria.Category || null,
     cr3ea_categorytitle: criteria.Category || '',
     cr3ea_what: criteria.What || '',
