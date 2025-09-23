@@ -198,9 +198,9 @@ const PlantTourSection: React.FC = () => {
         cr3ea_correctiveaction: '',
         cr3ea_severityid: getSeverityId(response, isNearMiss),
         cr3ea_status: getStatus(response),
-        cr3ea_tourdate: new Date().toLocaleString(),
+        cr3ea_tourdate: new Date().toLocaleDateString("en-GB"),
         cr3ea_action: response,
-        cr3ea_observeddate: new Date().toLocaleString(),
+        cr3ea_observeddate: new Date().toLocaleDateString("en-GB"),
         cr3ea_where: criteria.Area || sectionName,
         cr3ea_closurecomment: '',
         cr3ea_nearmiss: isNearMiss
