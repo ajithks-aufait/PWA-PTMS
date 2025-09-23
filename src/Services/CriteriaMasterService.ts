@@ -21,6 +21,7 @@ export interface CriteriaMaster {
   Plant: string;
   Department: string;
   Area: string;
+  AreaId: string;
   Role: string;
   Category: string;
   
@@ -172,6 +173,7 @@ export async function fetchCriteriaMasterList(
       Plant: item.PlantId?.Title || "N/A",
       Department: item.DepartmentId?.Title || "N/A",
       Area: item.AreaId?.Title || "N/A",
+      AreaId: item.AreaId?.Id || "N/A",
       Role: item.RoleId?.Title || "N/A",
       Category: item.Category?.Title || "",
       

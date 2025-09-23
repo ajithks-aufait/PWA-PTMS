@@ -48,7 +48,7 @@ export interface EmployeeDetails {
   roleName: string;
   plantId: string;
   departmentId: string;
-  name: string;
+  employeeName: string;
 }
 
 
@@ -383,7 +383,6 @@ export function createObservationData(
   isNearMiss: boolean = false
 ): ObservationData {
   const currentDate = new Date();
-  
   // Helper function to get severity ID
   const getSeverityId = (response: string, isNearMiss: boolean): string => {
     if (response === 'Rejected') {
@@ -398,20 +397,19 @@ export function createObservationData(
       case 'Approved': return 'Approved';
       case 'Rejected': return 'Rejected';
       case 'Not Applicable': return 'NA';
-      default: return 'Pending';
+      default: return 'Draft';
     }
   };
-  
   return {
     cr3ea_title: `${employeeDetails?.roleName || 'User'}_${currentDate.toLocaleDateString()}`,
     cr3ea_observedbyrole: employeeDetails?.roleName || 'User',
     cr3ea_plantid: String(employeeDetails?.plantId || ''),
     cr3ea_departmentid: String(employeeDetails?.departmentId || ''),
     cr3ea_departmenttourid: String(plantTourId || ''),
-    cr3ea_areaid: criteria.Area || sectionName,
+    cr3ea_areaid: String(criteria.AreaId || ''),
     cr3ea_criteriaid: String(criteria.id || ''),
     cr3ea_observedby: user?.Name || '',
-    cr3ea_observedperson: employeeDetails?.name || '',
+    cr3ea_observedperson: user?.Name || '',
     cr3ea_categoryid: criteria.Category || null,
     cr3ea_categorytitle: criteria.Category || '',
     cr3ea_what: criteria.What || '',

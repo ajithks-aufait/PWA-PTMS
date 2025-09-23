@@ -186,10 +186,10 @@ const PlantTourSection: React.FC = () => {
         cr3ea_plantid: String(employeeDetails?.plantId || ''),
         cr3ea_departmentid: String(employeeDetails?.departmentId || ''),
         cr3ea_departmenttourid: String(plantTourId || ''),
-        cr3ea_areaid: criteria.Area || sectionName,
+        cr3ea_areaid: String(criteria.AreaId || ''),
         cr3ea_criteriaid: String(questionId || ''),
-        cr3ea_observedby: user?.Name || '',
-        cr3ea_observedperson: employeeDetails?.name || '',
+        cr3ea_observedby: String(user?.Id || ''),
+        cr3ea_observedperson: user?.Name || '',
         cr3ea_categoryid: criteria.Category || null,
         cr3ea_categorytitle: criteria.Category || '',
         cr3ea_what: criteria.What || '',
@@ -1017,7 +1017,7 @@ const PlantTourSection: React.FC = () => {
         departmentName,
         undefined // Don't filter by area - show all areas for the department
       );
-      console.log('CriteriaMaster list loaded successfully:', fetchedCriteriaList);
+      console.log('CriteriaMaster list loaded successfully:', fetchedCriteriaList,user);
       console.log('=== CRITERIA LIST DETAILED DEBUG ===');
       console.log('Total criteria fetched:', fetchedCriteriaList.length);
       

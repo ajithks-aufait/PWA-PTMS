@@ -38,37 +38,56 @@ const LoginPage = () => {
   };
 
   useEffect(() => {
-    const getToken = async () => {
+    const getTokenAndUser = async () => {
       console.log("getToken called, accounts length:", accounts.length);
+  
       if (accounts.length > 0) {
         console.log("Getting token for account:", accounts[0]);
+  
         try {
           const response = await instance.acquireTokenSilent({
             ...loginRequest,
             account: accounts[0],
-            scopes: ["https://aufaitcloud.sharepoint.com/.default"] // use the first logged-in account
+            scopes: ["https://bectors.sharepoint.com/.default"], // Adjust site if needed
           });
+  
           console.log("Token response:", response);
+  
+          // Fetch SharePoint User Info
+          const spResponse = await fetch(
+            "https://bectors.sharepoint.com/sites/PTMS_PRD/_api/web/currentuser",
+            {
+              headers: {
+                Authorization: `Bearer ${response.accessToken}`,
+                Accept: "application/json;odata=verbose",
+              },
+            }
+          );
+  
+          const spData = await spResponse.json();
+          console.log("SharePoint User Data:", spData);
+  
+          // Dispatch user with SharePoint User ID
           dispatch(
             setUser({
-              Id: 1,
-              Name: response?.account?.name || '',
+              Id: spData.d.Id, // ✅ Real SharePoint User ID
+              Name: response?.account?.name || "",
               Email: response?.account?.username,
-              userId: response?.uniqueId,
-              Token: response?.accessToken
+              userId: response?.uniqueId, // Azure AD Object ID
+              Token: response?.accessToken,
             })
           );
-          console.log("User data set successfully");
-          console.log("Access token:", response.accessToken ? "Token present" : "No token");
-          // 🔐 You can now use `response.accessToken` to call APIs
+  
+          console.log("User data set successfully with SP User ID");
         } catch (error) {
-          console.error("Token fetch error:", error);
+          console.error("Token/User fetch error:", error);
         }
       }
     };
-
-    getToken();
+  
+    getTokenAndUser();
   }, [accounts, instance, dispatch]);
+  
 
 
   return (

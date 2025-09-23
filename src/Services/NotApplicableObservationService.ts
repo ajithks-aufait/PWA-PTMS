@@ -29,6 +29,7 @@ export interface NotApplicableObservationData {
 export interface CriteriaDetails {
   id: string;
   Area: string;
+  AreaId: string;
   Category: string;
   What: string;
   Criteria: string;
@@ -71,10 +72,10 @@ export const createNotApplicableObservationData = (
     cr3ea_plantid: String(employeeDetails?.plantId || ''),
     cr3ea_departmentid: String(employeeDetails?.departmentId || ''),
     cr3ea_departmenttourid: plantTourId,
-    cr3ea_areaid: criteria.Area || sectionName,
+    cr3ea_areaid: String(criteria.AreaId || ''),
     cr3ea_criteriaid: String(criteria.id || ''),
-    cr3ea_observedby: user?.Name,
-    cr3ea_observedperson: employeeDetails?.name || '',
+    cr3ea_observedby: String(user?.Id || ''),
+    cr3ea_observedperson: user?.Name || '',
     cr3ea_categoryid: criteria.Category || null,
     cr3ea_categorytitle: criteria.Category || '',
     cr3ea_what: criteria.What || '',
