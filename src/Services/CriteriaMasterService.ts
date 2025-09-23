@@ -178,6 +178,7 @@ export async function fetchCriteriaMasterList(
       AreaId: item.AreaId?.Id || "N/A",
       Role: item.RoleId?.Title || "N/A",
       Category: item.Category?.Title || "",
+      CategoryId: item.Category?.Id || "",
       
       // Person or Group fields
       CreatedBy: (() => {

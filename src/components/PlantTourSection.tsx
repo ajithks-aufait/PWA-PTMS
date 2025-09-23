@@ -190,7 +190,7 @@ const PlantTourSection: React.FC = () => {
         cr3ea_criteriaid: String(questionId || ''),
         cr3ea_observedby: String(user?.Id || ''),
         cr3ea_observedperson: user?.Name || '',
-        cr3ea_categoryid: criteria.Category || null,
+        cr3ea_categoryid: String(criteria.CategoryId || null),
         cr3ea_categorytitle: criteria.Category || '',
         cr3ea_what: criteria.What || '',
         cr3ea_criteria: criteria.Criteria || '',

@@ -1,15 +1,16 @@
 /// <reference lib="webworker" />
 
-import { clientsClaim } from 'workbox-core'
+
 import { ExpirationPlugin } from 'workbox-expiration'
 import { precacheAndRoute } from 'workbox-precaching'
 import { registerRoute } from 'workbox-routing'
 import { StaleWhileRevalidate, CacheFirst, NetworkFirst } from 'workbox-strategies'
 import { BackgroundSyncPlugin } from 'workbox-background-sync'
+// import { clientsClaim } from 'workbox-core'
 
 declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: any }
 
-clientsClaim()
+// clientsClaim()
 
 precacheAndRoute(self.__WB_MANIFEST)
 
