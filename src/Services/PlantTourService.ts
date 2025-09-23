@@ -419,9 +419,9 @@ export function createObservationData(
     cr3ea_correctiveaction: '',
     cr3ea_severityid: getSeverityId(response, isNearMiss),
     cr3ea_status: getStatus(response),
-    cr3ea_tourdate: currentDate.toLocaleDateString("en-GB"),
+    cr3ea_tourdate: currentDate.toLocaleDateString("en-US"),
     cr3ea_action: response,
-    cr3ea_observeddate: currentDate.toLocaleDateString("en-GB"),
+    cr3ea_observeddate: currentDate.toLocaleDateString("en-US"),
     cr3ea_where: criteria.Area || sectionName,
     cr3ea_closurecomment: ''
   };

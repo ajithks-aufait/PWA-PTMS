@@ -147,7 +147,7 @@ async function syncNotApplicableObservation(observation: OfflineObservationData)
   // Extract criteria details from observationData
   const criteriaDetails = {
     id: observation.observationData.cr3ea_criteriaid || observation.questionId,
-    Area: observation.observationData.cr3ea_areaid || observation.sectionName,
+    Area: observation.observationData. || observation.sectionName,
     Category: observation.observationData.cr3ea_categoryid || '',
     What: observation.observationData.cr3ea_what || '',
     Criteria: observation.observationData.cr3ea_criteria || '',

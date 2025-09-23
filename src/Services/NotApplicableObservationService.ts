@@ -84,9 +84,9 @@ export const createNotApplicableObservationData = (
     cr3ea_criteria: criteria.Criteria || '',
     cr3ea_correctiveaction: '',
     cr3ea_status: 'NA',
-    cr3ea_tourdate: currentDate.toLocaleDateString("en-GB"),
+    cr3ea_tourdate: currentDate.toLocaleDateString("en-US"),
     cr3ea_action: 'Not Applicable',
-    cr3ea_observeddate: currentDate.toLocaleDateString("en-GB"),
+    cr3ea_observeddate: currentDate.toLocaleDateString("en-US"),
     cr3ea_where: criteria.Area || sectionName,
     cr3ea_closurecomment: ''
   };
