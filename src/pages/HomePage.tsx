@@ -2323,7 +2323,7 @@ export default function HomePage() {
           </a>
           {planTourState.plantTourId && (
             <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-blue-800 text-xs font-mono">
-              <strong>Plan Tour ID:</strong> {planTourState.plantTourId}
+              {/* <strong>Plan Tour ID:</strong> {planTourState.plantTourId} */}
             </div>
           )}
         </div>
