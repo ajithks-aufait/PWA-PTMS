@@ -49,6 +49,7 @@ export interface EmployeeDetails {
   plantId: string;
   departmentId: string;
   employeeName: string;
+  Title: string;
 }
 
 
@@ -408,8 +409,8 @@ export function createObservationData(
     cr3ea_departmenttourid: String(plantTourId || ''),
     cr3ea_areaid: String(criteria.AreaId || ''),
     cr3ea_criteriaid: String(criteria.id || ''),
-    cr3ea_observedby: user?.Name || '',
-    cr3ea_observedperson: user?.Name || '',
+    cr3ea_observedby: String(user?.Id || ''),
+    cr3ea_observedperson: employeeDetails?.Title || '',
     cr3ea_categoryid: String(criteria.CategoryId || null),
     cr3ea_categorytitle: criteria.Category || '',
     cr3ea_what: criteria.What || '',
