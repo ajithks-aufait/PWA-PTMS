@@ -331,7 +331,7 @@ export async function fetchCriteriaMasterList(
       console.log('Unique areas found:', uniqueAreas);
       console.log('Number of unique areas:', uniqueAreas.length);
     }
-
+    console.log('Filtered items:', filteredItems);
     const criteriaMasterList = filteredItems.map((item: any) => ({
       // Basic fields from SharePoint REST API
       id: item.Id || "N/A",

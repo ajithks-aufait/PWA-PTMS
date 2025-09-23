@@ -157,6 +157,7 @@ export async function fetchCriteriaMasterList(
     }
 
     console.log(`Filtered items count: ${filteredItems.length} (from ${items.length} total)`);
+    console.log('Filtered items:', filteredItems);
 
     const criteriaMasterList = filteredItems.map((item: any) => ({
       // Basic fields from SharePoint REST API

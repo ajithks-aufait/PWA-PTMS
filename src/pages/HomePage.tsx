@@ -2319,7 +2319,7 @@ export default function HomePage() {
         </div>
         <div className="mb-4">
           <a href="#" className="text-orange-600 text-sm font-medium hover:underline" onClick={e => { e.preventDefault(); setIsViewAllOpen(true); }}>
-            View All →
+            {/* View All → */}
           </a>
           {planTourState.plantTourId && (
             <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-blue-800 text-xs font-mono">
