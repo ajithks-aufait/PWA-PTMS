@@ -423,7 +423,7 @@ const PlantTourSection: React.FC = () => {
     if (response === 'Approved') {
       return 'NA';
     } else if (response === 'Rejected') {
-      return 'Pending';
+      return 'Draft';
     }
     return 'NA'; // Not Applicable
   };
