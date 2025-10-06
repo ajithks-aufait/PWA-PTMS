@@ -25,6 +25,7 @@ interface CreamPercentagePayload {
   cr3ea_machineno: string;
   cr3ea_lineno: string;
   cr3ea_executivename:string;
+  cr3ea_platform?: string;
 }
 
 interface FormData {
@@ -132,6 +133,7 @@ export const saveCreamPercentageData = async (params: SaveCreamPercentageParams)
       cr3ea_machineno: formData.machineNo,
       cr3ea_lineno: formData.line,
       cr3ea_executivename: formData.executiveName,
+      cr3ea_platform: "PWA"
     };
 
     console.log('Full payload:', payload);

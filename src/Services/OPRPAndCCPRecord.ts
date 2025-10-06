@@ -24,6 +24,7 @@ interface OPRPAndCCPData {
   cr3ea_mdsensitivity: string;
   cr3ea_productname: string;
   cr3ea_executivename: string | null;
+  cr3ea_platform?: string;
 }
 
 interface SaveResponse {
@@ -263,7 +264,8 @@ export async function collectEstimationDataCycleSave(
     cr3ea_sscentrepass2: sscentrepass2,
     cr3ea_mdsensitivity: md,
     cr3ea_productname: product,
-    cr3ea_executivename: UserName || executiveName || null
+    cr3ea_executivename: UserName || executiveName || null,
+    cr3ea_platform: "PWA"
   };
 
   savedData.push(data);
@@ -524,7 +526,8 @@ async function convertOfflineRecordToApiFormat(
     cr3ea_sscentrepass2: statusFor('SS', 'Centre 2nd Pass'),
     cr3ea_mdsensitivity: statusFor('M.D. Sensitivity & Rejection in Time', 'M.D. Sensitivity & Rejection in Time'),
     cr3ea_productname: startData.cr3ea_productname || startData.product || record.product,
-    cr3ea_executivename: UserName || startData.cr3ea_executivename || startData.executiveName || record.executiveName || null
+    cr3ea_executivename: UserName || startData.cr3ea_executivename || startData.executiveName || record.executiveName || null,
+    cr3ea_platform: "PWA"
   };
 
   console.log('=== FINAL API DATA ===');

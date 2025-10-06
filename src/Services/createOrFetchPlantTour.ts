@@ -49,6 +49,7 @@ export async function createOrFetchPlantTour({
     cr3ea_observedby: employeeName,
     cr3ea_roleid: userRoleID?.toString(),
     cr3ea_title: TitleDTour,
+    cr3ea_platform: "PWA",
   };
 
   // Check if a tour is already in progress

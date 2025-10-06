@@ -16,7 +16,8 @@ interface CodeVerificationData {
   cr3ea_remarks: string | null;
   cr3ea_sku: string | null;
   cr3ea_productname: string;
-//   cr3ea_executivename: string;
+  cr3ea_executivename: string;
+  cr3ea_platform?: string;
 }
 
 interface SaveResponse {
@@ -123,8 +124,9 @@ export async function collectEstimationDataCycleSave(
     "cr3ea_machineproof": formData.machineProof || null,
     "cr3ea_remarks": formData.majorDefectsRemarks || null,
     "cr3ea_sku": formData.sku || null,
-    "cr3ea_productname": product
-    // "cr3ea_executivename": executiveName
+    "cr3ea_productname": product,
+    "cr3ea_executivename": formData.executiveName || 'N/A',
+    "cr3ea_platform": "PWA",
   };
 
   savedData.push(data);

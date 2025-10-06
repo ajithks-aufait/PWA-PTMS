@@ -31,6 +31,7 @@ export interface BakingProcessData {
   cr3ea_bottombakingtempzone7: string | null;
   cr3ea_bottomproducttempafterbaking: string | null;
   cr3ea_executivename: string | null;
+  cr3ea_platform?: string;
 }
 
 export interface SaveResponse {
@@ -160,7 +161,8 @@ export async function collectEstimationDataCycleSave(
     cr3ea_bottombakingtempzone6: getVal(`bottom-6-baking-temp-zone-${cycleNum}`),
     cr3ea_bottombakingtempzone7: getVal(`bottom-7-baking-temp-zone-${cycleNum}`),
     cr3ea_bottomproducttempafterbaking: getVal(`bottom-8-baking-temp-zone-${cycleNum}`),
-    cr3ea_executivename: executiveName
+    cr3ea_executivename: executiveName,
+    cr3ea_platform: "PWA",
   };
 
   return { savedData: [data] };

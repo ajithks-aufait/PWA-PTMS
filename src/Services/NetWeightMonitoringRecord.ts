@@ -41,6 +41,7 @@ export interface NetWeightMonitoringData {
   cr3ea_mc4inspection4?: string | null;
   cr3ea_mc4inspection5?: string | null;
   cr3ea_mc4avg?: string | null;
+  cr3ea_platform?: string;
 }
 
 interface SaveResponse {
@@ -211,7 +212,8 @@ export async function collectEstimationDataCycleSave(
     cr3ea_mc4inspection3: mc4[2] ?? null,
     cr3ea_mc4inspection4: mc4[3] ?? null,
     cr3ea_mc4inspection5: mc4[4] ?? null,
-    cr3ea_mc4avg: avg(parseNums(mc4))
+    cr3ea_mc4avg: avg(parseNums(mc4)),
+    cr3ea_platform: "PWA"
   };
 
   return { savedData: [data] };
@@ -461,7 +463,8 @@ export async function convertOfflineRecordToApiFormat(
     cr3ea_mc4inspection3: (mc4Values[2] && mc4Values[2].trim() !== '') ? mc4Values[2] : null,
     cr3ea_mc4inspection4: (mc4Values[3] && mc4Values[3].trim() !== '') ? mc4Values[3] : null,
     cr3ea_mc4inspection5: (mc4Values[4] && mc4Values[4].trim() !== '') ? mc4Values[4] : null,
-    cr3ea_mc4avg: calculateAverage(mc4Values)
+    cr3ea_mc4avg: calculateAverage(mc4Values),
+    cr3ea_platform: "PWA"
   };
 
   console.log('=== FINAL API DATA ===');

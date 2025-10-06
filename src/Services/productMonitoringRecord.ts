@@ -22,6 +22,7 @@ interface ProductMonitoringData {
   cr3ea_gaugeoperating: string | null;
   cr3ea_moisture: string | null;
   cr3ea_productname: string;
+  cr3ea_platform?: string;
 }
 
 interface SaveResponse {
@@ -126,6 +127,7 @@ export function collectEstimationDataCycleSave(
     "cr3ea_gaugeoperating": formData.gaugeOperating || null,
     "cr3ea_moisture": formData.moisture || null,
     "cr3ea_productname": formData.product || 'Speciality Sauces',
+    "cr3ea_platform": "PWA"
   };
 
   savedData.push(data);

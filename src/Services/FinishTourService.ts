@@ -14,6 +14,7 @@ export interface FinishTourData {
   cr3ea_tourscore: string;
   cr3ea_tourcompletiondate: string;
   cr3ea_status: string;
+  cr3ea_platform?: string;
 }
 
 export interface ValidationData {
@@ -78,7 +79,8 @@ export async function finishPlantTour(
         minute: '2-digit',
         hour12: true
       }),
-      cr3ea_status: 'Completed'
+      cr3ea_status: 'Completed',
+      cr3ea_platform: "PWA"
     };
 
     console.log('Data to save:', dataToSave);
@@ -161,7 +163,8 @@ export function storeFinishTourOffline(
           minute: '2-digit',
           hour12: true
         }),
-        cr3ea_status: 'Completed'
+        cr3ea_status: 'Completed',
+        cr3ea_platform: "PWA"
       }
     };
 

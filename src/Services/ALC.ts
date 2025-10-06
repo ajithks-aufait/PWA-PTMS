@@ -22,6 +22,7 @@ export interface ALCData {
   cr3ea_defectcategory: string | null;
   cr3ea_defectremarks: string | null;
   cr3ea_executivename: string | null;
+  cr3ea_platform: string;
 }
 
 interface SaveResponse {
@@ -221,7 +222,8 @@ export async function collectEstimationDataCycleSave(
         cr3ea_status: status,
         cr3ea_defectcategory: categoryValue,
         cr3ea_defectremarks: remarkValue,
-        cr3ea_executivename: executiveName
+        cr3ea_executivename: executiveName,
+        cr3ea_platform: "PWA",
       });
     }
   }
@@ -270,6 +272,7 @@ export function buildPayloadFromGroupedData(
         cr3ea_defectcategory: rec.category ?? null,
         cr3ea_defectremarks: rec.remarks ?? null,
         cr3ea_executivename: grouped.executiveName || 'N/A',
+        cr3ea_platform: "PWA",
       });
     }
   }

@@ -10,6 +10,7 @@ interface SieveAndMagnetData {
   cr3ea_tourstartdate: string;
   cr3ea_observedby: string;
   cr3ea_description: string;
+  cr3ea_platform?: string;
 }
 
 interface SaveResponse {
@@ -118,7 +119,8 @@ export const collectEstimationDataCycleSave = (cycleNum: number, checklistItems:
         cr3ea_defectremarks: null,
         cr3ea_tourstartdate: new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }).replace(/\//g, '-'),
         cr3ea_observedby: userName,
-        cr3ea_description: title
+        cr3ea_description: title,
+        cr3ea_platform: "PWA"
       };
 
       if (cr3ea_criteria === "Not Okay") {

@@ -29,6 +29,7 @@ export interface ObservationData {
   cr3ea_closurecomment: string;
   cr3ea_observation?: string;
   cr3ea_severityid?: string;
+  cr3ea_platform?: string;
 }
 
 // Interface for Tour Update Data
@@ -423,6 +424,7 @@ export function createObservationData(
     cr3ea_action: response,
     cr3ea_observeddate: currentDate.toLocaleDateString("en-US"),
     cr3ea_where: criteria.Area || sectionName,
-    cr3ea_closurecomment: ''
+    cr3ea_closurecomment: '',
+    cr3ea_platform: "PWA"
   };
 }

@@ -19,6 +19,7 @@ export interface SealIntegrityTestData {
   cr3ea_leakageno: string | null;
   cr3ea_leakagetype: string | null;
   cr3ea_executivename: string | null;
+  cr3ea_platform?: string;
 }
 
 interface SaveResponse {
@@ -130,7 +131,8 @@ export async function collectEstimationDataCycleSave(
     cr3ea_sampleqty: sampleqty,
     cr3ea_leakageno: leakageno,
     cr3ea_leakagetype: leakagetype,
-    cr3ea_executivename: executiveName
+    cr3ea_executivename: executiveName,
+    cr3ea_platform: "PWA"
   };
 
   return { savedData: [data] };

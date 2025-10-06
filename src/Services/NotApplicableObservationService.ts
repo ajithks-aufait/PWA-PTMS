@@ -24,6 +24,7 @@ export interface NotApplicableObservationData {
   cr3ea_observeddate: string;
   cr3ea_where: string;
   cr3ea_closurecomment: string;
+  cr3ea_platform?: string;
 }
 
 export interface CriteriaDetails {
@@ -88,7 +89,8 @@ export const createNotApplicableObservationData = (
     cr3ea_action: 'Not Applicable',
     cr3ea_observeddate: currentDate.toLocaleDateString("en-US"),
     cr3ea_where: criteria.Area || sectionName,
-    cr3ea_closurecomment: ''
+    cr3ea_closurecomment: '',
+    cr3ea_platform: "PWA"
   };
   
   return observationData;
