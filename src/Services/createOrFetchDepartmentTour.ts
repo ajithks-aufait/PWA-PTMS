@@ -29,7 +29,6 @@ export interface DepartmentTourResponse {
   cr3ea_tourby: string;
   cr3ea_observedby: string;
   cr3ea_roleid: string;
-  cr3ea_platform?: string;
 }
 
 /**
@@ -82,7 +81,6 @@ export async function createOrFetchDepartmentTour({
     cr3ea_observedby: employeeName,
     cr3ea_roleid: userRoleID.toString(),
     cr3ea_title: title,
-    cr3ea_platform: "PWA",
   };
 
   try {
