@@ -1429,7 +1429,8 @@ export default function HomePage() {
               cr3ea_sampleqty: stored?.sampleqty || '',
               cr3ea_leakageno: stored?.leakageno || '',
               cr3ea_leakagetype: stored?.leakagetype || '',
-              cr3ea_executivename: stored?.executiveName || 'N/A'
+              cr3ea_executivename: stored?.executiveName || 'N/A',
+              cr3ea_platform: 'PWA',
             }];
 
             const response = await saveSealSection(payload as any);
@@ -1602,7 +1603,8 @@ export default function HomePage() {
                   cr3ea_bottombakingtempzone6: prefer(collected?.cr3ea_bottombakingtempzone6, stored?.bottomZones?.zone6),
                   cr3ea_bottombakingtempzone7: prefer(collected?.cr3ea_bottombakingtempzone7, stored?.bottomZones?.zone7),
                   cr3ea_bottomproducttempafterbaking: prefer(collected?.cr3ea_bottomproducttempafterbaking, stored?.bottomZones?.productTempAfter),
-                  cr3ea_executivename: prefer(collected?.cr3ea_executivename, stored?.executiveName) || 'N/A'
+                  cr3ea_executivename: prefer(collected?.cr3ea_executivename, stored?.executiveName) || 'N/A',
+                  cr3ea_platform: 'PWA',
                 };
                 mergedPayload = [merged];
               }
@@ -1634,7 +1636,8 @@ export default function HomePage() {
                   cr3ea_bottombakingtempzone6: stored.bottomZones?.zone6 || '',
                   cr3ea_bottombakingtempzone7: stored.bottomZones?.zone7 || '',
                   cr3ea_bottomproducttempafterbaking: stored.bottomZones?.productTempAfter || '',
-                  cr3ea_executivename: stored.executiveName || 'N/A'
+                  cr3ea_executivename: stored.executiveName || 'N/A',
+                  cr3ea_platform: 'PWA',
                 }];
               }
             }

@@ -203,7 +203,8 @@ const PlantTourSection: React.FC = () => {
         cr3ea_observeddate: new Date().toLocaleDateString("en-US"),
         cr3ea_where: criteria.Area || sectionName,
         cr3ea_closurecomment: '',
-        cr3ea_nearmiss: isNearMiss
+        cr3ea_nearmiss: isNearMiss,
+        cr3ea_platform: "PWA"
       };
       
       let observationId: string | null = null;

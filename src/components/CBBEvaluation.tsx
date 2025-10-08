@@ -521,6 +521,8 @@ const CBBEvaluation: React.FC<CBBEvaluationProps> = ({
         cr3ea_observedby: user?.Name || '',
         cr3ea_qualitytourid: plantTourId || '',
         cr3ea_defect: val.defect || '', // Pass the defect details
+        cr3ea_platform:'PWA'
+
       };
       if (val.status === "Not Okay") {
         return {
@@ -557,6 +559,8 @@ const CBBEvaluation: React.FC<CBBEvaluationProps> = ({
         cr3ea_defect: item, // Store the actual CBB item name
         cr3ea_defectcategory: 'Missed',
         cr3ea_defectremarks: 'Missed evaluation',
+        cr3ea_platform:'PWA'
+          
       });
     });
 
